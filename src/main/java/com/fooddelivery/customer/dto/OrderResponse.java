@@ -1,6 +1,6 @@
 package com.fooddelivery.customer.dto;
 
-import com.fooddelivery.order.enums.OrderStatus;
+import com.fooddelivery.common.enums.OrderStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

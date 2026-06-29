@@ -39,9 +39,7 @@ public class AuthService {
         NotificationRequestEvent event = NotificationRequestEvent.builder()
                 .userId(customerId)
                 .explicitRecipient(phoneNumber)
-                .channel("SMS")
-                .templateCode("OTP_LOGIN")
-                .templateParams(Map.of("otp", otp))
+                .channel(com.fooddelivery.common.enums.ChannelType.SMS)
                 .build();
                 
         notificationRouterService.routeNotification(event);

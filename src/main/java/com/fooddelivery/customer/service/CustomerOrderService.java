@@ -3,7 +3,7 @@ package com.fooddelivery.customer.service;
 import com.fooddelivery.customer.dto.OrderItemRequest;
 import com.fooddelivery.order.entity.Order;
 import com.fooddelivery.order.entity.OrderItem;
-import com.fooddelivery.order.enums.OrderStatus;
+import com.fooddelivery.common.enums.OrderStatus;
 import com.fooddelivery.order.repository.IOrderRepository;
 import com.fooddelivery.order.service.OrderSagaOrchestrator;
 import com.fooddelivery.order.service.PaymentGatewayOrchestrator;

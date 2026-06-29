@@ -6,7 +6,7 @@ import com.fooddelivery.common.constants.KafkaConstants;
 import com.fooddelivery.common.exception.OrderProcessingException;
 import com.fooddelivery.order.entity.Order;
 import com.fooddelivery.order.entity.OutboxEventEntity;
-import com.fooddelivery.order.enums.OrderStatus;
+import com.fooddelivery.common.enums.OrderStatus;
 import com.fooddelivery.order.repository.IOrderRepository;
 import com.fooddelivery.order.repository.IOutboxEventRepository;
 import com.fooddelivery.order.repository.IPaymentIntentRepository;
@@ -60,7 +60,7 @@ public class OrderSagaOrchestrator {
                     .id(UUID.randomUUID())
                     .aggregateType("Order")
                     .aggregateId(savedOrder.getId().toString())
-                    .eventType("OrderCreated")
+                    .eventType("ORDER_CREATED")
                     .payload(objectMapper.writeValueAsString(event))
                     .createdAt(LocalDateTime.now())
                     .build();
@@ -167,11 +167,13 @@ public class OrderSagaOrchestrator {
     // Listens to Kafka 'order-events' topic for ORDER_ACCEPTED
     @Transactional
     @KafkaListener(topics = "order-events", groupId = KafkaConstants.GROUP_FOOD_DELIVERY)
-    public void handleOrderEvents(String payload, @org.springframework.messaging.handler.annotation.Header(value = "eventType", required = false) String eventType) {
-        log.info("Received Order Event: {} with type: {}", payload, eventType);
+    public void handleOrderEvents(String payload, @org.springframework.messaging.handler.annotation.Header(value = "eventType", required = false) String headerEventType) {
+        log.info("Received Order Event: {} with header type: {}", payload, headerEventType);
         try {
             com.fasterxml.jackson.databind.JsonNode rootNode = objectMapper.readTree(payload);
             String orderIdStr = rootNode.path("orderId").asText(null);
+            String jsonEventType = rootNode.path("eventType").asText(null);
+            String eventType = headerEventType != null ? headerEventType : jsonEventType;
             
             if (orderIdStr == null || eventType == null) {
                 log.warn("Missing orderId or eventType. Ignored.");
@@ -380,9 +382,9 @@ public class OrderSagaOrchestrator {
         try {
             com.fooddelivery.common.event.NotificationRequestEvent notificationEvent = com.fooddelivery.common.event.NotificationRequestEvent.builder()
                     .userId(customerId)
-                    .channel("PUSH")
-                    .templateCode(templateCode)
-                    .templateParams(Map.of("orderId", orderId))
+                    .channel(com.fooddelivery.common.enums.ChannelType.PUSH)
+                    .eventName(templateCode)
+                    .templateParams(java.util.List.of(orderId))
                     .build();
             
             kafkaTemplate.send(KafkaConstants.TOPIC_NOTIFICATIONS_DISPATCH, customerId.toString(), objectMapper.writeValueAsString(notificationEvent));

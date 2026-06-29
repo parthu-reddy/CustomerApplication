@@ -5,7 +5,7 @@ import com.fooddelivery.common.constants.KafkaConstants;
 import com.fooddelivery.order.entity.Order;
 import com.fooddelivery.order.entity.OutboxEventEntity;
 import com.fooddelivery.order.entity.PaymentIntent;
-import com.fooddelivery.order.enums.OrderStatus;
+import com.fooddelivery.common.enums.OrderStatus;
 import com.fooddelivery.order.repository.IOrderRepository;
 import com.fooddelivery.order.repository.IOutboxEventRepository;
 import com.fooddelivery.order.repository.IPaymentIntentRepository;
@@ -75,7 +75,7 @@ class OrderSagaOrchestratorTest {
         verify(outboxEventRepository).save(outboxCaptor.capture());
         
         OutboxEventEntity savedOutbox = outboxCaptor.getValue();
-        assertThat(savedOutbox.getEventType()).isEqualTo("OrderCreated");
+        assertThat(savedOutbox.getEventType()).isEqualTo("ORDER_CREATED");
         assertThat(savedOutbox.getAggregateType()).isEqualTo("Order");
     }
 
