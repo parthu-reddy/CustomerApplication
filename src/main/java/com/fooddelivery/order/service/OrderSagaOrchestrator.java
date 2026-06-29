@@ -37,6 +37,7 @@ public class OrderSagaOrchestrator {
     private final ObjectMapper objectMapper;
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final DoubleEntryLedgerService ledgerService;
+    private final org.springframework.web.client.RestTemplate restTemplate;
 
     // We assume the system account ID for the platform is a fixed UUID for this prototype
     private static final UUID PLATFORM_ACCOUNT_ID = UUID.fromString("00000000-0000-0000-0000-000000000000");
@@ -324,7 +325,7 @@ public class OrderSagaOrchestrator {
             if ("SUCCESS".equals(intent.getStatus()) || "CAPTURED".equalsIgnoreCase(intent.getStatus())) {
                 try {
                     String refundUrl = paymentServiceBaseUrl + "/api/v1/payments/refund?gateway=VYAPAR";
-                    org.springframework.web.client.RestTemplate restTemplate = new org.springframework.web.client.RestTemplate();
+                    // use injected restTemplate
                     HttpHeaders headers = new HttpHeaders();
                     headers.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
                     

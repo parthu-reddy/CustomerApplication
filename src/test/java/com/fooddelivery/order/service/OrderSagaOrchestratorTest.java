@@ -43,6 +43,9 @@ class OrderSagaOrchestratorTest {
     @Mock
     private KafkaTemplate<String, String> kafkaTemplate;
 
+    @Mock
+    private org.springframework.web.client.RestTemplate restTemplate;
+
     private ObjectMapper objectMapper = new ObjectMapper();
 
     private OrderSagaOrchestrator orderSagaOrchestrator;
@@ -55,7 +58,8 @@ class OrderSagaOrchestratorTest {
                 paymentIntentRepository,
                 objectMapper,
                 kafkaTemplate,
-                ledgerService
+                ledgerService,
+                restTemplate
         );
     }
 

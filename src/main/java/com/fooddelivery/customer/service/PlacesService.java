@@ -17,10 +17,13 @@ public class PlacesService {
 
     private final RestTemplate restTemplate;
 
+    @org.springframework.beans.factory.annotation.Value("${maps-service.base-url:http://localhost:8083}")
+    private String mapsServiceBaseUrl;
+
     public List<Map<String, Object>> autocomplete(String input) {
         log.info("Requesting autocomplete for input: {} from MapsIntegration", input);
         try {
-            String mapsServiceUrl = "http://localhost:8083/api/places/autocomplete?input=" + input;
+            String mapsServiceUrl = mapsServiceBaseUrl + "/api/places/autocomplete?input=" + input;
             ResponseEntity<List> response = restTemplate.getForEntity(mapsServiceUrl, List.class);
             return response.getStatusCode().is2xxSuccessful() ? response.getBody() : Collections.emptyList();
         } catch (Exception e) {
@@ -32,7 +35,7 @@ public class PlacesService {
     public Map<String, Object> reverseGeocode(double lat, double lng) {
         log.info("Requesting reverse geocode for lat: {}, lng: {} from MapsIntegration", lat, lng);
         try {
-            String mapsServiceUrl = String.format("http://localhost:8083/api/places/reverse-geocode?lat=%f&lng=%f", lat, lng);
+            String mapsServiceUrl = String.format("%s/api/places/reverse-geocode?lat=%f&lng=%f", mapsServiceBaseUrl, lat, lng);
             ResponseEntity<Map> response = restTemplate.getForEntity(mapsServiceUrl, Map.class);
             return response.getStatusCode().is2xxSuccessful() ? response.getBody() : Collections.emptyMap();
         } catch (Exception e) {

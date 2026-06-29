@@ -34,8 +34,10 @@ public class CustomerOrderService {
     private final PaymentGatewayOrchestrator paymentGatewayOrchestrator;
     
     // Using a new RestTemplate for now
-    private final RestTemplate restTemplate = new RestTemplate();
-    private final String RESTAURANT_SERVICE_URL = "http://localhost:8094";
+    private final RestTemplate restTemplate;
+
+    @org.springframework.beans.factory.annotation.Value("${restaurant-service.base-url:http://localhost:8094}")
+    private String RESTAURANT_SERVICE_URL;
 
     public record OrderWithPayment(Order order, String paymentIntent) {}
 

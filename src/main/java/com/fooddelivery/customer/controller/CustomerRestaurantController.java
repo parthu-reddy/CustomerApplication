@@ -18,8 +18,10 @@ import java.util.List;
 @RequiredArgsConstructor
 public class CustomerRestaurantController {
 
-    private final RestTemplate restTemplate = new RestTemplate();
-    private final String RESTAURANT_SERVICE_URL = "http://localhost:8094";
+    private final RestTemplate restTemplate;
+
+    @org.springframework.beans.factory.annotation.Value("${restaurant-service.base-url:http://localhost:8094}")
+    private String RESTAURANT_SERVICE_URL;
 
     @GetMapping("/nearby")
     public ResponseEntity<ApiResponse<List<Object>>> getNearbyRestaurants(

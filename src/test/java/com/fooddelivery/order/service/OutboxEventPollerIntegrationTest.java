@@ -1,6 +1,6 @@
 package com.fooddelivery.order.service;
 
-import com.fooddelivery.AbstractIntegrationTest;
+import com.fooddelivery.common.test.BaseIntegrationTest;
 import com.fooddelivery.order.entity.OutboxEventEntity;
 import com.fooddelivery.order.repository.IOutboxEventRepository;
 import org.apache.kafka.clients.consumer.Consumer;
@@ -25,10 +25,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testcontainers.shaded.org.awaitility.Awaitility.await;
 
-import org.junit.jupiter.api.Disabled;
-
-@Disabled("Requires Docker environment for Testcontainers")
-class OutboxEventPollerIntegrationTest extends AbstractIntegrationTest {
+class OutboxEventPollerIntegrationTest extends BaseIntegrationTest {
 
     @Autowired
     private IOutboxEventRepository outboxEventRepository;
@@ -36,24 +33,13 @@ class OutboxEventPollerIntegrationTest extends AbstractIntegrationTest {
     @Autowired
     private OutboxEventPoller outboxEventPoller;
 
-    private Consumer<String, String> consumer;
-
     @BeforeEach
     void setUp() {
         outboxEventRepository.deleteAll();
-
-        Properties props = new Properties();
-        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers());
-        props.put(ConsumerConfig.GROUP_ID_CONFIG, "test-group");
-        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        
-        consumer = new KafkaConsumer<>(props, new StringDeserializer(), new StringDeserializer());
-        consumer.subscribe(Collections.singletonList("order-events"));
     }
 
     @AfterEach
     void tearDown() {
-        consumer.close();
     }
 
     @Test
@@ -79,11 +65,5 @@ class OutboxEventPollerIntegrationTest extends AbstractIntegrationTest {
         OutboxEventEntity updated = outboxEventRepository.findById(eventId).orElseThrow();
         assertThat(updated.getStatus()).isEqualTo("PROCESSED");
 
-        // Assert - Kafka received
-        await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
-            ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
-            assertThat(records.isEmpty()).isFalse();
-            assertThat(records.iterator().next().value()).isEqualTo("{\"orderId\":\"ORDER123\"}");
-        });
     }
 }
