@@ -7,20 +7,21 @@ import com.fooddelivery.order.enums.OrderStatus;
 import com.fooddelivery.order.repository.IOrderRepository;
 import com.fooddelivery.order.service.OrderSagaOrchestrator;
 import com.fooddelivery.order.service.PaymentGatewayOrchestrator;
-import com.fooddelivery.restaurant.entity.MenuItem;
-import com.fooddelivery.restaurant.repository.IMenuItemRepository;
-import com.fooddelivery.restaurant.repository.IRestaurantRepository;
-import com.fooddelivery.restaurant.entity.Restaurant;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -29,12 +30,18 @@ public class CustomerOrderService {
 
     private final IOrderRepository orderRepository;
     private final OrderSagaOrchestrator orderSagaOrchestrator;
-    private final IMenuItemRepository menuItemRepository;
     private final StringRedisTemplate redisTemplate;
-    private final IRestaurantRepository restaurantRepository;
     private final PaymentGatewayOrchestrator paymentGatewayOrchestrator;
+    
+    // Using a new RestTemplate for now
+    private final RestTemplate restTemplate = new RestTemplate();
+    private final String RESTAURANT_SERVICE_URL = "http://localhost:8094";
 
     public record OrderWithPayment(Order order, String paymentIntent) {}
+
+    // DTOs for REST calls
+    public record RestaurantDTO(UUID id, String name, Boolean isActive) {}
+    public record MenuItemDTO(UUID id, UUID restaurantId, String name, BigDecimal price, Boolean isAvailable) {}
 
     @org.springframework.transaction.annotation.Transactional
     public OrderWithPayment createOrderWithPayment(UUID customerId, UUID restaurantId, List<OrderItemRequest> requestedItems) {
@@ -49,54 +56,67 @@ public class CustomerOrderService {
             throw new IllegalArgumentException("Order must contain at least one item.");
         }
         
-        // Validate restaurant exists and is active
-        Restaurant restaurant = restaurantRepository.findById(restaurantId)
-                .orElseThrow(() -> new IllegalArgumentException("Restaurant not found: " + restaurantId));
-        if (!restaurant.getIsActive()) {
-            throw new IllegalArgumentException("Restaurant is not currently active: " + restaurant.getName());
-        }
-
-        BigDecimal totalAmount = BigDecimal.ZERO;
-        List<OrderItem> orderItems = new ArrayList<>();
-
-        for (OrderItemRequest req : requestedItems) {
-            if (req.getQuantity() == null || req.getQuantity() <= 0) {
-                throw new IllegalArgumentException("Quantity must be strictly positive");
-            }
-        }
-
         try {
-            List<UUID> menuItemIds = requestedItems.stream()
-                    .map(OrderItemRequest::getMenuItemId)
-                    .toList();
+            // Validate restaurant exists and is active via REST
+            ResponseEntity<RestaurantDTO> restaurantResponse = restTemplate.getForEntity(
+                RESTAURANT_SERVICE_URL + "/api/v1/restaurants/" + restaurantId, RestaurantDTO.class);
+                
+            if (!restaurantResponse.getStatusCode().is2xxSuccessful() || restaurantResponse.getBody() == null) {
+                throw new IllegalArgumentException("Restaurant not found: " + restaurantId);
+            }
             
-            List<MenuItem> fetchedItems = menuItemRepository.findAllById(menuItemIds);
-            java.util.Map<UUID, MenuItem> menuItemMap = fetchedItems.stream()
-                    .collect(java.util.stream.Collectors.toMap(MenuItem::getId, item -> item));
+            RestaurantDTO restaurant = restaurantResponse.getBody();
+            if (!restaurant.isActive()) {
+                throw new IllegalArgumentException("Restaurant is not currently active: " + restaurant.name());
+            }
+
+            BigDecimal totalAmount = BigDecimal.ZERO;
+            List<OrderItem> orderItems = new ArrayList<>();
 
             for (OrderItemRequest req : requestedItems) {
-                MenuItem menuItem = menuItemMap.get(req.getMenuItemId());
+                if (req.getQuantity() == null || req.getQuantity() <= 0) {
+                    throw new IllegalArgumentException("Quantity must be strictly positive");
+                }
+            }
+
+            // Fetch menu items via REST
+            String menuIds = requestedItems.stream()
+                .map(req -> req.getMenuItemId().toString())
+                .collect(Collectors.joining(","));
+                
+            ResponseEntity<List<MenuItemDTO>> menuResponse = restTemplate.exchange(
+                RESTAURANT_SERVICE_URL + "/api/v1/restaurants/" + restaurantId + "/menu/batch?ids=" + menuIds,
+                HttpMethod.GET, null, new ParameterizedTypeReference<List<MenuItemDTO>>() {});
+
+            if (!menuResponse.getStatusCode().is2xxSuccessful() || menuResponse.getBody() == null) {
+                throw new IllegalArgumentException("Failed to fetch menu items");
+            }
+            
+            List<MenuItemDTO> fetchedItems = menuResponse.getBody();
+            Map<UUID, MenuItemDTO> menuItemMap = fetchedItems.stream()
+                    .collect(Collectors.toMap(MenuItemDTO::id, item -> item));
+
+            for (OrderItemRequest req : requestedItems) {
+                MenuItemDTO menuItem = menuItemMap.get(req.getMenuItemId());
                 if (menuItem == null) {
                     throw new IllegalArgumentException("Menu item not found: " + req.getMenuItemId());
                 }
                 
-                if (!menuItem.getRestaurantId().equals(restaurantId)) {
+                if (!menuItem.restaurantId().equals(restaurantId)) {
                     throw new IllegalArgumentException("Menu item does not belong to the selected restaurant.");
                 }
-                if (!menuItem.getIsAvailable()) {
-                    throw new IllegalArgumentException("Menu item is currently unavailable: " + menuItem.getName());
+                if (!menuItem.isAvailable()) {
+                    throw new IllegalArgumentException("Menu item is currently unavailable: " + menuItem.name());
                 }
 
-
-                BigDecimal itemTotal = menuItem.getPrice().multiply(BigDecimal.valueOf(req.getQuantity()));
+                BigDecimal itemTotal = menuItem.price().multiply(BigDecimal.valueOf(req.getQuantity()));
                 totalAmount = totalAmount.add(itemTotal);
 
                 OrderItem orderItem = OrderItem.builder()
                         .id(UUID.randomUUID())
-                        // Will set order later
-                        .menuItemId(menuItem.getId())
+                        .menuItemId(menuItem.id())
                         .quantity(req.getQuantity())
-                        .price(menuItem.getPrice())
+                        .price(menuItem.price())
                         .build();
                 
                 orderItems.add(orderItem);
@@ -116,14 +136,13 @@ public class CustomerOrderService {
             order.setOrderItems(orderItems);
             order.setTotalAmount(totalAmount);
                     
-            // OrderSagaOrchestrator will save the order and the outbox event in the same transaction
             orderSagaOrchestrator.startOrderSaga(order);
             
             log.info("Created order {} for customer {} with total amount {}", order.getId(), customerId, totalAmount);
             return order;
         } catch (Exception e) {
             log.error("Failed to create order", e);
-            throw e;
+            throw new RuntimeException("Failed to create order", e);
         }
     }
 }

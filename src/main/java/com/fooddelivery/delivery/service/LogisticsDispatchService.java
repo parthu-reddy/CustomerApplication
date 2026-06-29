@@ -1,63 +1,104 @@
 package com.fooddelivery.delivery.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fooddelivery.common.constants.KafkaConstants;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.data.geo.Circle;
+import org.springframework.data.geo.Distance;
+import org.springframework.data.geo.GeoResults;
+import org.springframework.data.geo.Point;
+import org.springframework.data.redis.connection.RedisGeoCommands;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
-import java.util.Map;
-import java.util.UUID;
+import java.time.Duration;
+import java.util.*;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class LogisticsDispatchService {
 
-    private final KafkaTemplate<String, String> kafkaTemplate;
-    private final ObjectMapper objectMapper;
+    private final StringRedisTemplate redisTemplate;
+    private final RestTemplate restTemplate;
+    private static final String DRIVER_LOCATION_KEY = "driver_locations";
+    private static final String DRIVER_LOCK_PREFIX = "driver_lock:";
 
-    public void dispatchNearestDriver(double restaurantLat, double restaurantLng, UUID orderId) {
-        log.info("Requesting driver dispatch for order {} via MapsIntegration service", orderId);
+    public String dispatchNearestDriver(double restaurantLat, double restaurantLng, UUID orderId) {
+        log.info("Dispatching nearest driver for order {}", orderId);
         
-        try {
-            Map<String, Object> dispatchRequest = Map.of(
-                "orderId", orderId.toString(),
-                "restaurantLat", restaurantLat,
-                "restaurantLng", restaurantLng
-            );
-            
-            String payload = objectMapper.writeValueAsString(dispatchRequest);
-            
-            kafkaTemplate.send(KafkaConstants.TOPIC_LOGISTICS_DISPATCH, orderId.toString(), payload)
-                .whenComplete((result, ex) -> {
-                    if (ex == null) {
-                        log.info("Successfully published dispatch request for order {}", orderId);
-                    } else {
-                        log.error("Failed to publish dispatch request for order {}", orderId, ex);
-                    }
-                });
-        } catch (JsonProcessingException e) {
-            log.error("Failed to serialize dispatch request for order {}", orderId, e);
+        // 1. Find drivers within 5km
+        Circle circle = new Circle(new Point(restaurantLng, restaurantLat), new Distance(5, org.springframework.data.geo.Metrics.KILOMETERS));
+        GeoResults<RedisGeoCommands.GeoLocation<String>> results = redisTemplate.opsForGeo().radius(DRIVER_LOCATION_KEY, circle);
+        
+        if (results == null || results.getContent().isEmpty()) {
+            log.warn("No drivers found within 5km of restaurant");
+            return null;
         }
+
+        // Collect available drivers and simulate Distance Matrix ETA sorting
+        List<String> availableDrivers = new ArrayList<>();
+        for (var result : results.getContent()) {
+            availableDrivers.add(result.getContent().getName());
+        }
+        
+        // Simulating Ola Maps Distance Matrix API call
+        availableDrivers = mockDistanceMatrixSort(availableDrivers, restaurantLat, restaurantLng);
+
+        // 2. Iterate and try to acquire lock (atomic)
+        for (String driverId : availableDrivers) {
+            String lockKey = DRIVER_LOCK_PREFIX + driverId;
+            Boolean locked = redisTemplate.opsForValue().setIfAbsent(lockKey, orderId.toString(), Duration.ofMinutes(15));
+            
+            if (Boolean.TRUE.equals(locked)) {
+                log.info("Driver {} assigned to order {} after ETA sorting", driverId, orderId);
+                // Also remove driver from available geo index if they are now busy
+                redisTemplate.opsForGeo().remove(DRIVER_LOCATION_KEY, driverId);
+                return driverId;
+            }
+        }
+        
+        log.warn("Drivers found but all were busy for order {}", orderId);
+        return null;
+    }
+    
+    @CircuitBreaker(name = "olaMapsRouting", fallbackMethod = "fallbackDistanceSort")
+    private List<String> mockDistanceMatrixSort(List<String> driverIds, double lat, double lng) {
+        String cacheKey = "distance_matrix:" + lat + ":" + lng;
+        
+        // Check Redis cache first
+        String cached = redisTemplate.opsForValue().get(cacheKey);
+        if (cached != null) {
+            log.info("Using cached distance matrix routing");
+            return Arrays.asList(cached.split(","));
+        }
+        
+        // In a production scenario, we would use RestTemplate to call Maps Integration API here.
+        // For now, we mock a shuffle to simulate dynamic ETA variations.
+        List<String> sortedDrivers = new ArrayList<>(driverIds);
+        Collections.shuffle(sortedDrivers);
+        
+        // Cache the result for 30 seconds
+        redisTemplate.opsForValue().set(cacheKey, String.join(",", sortedDrivers), Duration.ofSeconds(30));
+        
+        return sortedDrivers;
+    }
+
+    private List<String> fallbackDistanceSort(List<String> driverIds, double lat, double lng, Throwable t) {
+        log.warn("Circuit breaker open or failure in routing, using fallback Haversine distance sort", t);
+        // Mock fallback logic
+        List<String> sortedDrivers = new ArrayList<>(driverIds);
+        Collections.reverse(sortedDrivers);
+        return sortedDrivers;
     }
 
     public void releaseDriverLock(String driverId) {
-        log.info("Requesting driver lock release for driver {} via MapsIntegration service", driverId);
-        try {
-            org.springframework.web.client.RestTemplate restTemplate = new org.springframework.web.client.RestTemplate();
-            String url = "http://localhost:8083/api/fleet/availability";
-            Map<String, Object> request = Map.of(
-                "cityId", "BLR", // default cityId
-                "driverId", driverId,
-                "available", true
-            );
-            restTemplate.postForEntity(url, request, String.class);
-            log.info("Successfully requested driver lock release for driver {}", driverId);
-        } catch (Exception e) {
-            log.error("Failed to release driver lock for driver {}", driverId, e);
-        }
+        String lockKey = DRIVER_LOCK_PREFIX + driverId;
+        redisTemplate.delete(lockKey);
+        log.info("Released driver lock for driver {}", driverId);
+        // Note: Realistically, you would also put the driver back into the Geo index,
+        // but we'll assume the driver's next telemetry ping puts them back in.
     }
 }

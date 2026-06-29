@@ -10,8 +10,6 @@ import com.fooddelivery.order.enums.OrderStatus;
 import com.fooddelivery.order.repository.IOrderRepository;
 import com.fooddelivery.order.repository.IOutboxEventRepository;
 import com.fooddelivery.order.repository.IPaymentIntentRepository;
-import com.fooddelivery.restaurant.entity.Restaurant;
-import com.fooddelivery.restaurant.repository.IRestaurantRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -22,7 +20,6 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.fooddelivery.delivery.service.LogisticsDispatchService;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -36,11 +33,9 @@ public class OrderSagaOrchestrator {
     
     private final IOrderRepository orderRepository;
     private final IOutboxEventRepository outboxEventRepository;
-    private final IRestaurantRepository restaurantRepository;
     private final IPaymentIntentRepository paymentIntentRepository;
     private final ObjectMapper objectMapper;
     private final KafkaTemplate<String, String> kafkaTemplate;
-    private final LogisticsDispatchService logisticsDispatchService;
     private final DoubleEntryLedgerService ledgerService;
 
     // We assume the system account ID for the platform is a fixed UUID for this prototype
@@ -207,12 +202,9 @@ public class OrderSagaOrchestrator {
             }
             
             if ("ORDER_CANCELLED_BY_RESTAURANT".equals(eventType)) {
-                log.info("Order {} cancelled by restaurant post-acceptance. Releasing any driver locks and processing refund.", orderId);
+                log.info("Order {} cancelled by restaurant post-acceptance. Processing refund.", orderId);
                 Order order = orderRepository.findById(orderId).orElse(null);
                 if (order != null) {
-                    if (order.getDeliveryExecutiveId() != null) {
-                        logisticsDispatchService.releaseDriverLock(order.getDeliveryExecutiveId().toString());
-                    }
                     processRefund(order);
                 }
                 return;
@@ -231,22 +223,8 @@ public class OrderSagaOrchestrator {
             }
             
             if ("ORDER_DRIVER_REJECTED".equals(eventType)) {
-                log.info("Driver rejected/timed out ping for Order {}. Redispatching.", orderId);
-                Order order = orderRepository.findById(orderId).orElse(null);
-                if (order != null && order.getStatus() == OrderStatus.DISPATCHED) {
-                    // Redispatch to the next driver
-                    Restaurant restaurant = restaurantRepository.findById(order.getRestaurantId()).orElse(null);
-                    double restaurantLat = 12.9716;
-                    double restaurantLng = 77.5946;
-                    if (restaurant != null && restaurant.getLocation() != null) {
-                        restaurantLat = restaurant.getLocation().getY();
-                        restaurantLng = restaurant.getLocation().getX();
-                    }
-                    logisticsDispatchService.dispatchNearestDriver(restaurantLat, restaurantLng, orderId);
-                    log.info("Redispatch requested via Kafka. Awaiting driver assignment.");
-                    // The driver assignment will happen asynchronously when MapsIntegration publishes back.
-                    // For now, keep the order in DISPATCHED (or whatever intermediate state).
-                }
+                log.info("Driver rejected/timed out ping for Order {}. Redispatching will be handled by DeliveryExecutiveApplication.", orderId);
+                // DeliveryExecutiveApplication is listening to this event and will handle redispatch
                 return;
             }
             
@@ -285,28 +263,19 @@ public class OrderSagaOrchestrator {
             
 
             if ("ORDER_ACCEPTED".equals(eventType)) {
-                log.info("Order {} accepted by restaurant. Dispatching logistics.", orderId);
+                log.info("Order {} accepted by restaurant.", orderId);
                 
                 Order order = orderRepository.findById(orderId).orElse(null);
-                if (order == null || order.getStatus() != OrderStatus.ACCEPTED) {
-                    log.info("Order {} is not in ACCEPTED state (current: {}). Skipping dispatch.", orderId, order != null ? order.getStatus() : "null");
-                    return;
+                if (order != null && order.getStatus() == OrderStatus.PAID) {
+                    order.setStatus(OrderStatus.ACCEPTED);
+                    orderRepository.save(order);
+                    log.info("Order {} status updated to ACCEPTED.", orderId);
+                    
+                    // Dispatch logic will now be handled by DeliveryExecutiveApplication listening to this same event
+                } else {
+                    log.info("Order {} is not in PAID state or not found. Cannot accept.", orderId);
                 }
-                
-                Restaurant restaurant = restaurantRepository.findById(order.getRestaurantId()).orElse(null);
-                double restaurantLat = 12.9716; // default fallback
-                double restaurantLng = 77.5946; // default fallback
-                
-                if (restaurant != null && restaurant.getLocation() != null) {
-                    // JTS Point uses getX() for longitude and getY() for latitude
-                    restaurantLat = restaurant.getLocation().getY();
-                    restaurantLng = restaurant.getLocation().getX();
-                }
-                
-                // 2. Dispatch using internal domain service directly (Modular Monolith)
-                logisticsDispatchService.dispatchNearestDriver(restaurantLat, restaurantLng, orderId);
-                log.info("Requested driver dispatch via Kafka for order {}", orderId);
-                // 3. Status remains ACCEPTED until MapsIntegration replies.
+                return;
             }
         } catch (Exception e) {
             log.error("Error processing order event", e);
