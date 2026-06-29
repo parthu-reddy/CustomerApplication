@@ -1,0 +1,83 @@
+package com.fooddelivery.order.service;
+
+import com.fooddelivery.order.entity.LedgerAccount;
+import com.fooddelivery.order.entity.LedgerEntry;
+import com.fooddelivery.order.repository.ILedgerAccountRepository;
+import com.fooddelivery.order.repository.ILedgerEntryRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class DoubleEntryLedgerService {
+
+    private final ILedgerAccountRepository accountRepository;
+    private final ILedgerEntryRepository entryRepository;
+
+    @Transactional
+    public void recordTransaction(UUID transactionId, UUID sourceOwnerId, String sourceOwnerType, 
+                                  UUID targetOwnerId, String targetOwnerType, BigDecimal amount) {
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Transaction amount must be positive");
+        }
+
+        if (entryRepository.existsByTransactionId(transactionId)) {
+            log.info("Transaction {} already recorded. Skipping.", transactionId);
+            return;
+        }
+
+        LedgerAccount sourceAccount = getOrCreateAccount(sourceOwnerId, sourceOwnerType);
+        LedgerAccount targetAccount = getOrCreateAccount(targetOwnerId, targetOwnerType);
+
+        // Debit Source
+        sourceAccount.setBalance(sourceAccount.getBalance().subtract(amount));
+        accountRepository.save(sourceAccount);
+        
+        LedgerEntry debitEntry = LedgerEntry.builder()
+                .id(UUID.randomUUID())
+                .transactionId(transactionId)
+                .accountId(sourceAccount.getId())
+                .direction("DEBIT")
+                .amount(amount)
+                .createdAt(LocalDateTime.now())
+                .build();
+        entryRepository.save(debitEntry);
+
+        // Credit Target
+        targetAccount.setBalance(targetAccount.getBalance().add(amount));
+        accountRepository.save(targetAccount);
+
+        LedgerEntry creditEntry = LedgerEntry.builder()
+                .id(UUID.randomUUID())
+                .transactionId(transactionId)
+                .accountId(targetAccount.getId())
+                .direction("CREDIT")
+                .amount(amount)
+                .createdAt(LocalDateTime.now())
+                .build();
+        entryRepository.save(creditEntry);
+        
+        log.info("Recorded double entry transaction {} for amount {}", transactionId, amount);
+    }
+
+    private LedgerAccount getOrCreateAccount(UUID ownerId, String ownerType) {
+        return accountRepository.findByOwnerIdAndOwnerType(ownerId, ownerType)
+                .orElseGet(() -> {
+                    LedgerAccount newAccount = LedgerAccount.builder()
+                            .id(UUID.randomUUID())
+                            .ownerId(ownerId)
+                            .ownerType(ownerType)
+                            .balance(BigDecimal.ZERO)
+                            .lockVersion(0)
+                            .build();
+                    return accountRepository.save(newAccount);
+                });
+    }
+}

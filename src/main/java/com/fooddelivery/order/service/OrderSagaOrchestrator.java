@@ -1,0 +1,385 @@
+package com.fooddelivery.order.service;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fooddelivery.common.event.OrderCreatedEvent;
+import com.fooddelivery.common.constants.KafkaConstants;
+import com.fooddelivery.common.exception.OrderProcessingException;
+import com.fooddelivery.order.entity.Order;
+import com.fooddelivery.order.entity.OutboxEventEntity;
+import com.fooddelivery.order.enums.OrderStatus;
+import com.fooddelivery.order.repository.IOrderRepository;
+import com.fooddelivery.order.repository.IOutboxEventRepository;
+import com.fooddelivery.order.repository.IPaymentIntentRepository;
+import com.fooddelivery.restaurant.entity.Restaurant;
+import com.fooddelivery.restaurant.repository.IRestaurantRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
+import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import com.fooddelivery.delivery.service.LogisticsDispatchService;
+
+import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class OrderSagaOrchestrator {
+    
+    private final IOrderRepository orderRepository;
+    private final IOutboxEventRepository outboxEventRepository;
+    private final IRestaurantRepository restaurantRepository;
+    private final IPaymentIntentRepository paymentIntentRepository;
+    private final ObjectMapper objectMapper;
+    private final KafkaTemplate<String, String> kafkaTemplate;
+    private final LogisticsDispatchService logisticsDispatchService;
+    private final DoubleEntryLedgerService ledgerService;
+
+    // We assume the system account ID for the platform is a fixed UUID for this prototype
+    private static final UUID PLATFORM_ACCOUNT_ID = UUID.fromString("00000000-0000-0000-0000-000000000000");
+
+    @Value("${payment-service.base-url}")
+    private String paymentServiceBaseUrl;
+
+    @Transactional
+    public Order startOrderSaga(Order order) {
+        Order savedOrder = orderRepository.save(order);
+        
+        OrderCreatedEvent event = OrderCreatedEvent.builder()
+                .orderId(savedOrder.getId())
+                .customerId(savedOrder.getCustomerId())
+                .restaurantId(savedOrder.getRestaurantId())
+                .totalAmount(savedOrder.getTotalAmount())
+                .build();
+                
+        try {
+            OutboxEventEntity outboxEvent = OutboxEventEntity.builder()
+                    .id(UUID.randomUUID())
+                    .aggregateType("Order")
+                    .aggregateId(savedOrder.getId().toString())
+                    .eventType("OrderCreated")
+                    .payload(objectMapper.writeValueAsString(event))
+                    .createdAt(LocalDateTime.now())
+                    .build();
+                    
+            outboxEventRepository.save(outboxEvent);
+            log.info("Order created and outbox event saved for Order ID: {}", savedOrder.getId());
+            
+        } catch (Exception e) {
+            log.error("Failed to serialize OrderCreatedEvent or save outbox", e);
+            throw new OrderProcessingException("Failed to process order creation", e);
+        }
+        
+        return savedOrder;
+    }
+
+    @Transactional
+    public void saveStateAndEvent(Order order, com.fooddelivery.common.event.OutboxEvent event) {
+        orderRepository.save(order);
+        
+        OutboxEventEntity outboxEvent = OutboxEventEntity.builder()
+                .id(UUID.randomUUID())
+                .aggregateType(event.getAggregateType())
+                .aggregateId(event.getAggregateId())
+                .eventType(event.getType())
+                .payload(event.getPayload())
+                .createdAt(LocalDateTime.now())
+                .build();
+                
+        outboxEventRepository.save(outboxEvent);
+        log.info("Order state and outbox event saved for Order ID: {}", order.getId());
+    }
+
+    // Listens to Kafka 'payment-events' topic for PaymentSucceededEvent published by external Payment Service
+    @Transactional
+    @KafkaListener(topics = KafkaConstants.TOPIC_PAYMENT_EVENTS, groupId = KafkaConstants.GROUP_FOOD_DELIVERY)
+    public void handlePaymentSuccess(String payload) {
+        log.info("Received PaymentSucceededEvent: {}", payload);
+        
+        try {
+            WebhookPayloadDTO paymentEvent = objectMapper.readValue(payload, WebhookPayloadDTO.class);
+            if (!"payment.success".equals(paymentEvent.getEvent())) {
+                log.info("Ignoring event: {}", paymentEvent.getEvent());
+                return;
+            }
+            
+            String gatewayOrderId = paymentEvent.getPayload().getPayment().getEntity().getOrderId();
+            
+            log.info("Payment succeeded for gateway order {}. Finding internal order.", gatewayOrderId);
+            
+            com.fooddelivery.order.entity.PaymentIntent intent = paymentIntentRepository.findByGatewayOrderId(gatewayOrderId).orElse(null);
+            if (intent == null) {
+                log.warn("PaymentIntent for gateway order {} not found", gatewayOrderId);
+                return;
+            }
+            
+            UUID orderUUID = intent.getInternalOrderId();
+            Order order = orderRepository.findById(orderUUID).orElse(null);
+            if (order == null) {
+                log.warn("Order {} not found, skipping status update", orderUUID);
+                return;
+            }
+            if (order.getStatus() == OrderStatus.PAID) {
+                log.info("Order {} is already PAID. Ignoring duplicate webhook.", orderUUID);
+                return;
+            }
+            
+            order.setStatus(OrderStatus.PAID);
+            orderRepository.save(order);
+            
+            com.fooddelivery.common.event.OrderPaidEvent paidEvent = com.fooddelivery.common.event.OrderPaidEvent.builder()
+                    .orderId(order.getId())
+                    .restaurantId(order.getRestaurantId())
+                    .build();
+            
+            OutboxEventEntity outboxEvent = OutboxEventEntity.builder()
+                    .id(UUID.randomUUID())
+                    .aggregateType("Order")
+                    .aggregateId(order.getId().toString())
+                    .eventType("ORDER_PAID")
+                    .payload(objectMapper.writeValueAsString(paidEvent))
+                    .createdAt(LocalDateTime.now())
+                    .status("UNPROCESSED")
+                    .build();
+            outboxEventRepository.save(outboxEvent);
+            
+            log.info("Order {} status updated to PAID and outbox event saved", orderUUID);
+            
+            // Update PaymentIntent in the same transaction
+            if (!"SUCCESS".equals(intent.getStatus())) {
+                intent.setStatus("SUCCESS");
+                paymentIntentRepository.save(intent);
+                log.info("PaymentIntent {} status updated to SUCCESS", intent.getId());
+            }
+            
+        } catch (Exception e) {
+            log.error("Error processing payment webhook payload", e);
+            throw new RuntimeException("Failed to process payment event", e);
+        }
+    }
+
+    // Listens to Kafka 'order-events' topic for ORDER_ACCEPTED
+    @Transactional
+    @KafkaListener(topics = "order-events", groupId = KafkaConstants.GROUP_FOOD_DELIVERY)
+    public void handleOrderEvents(String payload, @org.springframework.messaging.handler.annotation.Header(value = "eventType", required = false) String eventType) {
+        log.info("Received Order Event: {} with type: {}", payload, eventType);
+        try {
+            com.fasterxml.jackson.databind.JsonNode rootNode = objectMapper.readTree(payload);
+            String orderIdStr = rootNode.path("orderId").asText(null);
+            
+            if (orderIdStr == null || eventType == null) {
+                log.warn("Missing orderId or eventType. Ignored.");
+                return;
+            }
+            
+            UUID orderId = UUID.fromString(orderIdStr);
+            
+            if ("ORDER_DELIVERED".equals(eventType)) {
+                log.info("Order {} delivered. Processing ledger accounting.", orderId);
+                Order order = orderRepository.findById(orderId).orElse(null);
+                if (order != null && order.getStatus() == OrderStatus.DELIVERED) {
+                    // Calculate splits: 80% to restaurant, 20% to platform.
+                    // For simplicity, driver gets flat 50.0.
+                    java.math.BigDecimal total = order.getTotalAmount();
+                    java.math.BigDecimal restPayout = total.multiply(new java.math.BigDecimal("0.80"));
+                    java.math.BigDecimal driverPayout = new java.math.BigDecimal("50.00");
+                    
+                    UUID restTransferId = UUID.nameUUIDFromBytes(("REST_PAYOUT_" + orderId).getBytes());
+                    ledgerService.recordTransaction(restTransferId, PLATFORM_ACCOUNT_ID, "PLATFORM", order.getRestaurantId(), "RESTAURANT", restPayout);
+                    
+                    if (order.getDeliveryExecutiveId() != null) {
+                        UUID driverTransferId = UUID.nameUUIDFromBytes(("DRIVER_PAYOUT_" + orderId).getBytes());
+                        ledgerService.recordTransaction(driverTransferId, PLATFORM_ACCOUNT_ID, "PLATFORM", order.getDeliveryExecutiveId(), "DRIVER", driverPayout);
+                    }
+                }
+                return;
+            }
+            
+            if ("ORDER_CANCELLED_BY_RESTAURANT".equals(eventType)) {
+                log.info("Order {} cancelled by restaurant post-acceptance. Releasing any driver locks and processing refund.", orderId);
+                Order order = orderRepository.findById(orderId).orElse(null);
+                if (order != null) {
+                    if (order.getDeliveryExecutiveId() != null) {
+                        logisticsDispatchService.releaseDriverLock(order.getDeliveryExecutiveId().toString());
+                    }
+                    processRefund(order);
+                }
+                return;
+            }
+            
+            if ("ORDER_STATUS_UPDATED".equals(eventType)) {
+                String updateStatus = rootNode.path("status").asText(null);
+                if ("DELIVERY_FAILED".equals(updateStatus)) {
+                    log.info("Order {} delivery failed. Processing refund.", orderId);
+                    Order order = orderRepository.findById(orderId).orElse(null);
+                    if (order != null) {
+                        processRefund(order);
+                    }
+                }
+                return;
+            }
+            
+            if ("ORDER_DRIVER_REJECTED".equals(eventType)) {
+                log.info("Driver rejected/timed out ping for Order {}. Redispatching.", orderId);
+                Order order = orderRepository.findById(orderId).orElse(null);
+                if (order != null && order.getStatus() == OrderStatus.DISPATCHED) {
+                    // Redispatch to the next driver
+                    Restaurant restaurant = restaurantRepository.findById(order.getRestaurantId()).orElse(null);
+                    double restaurantLat = 12.9716;
+                    double restaurantLng = 77.5946;
+                    if (restaurant != null && restaurant.getLocation() != null) {
+                        restaurantLat = restaurant.getLocation().getY();
+                        restaurantLng = restaurant.getLocation().getX();
+                    }
+                    logisticsDispatchService.dispatchNearestDriver(restaurantLat, restaurantLng, orderId);
+                    log.info("Redispatch requested via Kafka. Awaiting driver assignment.");
+                    // The driver assignment will happen asynchronously when MapsIntegration publishes back.
+                    // For now, keep the order in DISPATCHED (or whatever intermediate state).
+                }
+                return;
+            }
+            
+            if ("DRIVER_ASSIGNED".equals(eventType)) {
+                String driverIdStr = rootNode.path("driverId").asText(null);
+                log.info("Driver {} assigned to Order {}. Updating status to DISPATCHED.", driverIdStr, orderId);
+                Order order = orderRepository.findById(orderId).orElse(null);
+                if (order != null) {
+                    order.setDeliveryExecutiveId(UUID.fromString(driverIdStr));
+                    order.setStatus(OrderStatus.DISPATCHED);
+                    orderRepository.save(order);
+                    
+                    // Send notification to the newly assigned driver
+                    sendNotification(orderId.toString(), UUID.fromString(driverIdStr), "NEW_DELIVERY_PING");
+                }
+                return;
+            }
+            
+            if ("DISPATCH_FAILED".equals(eventType)) {
+                log.warn("Failed to assign driver for Order {}. Processing refund.", orderId);
+                Order order = orderRepository.findById(orderId).orElse(null);
+                if (order != null) {
+                    order.setStatus(OrderStatus.DELIVERY_FAILED);
+                    orderRepository.save(order);
+                    processRefund(order);
+                }
+                return;
+            }
+            
+
+            if ("ORDER_ACCEPTED".equals(eventType)) {
+                log.info("Order {} accepted by restaurant. Dispatching logistics.", orderId);
+                
+                Order order = orderRepository.findById(orderId).orElse(null);
+                if (order == null || order.getStatus() != OrderStatus.ACCEPTED) {
+                    log.info("Order {} is not in ACCEPTED state (current: {}). Skipping dispatch.", orderId, order != null ? order.getStatus() : "null");
+                    return;
+                }
+                
+                Restaurant restaurant = restaurantRepository.findById(order.getRestaurantId()).orElse(null);
+                double restaurantLat = 12.9716; // default fallback
+                double restaurantLng = 77.5946; // default fallback
+                
+                if (restaurant != null && restaurant.getLocation() != null) {
+                    // JTS Point uses getX() for longitude and getY() for latitude
+                    restaurantLat = restaurant.getLocation().getY();
+                    restaurantLng = restaurant.getLocation().getX();
+                }
+                
+                // 2. Dispatch using internal domain service directly (Modular Monolith)
+                logisticsDispatchService.dispatchNearestDriver(restaurantLat, restaurantLng, orderId);
+                log.info("Requested driver dispatch via Kafka for order {}", orderId);
+                // 3. Status remains ACCEPTED until MapsIntegration replies.
+            }
+        } catch (Exception e) {
+            log.error("Error processing order event", e);
+            throw new RuntimeException("Failed to process order event", e);
+        }
+    }
+
+    
+    
+    @Transactional
+    protected void processRefund(Order order) {
+        log.info("Processing refund for Order {}", order.getId());
+        paymentIntentRepository.findByInternalOrderId(order.getId()).ifPresent(intent -> {
+            if ("SUCCESS".equals(intent.getStatus()) || "CAPTURED".equalsIgnoreCase(intent.getStatus())) {
+                try {
+                    String refundUrl = "http://localhost:8082/api/v1/payments/refund?gateway=VYAPAR";
+                    org.springframework.web.client.RestTemplate restTemplate = new org.springframework.web.client.RestTemplate();
+                    HttpHeaders headers = new HttpHeaders();
+                    headers.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
+                    
+                    Map<String, Object> request = new HashMap<>();
+                    request.put("gatewayOrderId", intent.getGatewayOrderId());
+                    request.put("amountInInr", order.getTotalAmount());
+                    request.put("reason", "Order cancelled or rejected");
+                    
+                    HttpEntity<Map<String, Object>> entity = new HttpEntity<>(request, headers);
+                    ResponseEntity<String> response = restTemplate.postForEntity(refundUrl, entity, String.class);
+                    
+                    if (response.getStatusCode().is2xxSuccessful()) {
+                        intent.setStatus("REFUNDED");
+                        paymentIntentRepository.save(intent);
+                        log.info("PaymentIntent {} status updated to REFUNDED. Funds returned to Customer via Gateway.", intent.getId());
+                        
+                        // Ledger reverse transaction
+                        UUID refundTransferId = UUID.nameUUIDFromBytes(("REFUND_" + order.getId()).getBytes());
+                        ledgerService.recordTransaction(refundTransferId, PLATFORM_ACCOUNT_ID, "PLATFORM", order.getCustomerId(), "CUSTOMER", order.getTotalAmount());
+                    } else {
+                        log.error("Failed to initiate refund via PaymentGatewayIntegration. Status: {}, Body: {}", response.getStatusCode(), response.getBody());
+                    }
+                } catch (Exception e) {
+                    log.error("Exception calling PaymentGatewayIntegration for refund on order {}", order.getId(), e);
+                }
+            }
+        });
+    }
+
+    @lombok.Data
+    public static class WebhookPayloadDTO {
+        private String event;
+        private PayloadData payload;
+    }
+
+    @lombok.Data
+    public static class PayloadData {
+        private PaymentData payment;
+    }
+
+    @lombok.Data
+    public static class PaymentData {
+        private PaymentEntity entity;
+    }
+
+    @lombok.Data
+    public static class PaymentEntity {
+        @com.fasterxml.jackson.annotation.JsonProperty("order_id")
+        private String orderId;
+        private String status;
+        private double amount;
+    }
+
+    private void sendNotification(String orderId, UUID customerId, String templateCode) {
+        try {
+            com.fooddelivery.common.event.NotificationRequestEvent notificationEvent = com.fooddelivery.common.event.NotificationRequestEvent.builder()
+                    .userId(customerId)
+                    .channel("PUSH")
+                    .templateCode(templateCode)
+                    .templateParams(Map.of("orderId", orderId))
+                    .build();
+            
+            kafkaTemplate.send(KafkaConstants.TOPIC_NOTIFICATIONS_DISPATCH, customerId.toString(), objectMapper.writeValueAsString(notificationEvent));
+            log.info("Sent notification request for order {} to customer {}", orderId, customerId);
+        } catch (Exception e) {
+            log.error("Failed to send notification request", e);
+        }
+    }
+}
