@@ -20,7 +20,7 @@ public class PlacesService {
     public List<Map<String, Object>> autocomplete(String input) {
         log.info("Requesting autocomplete for input: {} from MapsIntegration", input);
         try {
-            String mapsServiceUrl = "http://localhost:8081/api/places/autocomplete?input=" + input;
+            String mapsServiceUrl = "http://localhost:8083/api/places/autocomplete?input=" + input;
             ResponseEntity<List> response = restTemplate.getForEntity(mapsServiceUrl, List.class);
             return response.getStatusCode().is2xxSuccessful() ? response.getBody() : Collections.emptyList();
         } catch (Exception e) {
@@ -32,7 +32,7 @@ public class PlacesService {
     public Map<String, Object> reverseGeocode(double lat, double lng) {
         log.info("Requesting reverse geocode for lat: {}, lng: {} from MapsIntegration", lat, lng);
         try {
-            String mapsServiceUrl = String.format("http://localhost:8081/api/places/reverse-geocode?lat=%f&lng=%f", lat, lng);
+            String mapsServiceUrl = String.format("http://localhost:8083/api/places/reverse-geocode?lat=%f&lng=%f", lat, lng);
             ResponseEntity<Map> response = restTemplate.getForEntity(mapsServiceUrl, Map.class);
             return response.getStatusCode().is2xxSuccessful() ? response.getBody() : Collections.emptyMap();
         } catch (Exception e) {

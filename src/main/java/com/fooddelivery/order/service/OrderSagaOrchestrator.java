@@ -105,15 +105,18 @@ public class OrderSagaOrchestrator {
         log.info("Received PaymentSucceededEvent: {}", payload);
         
         try {
-            WebhookPayloadDTO paymentEvent = objectMapper.readValue(payload, WebhookPayloadDTO.class);
-            if (!"payment.success".equals(paymentEvent.getEvent())) {
-                log.info("Ignoring event: {}", paymentEvent.getEvent());
+            com.fasterxml.jackson.databind.JsonNode rootNode = objectMapper.readTree(payload);
+            
+            // Expected payload: {"orderId":"...","gatewayOrderId":"...","amount":300.00,"gatewayName":"VYAPAR"}
+            if (!rootNode.has("orderId") || !rootNode.has("gatewayOrderId")) {
+                log.info("Ignoring unrecognized event payload: {}", payload);
                 return;
             }
             
-            String gatewayOrderId = paymentEvent.getPayload().getPayment().getEntity().getOrderId();
+            String gatewayOrderId = rootNode.get("gatewayOrderId").asText();
+            String internalOrderId = rootNode.get("orderId").asText();
             
-            log.info("Payment succeeded for gateway order {}. Finding internal order.", gatewayOrderId);
+            log.info("Payment succeeded for gateway order {}. Finding internal order {}.", gatewayOrderId, internalOrderId);
             
             com.fooddelivery.order.entity.PaymentIntent intent = paymentIntentRepository.findByGatewayOrderId(gatewayOrderId).orElse(null);
             if (intent == null) {
@@ -128,7 +131,7 @@ public class OrderSagaOrchestrator {
                 return;
             }
             if (order.getStatus() == OrderStatus.PAID) {
-                log.info("Order {} is already PAID. Ignoring duplicate webhook.", orderUUID);
+                log.info("Order {} is already PAID. Ignoring duplicate event.", orderUUID);
                 return;
             }
             
@@ -161,7 +164,7 @@ public class OrderSagaOrchestrator {
             }
             
         } catch (Exception e) {
-            log.error("Error processing payment webhook payload", e);
+            log.error("Error processing payment event payload", e);
             throw new RuntimeException("Failed to process payment event", e);
         }
     }
@@ -252,12 +255,19 @@ public class OrderSagaOrchestrator {
                 log.info("Driver {} assigned to Order {}. Updating status to DISPATCHED.", driverIdStr, orderId);
                 Order order = orderRepository.findById(orderId).orElse(null);
                 if (order != null) {
-                    order.setDeliveryExecutiveId(UUID.fromString(driverIdStr));
+                    UUID driverUUID;
+                    try {
+                        driverUUID = UUID.fromString(driverIdStr);
+                    } catch (IllegalArgumentException e) {
+                        log.error("Invalid UUID format for driverId: {}. Skipping event.", driverIdStr);
+                        return;
+                    }
+                    order.setDeliveryExecutiveId(driverUUID);
                     order.setStatus(OrderStatus.DISPATCHED);
                     orderRepository.save(order);
                     
                     // Send notification to the newly assigned driver
-                    sendNotification(orderId.toString(), UUID.fromString(driverIdStr), "NEW_DELIVERY_PING");
+                    sendNotification(orderId.toString(), driverUUID, "NEW_DELIVERY_PING");
                 }
                 return;
             }
@@ -312,7 +322,7 @@ public class OrderSagaOrchestrator {
         paymentIntentRepository.findByInternalOrderId(order.getId()).ifPresent(intent -> {
             if ("SUCCESS".equals(intent.getStatus()) || "CAPTURED".equalsIgnoreCase(intent.getStatus())) {
                 try {
-                    String refundUrl = "http://localhost:8082/api/v1/payments/refund?gateway=VYAPAR";
+                    String refundUrl = paymentServiceBaseUrl + "/api/v1/payments/refund?gateway=VYAPAR";
                     org.springframework.web.client.RestTemplate restTemplate = new org.springframework.web.client.RestTemplate();
                     HttpHeaders headers = new HttpHeaders();
                     headers.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);

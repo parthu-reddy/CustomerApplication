@@ -27,13 +27,16 @@ public class PaymentGatewayOrchestrator {
     private final com.fooddelivery.order.repository.IOutboxEventRepository outboxEventRepository;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
+    @org.springframework.beans.factory.annotation.Value("${payment-service.base-url:http://localhost:8080}")
+    private String paymentServiceBaseUrl;
+
     @Transactional
     public String generateUpiIntent(Order order) {
         log.info("Requesting Payment Intent for Order: {} from PaymentGatewayIntegration service", order.getId());
 
         try {
             // Call PaymentGatewayIntegration service
-            String paymentServiceUrl = "http://localhost:8082/api/v1/payments/create-order?gateway=VYAPAR";
+            String paymentServiceUrl = paymentServiceBaseUrl + "/api/v1/payments/create-order?gateway=VYAPAR";
             java.util.Map<String, Object> request = java.util.Map.of(
                 "internalOrderId", order.getId().toString(),
                 "amountInInr", order.getTotalAmount()
@@ -41,18 +44,19 @@ public class PaymentGatewayOrchestrator {
             
             org.springframework.http.ResponseEntity<String> response = restTemplate.postForEntity(paymentServiceUrl, request, String.class);
             
-            if (response.getStatusCode().is2xxSuccessful()) {
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                String returnedGatewayOrderId = response.getBody();
                 PaymentIntent intent = PaymentIntent.builder()
                         .id(UUID.randomUUID())
                         .internalOrderId(order.getId())
-                        .gatewayOrderId("PENDING_WEBHOOK")
+                        .gatewayOrderId(returnedGatewayOrderId)
                         .amount(order.getTotalAmount())
                         .status("INITIATED")
                         .createdAt(LocalDateTime.now())
                         .build();
         
                 paymentIntentRepository.save(intent);
-                return response.getBody(); // The UPI Intent string or Gateway Order ID
+                return returnedGatewayOrderId;
             } else {
                 log.error("Failed to generate payment intent. Status code: {}", response.getStatusCode());
                 return null;

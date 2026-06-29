@@ -2,6 +2,151 @@
 
 This document contains detailed sequence diagrams for every major scenario within the Food Delivery Application backend.
 
+## Comprehensive Cross-Service Orchestration Map
+
+```mermaid
+flowchart TD
+    %% Swimlanes via Subgraphs
+    subgraph CustomerApp [Customer App]
+        direction TB
+        C1(Place Order)
+        C2(Pay via UPI)
+        C3(Receive Notifications)
+        C4(Receive Food)
+    end
+
+    subgraph FDA [Monolith: OrderSagaOrchestrator]
+        direction TB
+        O1(Create Order)
+        O2{Payment Timeout 15m}
+        O3[Cancel Order: Payment Failed]
+        O4(Order PAID)
+        O5{Restaurant Response}
+        O6[Cancel Order: Restaurant Rejected]
+        O7(Saga: Dispatch Driver)
+        O8{Driver Assigned?}
+        O9[Cancel Order: No Driver Available]
+        O10{Driver Accepted?}
+        O11(Redispatch: Find Next)
+        O12{Restaurant Prepares}
+        O13[Cancel Order: Cancelled Post-Accept]
+        O14{Delivery Status}
+        O15[Cancel Order: Delivery Failed]
+        O16(Ledger: Credit Rest/Driver)
+    end
+
+    subgraph PGI [PaymentGatewayIntegration]
+        direction TB
+        P1(Vyapar: Generate Intent)
+        P2(Webhook: Payment Success)
+        P3(Process Refund)
+    end
+
+    subgraph Rest [Restaurant Partner]
+        direction TB
+        R1(Receive Order Alert)
+        R2(Accept Order)
+        R3(Reject Order)
+        R4(Prepare Food)
+        R5(Cancel Mid-Prep)
+        R6(Handover to Driver)
+    end
+
+    subgraph MI [MapsIntegration]
+        direction TB
+        M1(Search Nearest Fleet)
+        M2[DRIVER_ASSIGNED]
+        M3[DISPATCH_FAILED]
+        M4(Release Driver Lock)
+    end
+
+    subgraph DriverApp [Delivery Executive]
+        direction TB
+        D1(Receive Dispatch Ping)
+        D2(Accept Ping)
+        D3(Reject/Timeout Ping)
+        D4(Pickup Food)
+        D5(Deliver Success)
+        D6(Delivery Failed)
+    end
+
+    subgraph CI [CommunicationIntegration]
+        direction TB
+        N1(Dispatch Email/SMS/Push)
+    end
+
+    %% Routing / Edges
+    C1 -->|POST /api/v1/orders| O1
+    O1 -->|HTTP POST| P1
+    P1 -->|UPI Intent| C2
+    O1 --> O2
+    O2 -- Timeout --> O3
+    
+    C2 -->|Vyapar Server| P2
+    P2 -->|Kafka: payment-events| O4
+    O2 -- Success --> O4
+    
+    O4 -->|Kafka: order-events OUTBOX| R1
+    R1 --> R2
+    R1 --> R3
+    
+    R3 -->|Kafka: order-events| O5
+    O5 -- Rejected --> O6
+    O6 -->|HTTP POST| P3
+    O6 -->|Kafka: notifications| N1
+    N1 --> C3
+    
+    R2 -->|Kafka: order-events| O5
+    O5 -- Accepted --> O7
+    O7 -->|Kafka: platform.logistics.dispatch| M1
+    
+    M1 --> M2
+    M1 --> M3
+    
+    M3 -->|Kafka: order-events| O8
+    O8 -- DISPATCH_FAILED --> O9
+    O9 -->|HTTP POST| P3
+    O9 -->|Kafka: notifications| N1
+    
+    M2 -->|Kafka: order-events DRIVER_ASSIGNED| O8
+    O8 -- DRIVER_ASSIGNED --> D1
+    
+    D1 --> D2
+    D1 --> D3
+    
+    D3 -->|Kafka: order-events ORDER_DRIVER_REJECTED| O10
+    O10 -- Rejected --> O11
+    O11 --> O7
+    O11 -->|HTTP POST| M4
+    
+    D2 -->|Kafka: order-events ORDER_DRIVER_ACCEPTED| O10
+    O10 -- Accepted --> O12
+    
+    R2 --> R4
+    R4 --> R5
+    R4 --> R6
+    
+    R5 -->|Kafka: order-events ORDER_CANCELLED_BY_RESTAURANT| O12
+    O12 -- Cancelled --> O13
+    O13 -->|HTTP POST| P3
+    O13 -->|HTTP POST| M4
+    O13 -->|Kafka: notifications| N1
+    
+    R6 --> D4
+    D4 --> D5
+    D4 --> D6
+    
+    D6 -->|Kafka: order-events DELIVERY_FAILED| O14
+    O14 -- Failed --> O15
+    O15 -->|HTTP POST| P3
+    O15 -->|HTTP POST| M4
+    O15 -->|Kafka: notifications| N1
+    
+    D5 -->|Kafka: order-events ORDER_DELIVERED| O14
+    O14 -- Success --> O16
+    O16 --> C4
+    O16 -->|Kafka: notifications| N1
+```
 
 ## Order Saga Decision Flowchart
 

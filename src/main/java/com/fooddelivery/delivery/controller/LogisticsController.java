@@ -24,7 +24,7 @@ public class LogisticsController {
             @RequestParam double destLat, @RequestParam double destLng) {
         
         try {
-            String mapsServiceUrl = String.format("http://localhost:8081/api/logistics/route?origin=%f,%f&destination=%f,%f",
+            String mapsServiceUrl = String.format("http://localhost:8083/api/logistics/route?origin=%f,%f&destination=%f,%f",
                     sourceLat, sourceLng, destLat, destLng);
             
             ResponseEntity<Map> response = restTemplate.getForEntity(mapsServiceUrl, Map.class);

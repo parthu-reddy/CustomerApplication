@@ -48,7 +48,7 @@ public class LogisticsDispatchService {
         log.info("Requesting driver lock release for driver {} via MapsIntegration service", driverId);
         try {
             org.springframework.web.client.RestTemplate restTemplate = new org.springframework.web.client.RestTemplate();
-            String url = "http://localhost:8081/api/fleet/availability";
+            String url = "http://localhost:8083/api/fleet/availability";
             Map<String, Object> request = Map.of(
                 "cityId", "BLR", // default cityId
                 "driverId", driverId,
