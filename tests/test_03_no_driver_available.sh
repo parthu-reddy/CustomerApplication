@@ -44,14 +44,14 @@ if [ "$ORDER_STATUS" != "PAID" ]; then echo "FAIL: Expected PAID, got $ORDER_STA
 echo "7. Restaurant Accepts Order..."
 curl -s -X POST http://localhost:8092/api/v1/restaurants/$REST_ID/fulfillment/orders/$ORDER_ID/accept > /dev/null
 
-echo "8. Verifying order remains ACCEPTED (no driver dispatched)..."
+echo "8. Verifying order becomes DELIVERY_FAILED and refunds..."
 sleep 15
 ORDER_STATUS=$(docker exec -i food_delivery_db psql -U postgres -d food_delivery -t -c "SELECT status FROM orders WHERE id = '$ORDER_ID';" | xargs)
 
-if [ "$ORDER_STATUS" == "ACCEPTED" ]; then
-    echo "Order correctly remained in ACCEPTED state."
+if [ "$ORDER_STATUS" == "DELIVERY_FAILED" ]; then
+    echo "Order correctly moved to DELIVERY_FAILED state."
 else
-    echo "FAIL: Expected ACCEPTED (no driver), but got $ORDER_STATUS"
+    echo "FAIL: Expected DELIVERY_FAILED, but got $ORDER_STATUS"
     exit 1
 fi
 
