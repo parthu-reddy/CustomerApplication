@@ -27,32 +27,6 @@ CREATE TABLE outbox_events (
 );
 CREATE INDEX idx_outbox_status_unprocessed ON outbox_events(status, created_at) WHERE status = 'UNPROCESSED';
 
--- Delivery Executives
-CREATE TABLE delivery_executives (
-    id UUID PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    phone_number VARCHAR(20) NOT NULL UNIQUE,
-    vehicle_number VARCHAR(50),
-    status VARCHAR(50) NOT NULL,
-    last_known_location geometry(Point, 4326),
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
-);
-CREATE INDEX idx_delivery_executives_status ON delivery_executives(status);
-
-CREATE TABLE restaurants (
-    id UUID PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    fssai_license_number VARCHAR(100),
-    gstin VARCHAR(100),
-    pan VARCHAR(10),
-    cin VARCHAR(21),
-    is_active BOOLEAN DEFAULT false,
-    location geometry(Point, 4326),
-    created_at TIMESTAMP NOT NULL DEFAULT NOW()
-);
-CREATE INDEX idx_restaurant_location ON restaurants USING GIST(location);
-
 CREATE TABLE customers (
     id UUID PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
@@ -62,22 +36,10 @@ CREATE TABLE customers (
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE menu_items (
-    id UUID PRIMARY KEY,
-    restaurant_id UUID NOT NULL REFERENCES restaurants(id),
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    price DECIMAL(10, 2) NOT NULL,
-    is_available BOOLEAN DEFAULT true,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
-);
-CREATE INDEX idx_menu_items_restaurant_id ON menu_items(restaurant_id);
-
 CREATE TABLE order_items (
     id UUID PRIMARY KEY,
     order_id UUID NOT NULL REFERENCES orders(id),
-    menu_item_id UUID NOT NULL REFERENCES menu_items(id),
+    menu_item_id UUID NOT NULL,
     quantity INT NOT NULL,
     price DECIMAL(10, 2) NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
