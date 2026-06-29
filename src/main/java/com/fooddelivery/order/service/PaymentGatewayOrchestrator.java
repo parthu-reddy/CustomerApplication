@@ -59,11 +59,11 @@ public class PaymentGatewayOrchestrator {
                 return returnedGatewayOrderId;
             } else {
                 log.error("Failed to generate payment intent. Status code: {}", response.getStatusCode());
-                return null;
+                throw new RuntimeException("Failed to generate payment intent. Status: " + response.getStatusCode());
             }
         } catch (Exception e) {
             log.error("Error communicating with PaymentGatewayIntegration service", e);
-            return null;
+            throw new RuntimeException("Error communicating with PaymentGatewayIntegration service", e);
         }
     }
 }

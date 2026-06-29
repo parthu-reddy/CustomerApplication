@@ -349,6 +349,7 @@ public class OrderSagaOrchestrator {
                     }
                 } catch (Exception e) {
                     log.error("Exception calling PaymentGatewayIntegration for refund on order {}", order.getId(), e);
+                    throw new RuntimeException("Failed to initiate refund", e);
                 }
             }
         });
@@ -391,6 +392,7 @@ public class OrderSagaOrchestrator {
             log.info("Sent notification request for order {} to customer {}", orderId, customerId);
         } catch (Exception e) {
             log.error("Failed to send notification request", e);
+            throw new RuntimeException("Failed to send notification", e);
         }
     }
 }
