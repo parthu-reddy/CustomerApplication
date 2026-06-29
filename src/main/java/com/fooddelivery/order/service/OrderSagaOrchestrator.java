@@ -183,7 +183,10 @@ public class OrderSagaOrchestrator {
             if ("ORDER_DELIVERED".equals(eventType)) {
                 log.info("Order {} delivered. Processing ledger accounting.", orderId);
                 Order order = orderRepository.findById(orderId).orElse(null);
-                if (order != null && order.getStatus() == OrderStatus.DELIVERED) {
+                if (order != null && order.getStatus() != OrderStatus.DELIVERED) {
+                    order.setStatus(OrderStatus.DELIVERED);
+                    orderRepository.save(order);
+                    
                     // Calculate splits: 80% to restaurant, 20% to platform.
                     // For simplicity, driver gets flat 50.0.
                     java.math.BigDecimal total = order.getTotalAmount();
@@ -197,14 +200,19 @@ public class OrderSagaOrchestrator {
                         UUID driverTransferId = UUID.nameUUIDFromBytes(("DRIVER_PAYOUT_" + orderId).getBytes());
                         ledgerService.recordTransaction(driverTransferId, PLATFORM_ACCOUNT_ID, "PLATFORM", order.getDeliveryExecutiveId(), "DRIVER", driverPayout);
                     }
+                    
+                    // Send notification to customer
+                    sendNotification(orderId.toString(), order.getCustomerId(), "ORDER_DELIVERED");
                 }
                 return;
             }
             
-            if ("ORDER_CANCELLED_BY_RESTAURANT".equals(eventType)) {
-                log.info("Order {} cancelled by restaurant post-acceptance. Processing refund.", orderId);
+            if ("ORDER_CANCELLED_BY_RESTAURANT".equals(eventType) || "ORDER_REJECTED".equals(eventType)) {
+                log.info("Order {} cancelled/rejected by restaurant. Processing refund.", orderId);
                 Order order = orderRepository.findById(orderId).orElse(null);
                 if (order != null) {
+                    order.setStatus(OrderStatus.DELIVERY_FAILED); // or a CANCELLED status if it existed
+                    orderRepository.save(order);
                     processRefund(order);
                 }
                 return;
@@ -217,6 +225,18 @@ public class OrderSagaOrchestrator {
                     Order order = orderRepository.findById(orderId).orElse(null);
                     if (order != null) {
                         processRefund(order);
+                    }
+                } else if (updateStatus != null) {
+                    log.info("Order {} status updated to {}.", orderId, updateStatus);
+                    Order order = orderRepository.findById(orderId).orElse(null);
+                    if (order != null) {
+                        try {
+                            OrderStatus newStatus = OrderStatus.valueOf(updateStatus);
+                            order.setStatus(newStatus);
+                            orderRepository.save(order);
+                        } catch (IllegalArgumentException e) {
+                            log.warn("Unknown OrderStatus: {}", updateStatus);
+                        }
                     }
                 }
                 return;
@@ -244,8 +264,8 @@ public class OrderSagaOrchestrator {
                     order.setStatus(OrderStatus.DISPATCHED);
                     orderRepository.save(order);
                     
-                    // Send notification to the newly assigned driver
-                    sendNotification(orderId.toString(), driverUUID, "NEW_DELIVERY_PING");
+                    // Send notification to the CUSTOMER that the driver is on the way
+                    sendNotification(orderId.toString(), order.getCustomerId(), "DRIVER_ON_THE_WAY");
                 }
                 return;
             }
@@ -274,6 +294,16 @@ public class OrderSagaOrchestrator {
                     // Dispatch logic will now be handled by DeliveryExecutiveApplication listening to this same event
                 } else {
                     log.info("Order {} is not in PAID state or not found. Cannot accept.", orderId);
+                }
+                return;
+            }
+            
+            if ("ORDER_READY".equals(eventType)) {
+                log.info("Order {} is ready for pickup.", orderId);
+                Order order = orderRepository.findById(orderId).orElse(null);
+                if (order != null) {
+                    order.setStatus(OrderStatus.READY_FOR_PICKUP);
+                    orderRepository.save(order);
                 }
                 return;
             }
