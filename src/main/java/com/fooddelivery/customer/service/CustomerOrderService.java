@@ -43,7 +43,7 @@ public class CustomerOrderService {
 
     // DTOs for REST calls
     public record RestaurantDTO(UUID id, String name, Boolean isActive) {}
-    public record MenuItemDTO(UUID id, UUID restaurantId, String name, BigDecimal price, Boolean isAvailable) {}
+    public record MenuItemDTO(UUID id, UUID restaurantId, String name, BigDecimal price, Boolean isAvailable, Integer prepTimeMinutes) {}
 
     @org.springframework.transaction.annotation.Transactional
     public OrderWithPayment createOrderWithPayment(UUID customerId, UUID restaurantId, List<OrderItemRequest> requestedItems) {
@@ -98,6 +98,7 @@ public class CustomerOrderService {
             Map<UUID, MenuItemDTO> menuItemMap = fetchedItems.stream()
                     .collect(Collectors.toMap(MenuItemDTO::id, item -> item));
 
+            int maxPrepTime = 15; // default minimum
             for (OrderItemRequest req : requestedItems) {
                 MenuItemDTO menuItem = menuItemMap.get(req.getMenuItemId());
                 if (menuItem == null) {
@@ -109,6 +110,10 @@ public class CustomerOrderService {
                 }
                 if (!menuItem.isAvailable()) {
                     throw new IllegalArgumentException("Menu item is currently unavailable: " + menuItem.name());
+                }
+
+                if (menuItem.prepTimeMinutes() != null && menuItem.prepTimeMinutes() > maxPrepTime) {
+                    maxPrepTime = menuItem.prepTimeMinutes();
                 }
 
                 BigDecimal itemTotal = menuItem.price().multiply(BigDecimal.valueOf(req.getQuantity()));
@@ -130,6 +135,7 @@ public class CustomerOrderService {
                     .restaurantId(restaurantId)
                     .status(OrderStatus.CREATED)
                     .orderItems(new ArrayList<>())
+                    .estimatedPrepTimeMinutes(maxPrepTime)
                     .build();
 
             for (OrderItem item : orderItems) {
@@ -145,6 +151,39 @@ public class CustomerOrderService {
         } catch (Exception e) {
             log.error("Failed to create order", e);
             throw new RuntimeException("Failed to create order", e);
+        }
+    }
+
+    @org.springframework.transaction.annotation.Transactional
+    public void handleDelayApproval(UUID orderId, boolean approved) {
+        Order order = orderRepository.findById(orderId)
+            .orElseThrow(() -> new IllegalArgumentException("Order not found"));
+            
+        if (order.getStatus() != OrderStatus.AWAITING_DELAY_APPROVAL) {
+            throw new IllegalStateException("Order is not awaiting delay approval. Current status: " + order.getStatus());
+        }
+        
+        if (approved) {
+            // we don't change the status, just let it stay AWAITING_DELAY_APPROVAL until restaurant sends ORDER_ACCEPTED
+            com.fooddelivery.order.entity.OutboxEventEntity event = new com.fooddelivery.order.entity.OutboxEventEntity();
+            event.setAggregateId(order.getId().toString());
+            event.setAggregateType("ORDER");
+            event.setEventType("ORDER_DELAY_APPROVED");
+            event.setPayload(String.format("{\"eventType\":\"ORDER_DELAY_APPROVED\", \"orderId\":\"%s\", \"restaurantId\":\"%s\"}",
+                    order.getId(), order.getRestaurantId()));
+            // I don't have the outbox repository in this service, it is in OrderSagaOrchestrator or similar.
+            // Wait, CustomerOrderService does not inject OutboxRepository. 
+            // Better to let OrderSagaOrchestrator handle the approval response publication.
+            orderSagaOrchestrator.publishDelayApprovalEvent(order, true);
+        } else {
+            order.setStatus(OrderStatus.CANCELLED);
+            order.setCancellationReason("Customer manually rejected additional prep time request");
+            orderRepository.save(order);
+            
+            // Refund the customer
+            orderSagaOrchestrator.processRefund(order);
+            
+            orderSagaOrchestrator.publishDelayApprovalEvent(order, false);
         }
     }
 }

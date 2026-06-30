@@ -40,6 +40,8 @@ public class OutboxEventPoller {
                 String topic = "order-events";
                 if ("Payment".equals(event.getAggregateType())) {
                     topic = "payment-events";
+                } else if ("Notification".equals(event.getAggregateType())) {
+                    topic = KafkaConstants.TOPIC_NOTIFICATIONS_DISPATCH;
                 }
                 
                 org.springframework.messaging.Message<String> message = org.springframework.messaging.support.MessageBuilder

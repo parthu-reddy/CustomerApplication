@@ -29,8 +29,11 @@ public class PaymentIntent {
     @Column(nullable = false)
     private BigDecimal amount;
 
-    @Column(length = 50)
+    @Column(nullable = false)
     private String status;
+
+    @Column(name = "gateway_name")
+    private String gatewayName;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;

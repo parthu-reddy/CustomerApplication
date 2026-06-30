@@ -22,6 +22,7 @@ import jakarta.persistence.Version;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+import jakarta.persistence.Column;
 
 @Entity
 @Table(name = "orders")
@@ -39,15 +40,22 @@ public class Order {
     @Enumerated(EnumType.STRING)
     private OrderStatus status;
     
+    @Column(name = "total_amount")
     private BigDecimal totalAmount;
     
     private UUID deliveryExecutiveId;
+    
+    @Column(name = "estimated_prep_time_minutes")
+    private Integer estimatedPrepTimeMinutes;
+    
+    @Column(name = "cancellation_reason")
+    private String cancellationReason;
     
     @Version
     private Integer version;
     
     @JsonIgnore
-    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
     @Builder.Default
     private List<OrderItem> orderItems = new ArrayList<>();
     

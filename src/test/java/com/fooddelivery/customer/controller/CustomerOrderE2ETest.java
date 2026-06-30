@@ -25,7 +25,7 @@ import java.util.UUID;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(classes = com.fooddelivery.FoodDeliveryApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class CustomerOrderE2ETest extends BaseIntegrationTest {
 
     @LocalServerPort
@@ -53,7 +53,7 @@ class CustomerOrderE2ETest extends BaseIntegrationTest {
         // Mock Menu API
         com.fooddelivery.customer.service.CustomerOrderService.MenuItemDTO menuItem = 
             new com.fooddelivery.customer.service.CustomerOrderService.MenuItemDTO(
-                menuItemId, restaurantId, "Burger", new BigDecimal("10.00"), true
+                menuItemId, restaurantId, "Burger", new BigDecimal("10.00"), true, 15
             );
         ResponseEntity<List<com.fooddelivery.customer.service.CustomerOrderService.MenuItemDTO>> menuResponse = 
             new ResponseEntity<>(List.of(menuItem), HttpStatus.OK);

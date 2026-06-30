@@ -102,12 +102,12 @@ class OrderSagaOrchestratorTest {
         intent.setInternalOrderId(internalOrderId);
         intent.setStatus("CREATED");
 
-        Order order = Order.builder().id(internalOrderId).status(OrderStatus.CREATED).build();
+        Order order = Order.builder().id(internalOrderId).customerId(UUID.randomUUID()).status(OrderStatus.CREATED).build();
 
         when(paymentIntentRepository.findByGatewayOrderId(gatewayOrderId)).thenReturn(Optional.of(intent));
         when(orderRepository.findById(internalOrderId)).thenReturn(Optional.of(order));
-
-        orderSagaOrchestrator.handlePaymentSuccess(payload);
+        // Act
+        orderSagaOrchestrator.handlePaymentEvents(payload);
 
         verify(orderRepository).save(order);
         assertThat(order.getStatus()).isEqualTo(OrderStatus.PAID);
@@ -115,7 +115,7 @@ class OrderSagaOrchestratorTest {
         verify(paymentIntentRepository).save(intent);
         assertThat(intent.getStatus()).isEqualTo("SUCCESS");
 
-        verify(outboxEventRepository).save(any(OutboxEventEntity.class));
+        verify(outboxEventRepository, times(2)).save(any(OutboxEventEntity.class));
     }
 
     @Test

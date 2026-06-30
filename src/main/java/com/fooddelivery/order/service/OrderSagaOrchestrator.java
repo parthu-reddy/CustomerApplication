@@ -94,16 +94,15 @@ public class OrderSagaOrchestrator {
         log.info("Order state and outbox event saved for Order ID: {}", order.getId());
     }
 
-    // Listens to Kafka 'payment-events' topic for PaymentSucceededEvent published by external Payment Service
+    // Listens to Kafka 'payment-events' topic for events published by external Payment Service
     @Transactional
     @KafkaListener(topics = KafkaConstants.TOPIC_PAYMENT_EVENTS, groupId = KafkaConstants.GROUP_FOOD_DELIVERY)
-    public void handlePaymentSuccess(String payload) {
-        log.info("Received PaymentSucceededEvent: {}", payload);
+    public void handlePaymentEvents(String payload) {
+        log.info("Received Payment Event: {}", payload);
         
         try {
             com.fasterxml.jackson.databind.JsonNode rootNode = objectMapper.readTree(payload);
             
-            // Expected payload: {"orderId":"...","gatewayOrderId":"...","amount":300.00,"gatewayName":"VYAPAR"}
             if (!rootNode.has("orderId") || !rootNode.has("gatewayOrderId")) {
                 log.info("Ignoring unrecognized event payload: {}", payload);
                 return;
@@ -111,8 +110,9 @@ public class OrderSagaOrchestrator {
             
             String gatewayOrderId = rootNode.get("gatewayOrderId").asText();
             String internalOrderId = rootNode.get("orderId").asText();
+            boolean isFailure = rootNode.has("failureReason");
             
-            log.info("Payment succeeded for gateway order {}. Finding internal order {}.", gatewayOrderId, internalOrderId);
+            log.info("Payment event for gateway order {}. Finding internal order {}. IsFailure: {}", gatewayOrderId, internalOrderId, isFailure);
             
             com.fooddelivery.order.entity.PaymentIntent intent = paymentIntentRepository.findByGatewayOrderId(gatewayOrderId).orElse(null);
             if (intent == null) {
@@ -126,17 +126,55 @@ public class OrderSagaOrchestrator {
                 log.warn("Order {} not found, skipping status update", orderUUID);
                 return;
             }
-            if (order.getStatus() == OrderStatus.PAID) {
-                log.info("Order {} is already PAID. Ignoring duplicate event.", orderUUID);
+
+            if (isFailure) {
+                if (order.getStatus() != OrderStatus.CREATED) {
+                    log.error("ILLEGAL_STATE_TRANSITION: Ignoring payment failure for order {} as it is not in CREATED state (Current status: {})", orderUUID, order.getStatus());
+                    return;
+                }
+                log.info("Payment failed for Order {}. Cancelling order.", orderUUID);
+                if (!isTerminalState(order.getStatus())) {
+                    order.setStatus(OrderStatus.CANCELLED);
+                    orderRepository.save(order);
+                }
+                if (!"FAILED".equals(intent.getStatus())) {
+                    intent.setStatus("FAILED");
+                    paymentIntentRepository.save(intent);
+                }
+                return;
+            }
+
+            // Success scenario
+            if (order.getStatus() != OrderStatus.CREATED) {
+                log.error("ILLEGAL_STATE_TRANSITION: Order {} is not in CREATED state (Current status: {}). Ignoring payment success event.", orderUUID, order.getStatus());
+                if (!"SUCCESS".equals(intent.getStatus())) {
+                    intent.setStatus("SUCCESS");
+                    paymentIntentRepository.save(intent);
+                    log.info("PaymentIntent {} status updated to SUCCESS", intent.getId());
+                    
+                    // Record late payment from customer to platform
+                    UUID paymentTransferId = UUID.nameUUIDFromBytes(("PAYMENT_" + orderUUID).getBytes());
+                    ledgerService.recordTransaction(paymentTransferId, order.getCustomerId(), "CUSTOMER", PLATFORM_ACCOUNT_ID, "PLATFORM", order.getTotalAmount());
+                    
+                    if (isTerminalState(order.getStatus()) && order.getStatus() != OrderStatus.DELIVERED) {
+                        log.info("Order {} is in terminal state {}. Processing immediate refund for late payment success.", orderUUID, order.getStatus());
+                        processRefund(order);
+                    }
+                }
                 return;
             }
             
             order.setStatus(OrderStatus.PAID);
             orderRepository.save(order);
             
+            // Record initial payment from customer to platform
+            UUID paymentTransferId = UUID.nameUUIDFromBytes(("PAYMENT_" + orderUUID).getBytes());
+            ledgerService.recordTransaction(paymentTransferId, order.getCustomerId(), "CUSTOMER", PLATFORM_ACCOUNT_ID, "PLATFORM", order.getTotalAmount());
+            
             com.fooddelivery.common.event.OrderPaidEvent paidEvent = com.fooddelivery.common.event.OrderPaidEvent.builder()
                     .orderId(order.getId())
                     .restaurantId(order.getRestaurantId())
+                    .estimatedPrepTimeMinutes(order.getEstimatedPrepTimeMinutes())
                     .build();
             
             OutboxEventEntity outboxEvent = OutboxEventEntity.builder()
@@ -149,6 +187,9 @@ public class OrderSagaOrchestrator {
                     .status("UNPROCESSED")
                     .build();
             outboxEventRepository.save(outboxEvent);
+            
+            // Send notification to customer
+            sendNotification(orderUUID.toString(), order.getCustomerId(), "ORDER_PAID");
             
             log.info("Order {} status updated to PAID and outbox event saved", orderUUID);
             
@@ -186,7 +227,7 @@ public class OrderSagaOrchestrator {
             if ("ORDER_DELIVERED".equals(eventType)) {
                 log.info("Order {} delivered. Processing ledger accounting.", orderId);
                 Order order = orderRepository.findById(orderId).orElse(null);
-                if (order != null && order.getStatus() != OrderStatus.DELIVERED) {
+                if (order != null && (order.getStatus() == OrderStatus.DISPATCHED || order.getStatus() == OrderStatus.READY_FOR_PICKUP || order.getStatus() == OrderStatus.OUT_FOR_DELIVERY)) {
                     order.setStatus(OrderStatus.DELIVERED);
                     orderRepository.save(order);
                     
@@ -206,6 +247,8 @@ public class OrderSagaOrchestrator {
                     
                     // Send notification to customer
                     sendNotification(orderId.toString(), order.getCustomerId(), "ORDER_DELIVERED");
+                } else if (order != null) {
+                    log.error("ILLEGAL_STATE_TRANSITION: Cannot process ORDER_DELIVERED for Order {}. Current status is {}. Allowed previous states are DISPATCHED, READY_FOR_PICKUP, OUT_FOR_DELIVERY.", orderId, order.getStatus());
                 }
                 return;
             }
@@ -213,10 +256,16 @@ public class OrderSagaOrchestrator {
             if ("ORDER_CANCELLED_BY_RESTAURANT".equals(eventType) || "ORDER_REJECTED".equals(eventType)) {
                 log.info("Order {} cancelled/rejected by restaurant. Processing refund.", orderId);
                 Order order = orderRepository.findById(orderId).orElse(null);
-                if (order != null) {
-                    order.setStatus(OrderStatus.DELIVERY_FAILED); // or a CANCELLED status if it existed
+                if (order != null && (order.getStatus() == OrderStatus.PAID || order.getStatus() == OrderStatus.AWAITING_DELAY_APPROVAL || order.getStatus() == OrderStatus.ACCEPTED || order.getStatus() == OrderStatus.DISPATCHED || order.getStatus() == OrderStatus.READY_FOR_PICKUP)) {
+                    order.setStatus(OrderStatus.CANCELLED_BY_RESTAURANT);
+                    order.setCancellationReason(rootNode.path("reason").asText("Restaurant could not fulfill the order"));
                     orderRepository.save(order);
                     processRefund(order);
+                    
+                    // Send notification to customer
+                    sendNotification(orderId.toString(), order.getCustomerId(), "ORDER_CANCELLED_BY_RESTAURANT");
+                } else if (order != null) {
+                    log.error("ILLEGAL_STATE_TRANSITION: Cannot process {} for Order {}. Current status is {}. Allowed previous states are PAID, AWAITING_DELAY_APPROVAL, ACCEPTED, DISPATCHED, READY_FOR_PICKUP.", eventType, orderId, order.getStatus());
                 }
                 return;
             }
@@ -226,20 +275,42 @@ public class OrderSagaOrchestrator {
                 if ("DELIVERY_FAILED".equals(updateStatus)) {
                     log.info("Order {} delivery failed. Processing refund.", orderId);
                     Order order = orderRepository.findById(orderId).orElse(null);
-                    if (order != null) {
+                    if (order != null && (order.getStatus() == OrderStatus.DISPATCHED || order.getStatus() == OrderStatus.OUT_FOR_DELIVERY || order.getStatus() == OrderStatus.READY_FOR_PICKUP)) {
+                        order.setStatus(OrderStatus.DELIVERY_FAILED);
+                        orderRepository.save(order);
                         processRefund(order);
+                        
+                        // Send notification to customer
+                        sendNotification(orderId.toString(), order.getCustomerId(), "DELIVERY_FAILED");
+                    } else if (order != null) {
+                        log.error("ILLEGAL_STATE_TRANSITION: Cannot process DELIVERY_FAILED status update for Order {}. Current status is {}. Allowed previous states are DISPATCHED, OUT_FOR_DELIVERY, READY_FOR_PICKUP.", orderId, order.getStatus());
                     }
                 } else if (updateStatus != null) {
                     log.info("Order {} status updated to {}.", orderId, updateStatus);
                     Order order = orderRepository.findById(orderId).orElse(null);
-                    if (order != null) {
+                    if (order != null && !isTerminalState(order.getStatus())) {
                         try {
                             OrderStatus newStatus = OrderStatus.valueOf(updateStatus);
-                            order.setStatus(newStatus);
-                            orderRepository.save(order);
+                            boolean validTransition = false;
+                            
+                            if (newStatus == OrderStatus.READY_FOR_PICKUP && (order.getStatus() == OrderStatus.ACCEPTED || order.getStatus() == OrderStatus.DISPATCHED)) {
+                                validTransition = true;
+                            } else if (newStatus == OrderStatus.OUT_FOR_DELIVERY && (order.getStatus() == OrderStatus.DISPATCHED || order.getStatus() == OrderStatus.READY_FOR_PICKUP)) {
+                                validTransition = true;
+                            }
+                            
+                            if (validTransition) {
+                                order.setStatus(newStatus);
+                                orderRepository.save(order);
+                                sendNotification(orderId.toString(), order.getCustomerId(), "ORDER_STATUS_" + updateStatus);
+                            } else {
+                                log.error("ILLEGAL_STATE_TRANSITION: Cannot process status update to {} for Order {}. Current status is {}.", updateStatus, orderId, order.getStatus());
+                            }
                         } catch (IllegalArgumentException e) {
                             log.warn("Unknown OrderStatus: {}", updateStatus);
                         }
+                    } else if (order != null) {
+                        log.error("ILLEGAL_STATE_TRANSITION: Cannot process status update to {} for Order {}. Current status {} is already terminal.", updateStatus, orderId, order.getStatus());
                     }
                 }
                 return;
@@ -253,9 +324,9 @@ public class OrderSagaOrchestrator {
             
             if ("DRIVER_ASSIGNED".equals(eventType)) {
                 String driverIdStr = rootNode.path("driverId").asText(null);
-                log.info("Driver {} assigned to Order {}. Updating status to DISPATCHED.", driverIdStr, orderId);
+                log.info("Driver {} assigned to Order {}. Updating status.", driverIdStr, orderId);
                 Order order = orderRepository.findById(orderId).orElse(null);
-                if (order != null) {
+                if (order != null && (order.getStatus() == OrderStatus.ACCEPTED || order.getStatus() == OrderStatus.READY_FOR_PICKUP || order.getStatus() == OrderStatus.DISPATCHED)) {
                     UUID driverUUID;
                     try {
                         driverUUID = UUID.fromString(driverIdStr);
@@ -264,11 +335,19 @@ public class OrderSagaOrchestrator {
                         return;
                     }
                     order.setDeliveryExecutiveId(driverUUID);
-                    order.setStatus(OrderStatus.DISPATCHED);
+                    if (order.getStatus() == OrderStatus.READY_FOR_PICKUP) {
+                        log.error("BACKWARD_STATE_TRANSITION_ATTEMPT: Order {} is already READY_FOR_PICKUP. DRIVER_ASSIGNED event will not revert status to DISPATCHED.", orderId);
+                    } else if (order.getStatus() == OrderStatus.DISPATCHED) {
+                        log.info("Order {} is already DISPATCHED. Updating driverId only.", orderId);
+                    } else {
+                        order.setStatus(OrderStatus.DISPATCHED);
+                    }
                     orderRepository.save(order);
                     
                     // Send notification to the CUSTOMER that the driver is on the way
                     sendNotification(orderId.toString(), order.getCustomerId(), "DRIVER_ON_THE_WAY");
+                } else if (order != null) {
+                    log.error("ILLEGAL_STATE_TRANSITION: Cannot process DRIVER_ASSIGNED for Order {}. Current status is {}. Allowed previous states are ACCEPTED, READY_FOR_PICKUP, DISPATCHED.", orderId, order.getStatus());
                 }
                 return;
             }
@@ -276,10 +355,46 @@ public class OrderSagaOrchestrator {
             if ("DISPATCH_FAILED".equals(eventType)) {
                 log.warn("Failed to assign driver for Order {}. Processing refund.", orderId);
                 Order order = orderRepository.findById(orderId).orElse(null);
-                if (order != null) {
+                if (order != null && (order.getStatus() == OrderStatus.ACCEPTED || order.getStatus() == OrderStatus.READY_FOR_PICKUP || order.getStatus() == OrderStatus.DISPATCHED)) {
                     order.setStatus(OrderStatus.DELIVERY_FAILED);
                     orderRepository.save(order);
                     processRefund(order);
+                    
+                    // Send notification to customer
+                    sendNotification(orderId.toString(), order.getCustomerId(), "DISPATCH_FAILED");
+                } else if (order != null) {
+                    log.error("ILLEGAL_STATE_TRANSITION: Cannot process DISPATCH_FAILED for Order {}. Current status is {}. Allowed previous states are ACCEPTED, READY_FOR_PICKUP, DISPATCHED.", orderId, order.getStatus());
+                }
+                return;
+            }
+            
+            if ("ORDER_DELAY_APPROVAL_REQUESTED".equals(eventType)) {
+                log.info("Restaurant requested delay approval for Order {}", orderId);
+                Order order = orderRepository.findById(orderId).orElse(null);
+                if (order != null && order.getStatus() == OrderStatus.PAID) {
+                    order.setStatus(OrderStatus.AWAITING_DELAY_APPROVAL);
+                    orderRepository.save(order);
+                    
+                    // Send notification to customer
+                    sendNotification(orderId.toString(), order.getCustomerId(), "DELAY_APPROVAL_REQUESTED");
+                } else if (order != null) {
+                    log.error("ILLEGAL_STATE_TRANSITION: Cannot process ORDER_DELAY_APPROVAL_REQUESTED for Order {}. Current status is {}. Expected PAID.", orderId, order.getStatus());
+                }
+                return;
+            }
+            
+            if ("ORDER_DELAY_REJECTED".equals(eventType)) {
+                log.info("Customer rejected delay for Order {}. Processing refund.", orderId);
+                Order order = orderRepository.findById(orderId).orElse(null);
+                if (order != null && order.getStatus() == OrderStatus.AWAITING_DELAY_APPROVAL) {
+                    order.setStatus(OrderStatus.CANCELLED);
+                    orderRepository.save(order);
+                    processRefund(order);
+                    
+                    // Send notification to customer
+                    sendNotification(orderId.toString(), order.getCustomerId(), "ORDER_DELAY_REJECTED");
+                } else if (order != null) {
+                    log.error("ILLEGAL_STATE_TRANSITION: Cannot process ORDER_DELAY_REJECTED for Order {}. Current status is {}. Expected AWAITING_DELAY_APPROVAL.", orderId, order.getStatus());
                 }
                 return;
             }
@@ -289,14 +404,20 @@ public class OrderSagaOrchestrator {
                 log.info("Order {} accepted by restaurant.", orderId);
                 
                 Order order = orderRepository.findById(orderId).orElse(null);
-                if (order != null && order.getStatus() == OrderStatus.PAID) {
+                if (order != null && (order.getStatus() == OrderStatus.PAID || order.getStatus() == OrderStatus.AWAITING_DELAY_APPROVAL)) {
                     order.setStatus(OrderStatus.ACCEPTED);
+                    
+                    com.fasterxml.jackson.databind.JsonNode prepNode = rootNode.path("estimatedPrepTimeMinutes");
+                    if (!prepNode.isMissingNode() && !prepNode.isNull()) {
+                        order.setEstimatedPrepTimeMinutes(prepNode.asInt());
+                    }
+                    
                     orderRepository.save(order);
                     log.info("Order {} status updated to ACCEPTED.", orderId);
                     
                     // Dispatch logic will now be handled by DeliveryExecutiveApplication listening to this same event
-                } else {
-                    log.info("Order {} is not in PAID state or not found. Cannot accept.", orderId);
+                } else if (order != null) {
+                    log.error("ILLEGAL_STATE_TRANSITION: Cannot process ORDER_ACCEPTED for Order {}. Current status is {}. Expected PAID or AWAITING_DELAY_APPROVAL.", orderId, order.getStatus());
                 }
                 return;
             }
@@ -304,9 +425,14 @@ public class OrderSagaOrchestrator {
             if ("ORDER_READY".equals(eventType)) {
                 log.info("Order {} is ready for pickup.", orderId);
                 Order order = orderRepository.findById(orderId).orElse(null);
-                if (order != null) {
+                if (order != null && (order.getStatus() == OrderStatus.ACCEPTED || order.getStatus() == OrderStatus.DISPATCHED)) {
                     order.setStatus(OrderStatus.READY_FOR_PICKUP);
                     orderRepository.save(order);
+                    
+                    // Send notification to customer
+                    sendNotification(orderId.toString(), order.getCustomerId(), "ORDER_READY_FOR_PICKUP");
+                } else if (order != null) {
+                    log.error("ILLEGAL_STATE_TRANSITION: Cannot process ORDER_READY for Order {}. Current status is {}. Expected ACCEPTED or DISPATCHED.", orderId, order.getStatus());
                 }
                 return;
             }
@@ -316,15 +442,57 @@ public class OrderSagaOrchestrator {
         }
     }
 
-    
-    
     @Transactional
-    protected void processRefund(Order order) {
+    public void publishDelayApprovalEvent(Order order, boolean approved) {
+        try {
+            String eventType = approved ? "ORDER_DELAY_APPROVED" : "ORDER_DELAY_REJECTED";
+            OutboxEventEntity outboxEvent = OutboxEventEntity.builder()
+                    .id(UUID.randomUUID())
+                    .aggregateType("Order")
+                    .aggregateId(order.getId().toString())
+                    .eventType(eventType)
+                    .payload(String.format("{\"eventType\":\"%s\", \"orderId\":\"%s\", \"restaurantId\":\"%s\"}",
+                            eventType, order.getId(), order.getRestaurantId()))
+                    .createdAt(LocalDateTime.now())
+                    .build();
+            outboxEventRepository.save(outboxEvent);
+            log.info("Saved outbox event {} for Order {}", eventType, order.getId());
+        } catch (Exception e) {
+            log.error("Failed to save delay approval event", e);
+            throw new OrderProcessingException("Failed to process delay approval", e);
+        }
+    }
+
+    @org.springframework.scheduling.annotation.Scheduled(fixedDelayString = "60000") // Run every 1 minute
+    @Transactional
+    public void checkDelayApprovalTimeouts() {
+        java.time.LocalDateTime cutoffTime = java.time.LocalDateTime.now().minusMinutes(10);
+        java.util.List<Order> delayedOrders = orderRepository.findByStatusAndUpdatedAtBefore(OrderStatus.AWAITING_DELAY_APPROVAL, cutoffTime);
+        
+        for (Order order : delayedOrders) {
+            log.info("Order {} exceeded 10-minute delay approval timeout. Cancelling order.", order.getId());
+            order.setStatus(OrderStatus.CANCELLED);
+            order.setCancellationReason("Auto-cancelled: Customer did not respond to delay approval in 10 minutes");
+            orderRepository.save(order);
+            
+            // Refund the customer
+            processRefund(order);
+            
+            // Publish rejection event to restaurant to let them know it was auto-cancelled
+            publishDelayApprovalEvent(order, false);
+            
+            // Send notification to customer
+            sendNotification(order.getId().toString(), order.getCustomerId(), "ORDER_CANCELLED_DELAY_TIMEOUT");
+        }
+    }
+
+    @Transactional
+    public void processRefund(Order order) {
         log.info("Processing refund for Order {}", order.getId());
         paymentIntentRepository.findByInternalOrderId(order.getId()).ifPresent(intent -> {
             if ("SUCCESS".equals(intent.getStatus()) || "CAPTURED".equalsIgnoreCase(intent.getStatus())) {
                 try {
-                    String refundUrl = paymentServiceBaseUrl + "/api/v1/payments/refund?gateway=VYAPAR";
+                    String refundUrl = paymentServiceBaseUrl + "/api/v1/payments/refund?gateway=" + intent.getGatewayName();
                     // use injected restTemplate
                     HttpHeaders headers = new HttpHeaders();
                     headers.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
@@ -347,10 +515,13 @@ public class OrderSagaOrchestrator {
                         ledgerService.recordTransaction(refundTransferId, PLATFORM_ACCOUNT_ID, "PLATFORM", order.getCustomerId(), "CUSTOMER", order.getTotalAmount());
                     } else {
                         log.error("Failed to initiate refund via PaymentGatewayIntegration. Status: {}, Body: {}", response.getStatusCode(), response.getBody());
+                        intent.setStatus("REFUND_FAILED");
+                        paymentIntentRepository.save(intent);
                     }
                 } catch (Exception e) {
-                    log.error("Exception calling PaymentGatewayIntegration for refund on order {}", order.getId(), e);
-                    throw new RuntimeException("Failed to initiate refund", e);
+                    log.error("Exception calling PaymentGatewayIntegration for refund on order {}. Marking as REFUND_FAILED.", order.getId(), e);
+                    intent.setStatus("REFUND_FAILED");
+                    paymentIntentRepository.save(intent);
                 }
             }
         });
@@ -389,11 +560,29 @@ public class OrderSagaOrchestrator {
                     .templateParams(java.util.List.of(orderId))
                     .build();
             
-            kafkaTemplate.send(KafkaConstants.TOPIC_NOTIFICATIONS_DISPATCH, customerId.toString(), objectMapper.writeValueAsString(notificationEvent));
-            log.info("Sent notification request for order {} to customer {}", orderId, customerId);
+            OutboxEventEntity outboxEvent = OutboxEventEntity.builder()
+                    .id(UUID.randomUUID())
+                    .aggregateType("Notification")
+                    .aggregateId(customerId.toString())
+                    .eventType("NOTIFICATION_REQUEST")
+                    .payload(objectMapper.writeValueAsString(notificationEvent))
+                    .createdAt(LocalDateTime.now())
+                    .build();
+            outboxEventRepository.save(outboxEvent);
+            
+            log.info("Saved notification request to outbox for order {} to customer {}", orderId, customerId);
         } catch (Exception e) {
-            log.error("Failed to send notification request", e);
-            throw new RuntimeException("Failed to send notification", e);
+            log.error("Failed to save notification request to outbox", e);
+            throw new RuntimeException("Failed to save notification", e);
         }
+    }
+
+    private boolean isTerminalState(OrderStatus status) {
+        return status == OrderStatus.DELIVERED || 
+               status == OrderStatus.CANCELLED ||
+               status == OrderStatus.CANCELLED_BY_RESTAURANT ||
+               status == OrderStatus.DELIVERY_FAILED ||
+               status == OrderStatus.PARTIALLY_REFUNDED ||
+               status == OrderStatus.CANCELLED_AND_REFUNDED;
     }
 }

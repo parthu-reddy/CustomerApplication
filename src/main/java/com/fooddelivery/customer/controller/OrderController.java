@@ -38,6 +38,15 @@ public class OrderController {
         return ResponseEntity.ok(ApiResponse.success(response, "Order created successfully"));
     }
 
+    @PostMapping("/{orderId}/delay-approval")
+    public ResponseEntity<ApiResponse<Void>> handleDelayApproval(
+            @org.springframework.web.bind.annotation.PathVariable java.util.UUID orderId,
+            @RequestBody com.fooddelivery.customer.dto.DelayApprovalRequest request) {
+        
+        customerOrderService.handleDelayApproval(orderId, request.isApproved());
+        return ResponseEntity.ok(ApiResponse.success(null, "Delay approval processed"));
+    }
+
     private OrderResponse mapToResponse(Order order) {
         List<OrderItemResponse> itemResponses = order.getOrderItems().stream()
                 .map(item -> OrderItemResponse.builder()

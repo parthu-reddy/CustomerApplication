@@ -49,9 +49,9 @@ class OutboxEventPollerIntegrationTest extends BaseIntegrationTest {
         OutboxEventEntity entity = OutboxEventEntity.builder()
                 .id(eventId)
                 .aggregateType("Order")
-                .aggregateId("ORDER123")
-                .eventType("OrderCreated")
-                .payload("{\"orderId\":\"ORDER123\"}")
+                .aggregateId("11111111-1111-1111-1111-111111111111")
+                .eventType("TEST_EVENT")
+                .payload("{\"orderId\":\"11111111-1111-1111-1111-111111111111\", \"eventType\":\"TEST_EVENT\"}")
                 .status("UNPROCESSED")
                 .createdAt(LocalDateTime.now().minusSeconds(10))
                 .build();
