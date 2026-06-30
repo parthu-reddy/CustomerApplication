@@ -17,11 +17,12 @@ import java.util.regex.Pattern;
 public class WebhookProcessingService {
 
     private final WebhookDeliveryRepository webhookDeliveryRepository;
-    private final KafkaTemplate<String, String> kafkaTemplate;
+    private final com.fooddelivery.order.repository.IOutboxEventRepository outboxEventRepository;
 
     private static final Pattern PHONE_PATTERN = Pattern.compile("\\+?[0-9]{10,14}");
     private static final Pattern EMAIL_PATTERN = Pattern.compile("[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}");
 
+    @org.springframework.transaction.annotation.Transactional
     public void processAndStoreWebhook(String provider, String payload) {
         String maskedPayload = maskPii(payload);
         
@@ -34,8 +35,17 @@ public class WebhookProcessingService {
         webhookDeliveryRepository.save(delivery);
         log.info("Persisted masked webhook payload to audit log for provider {}", provider);
         
-        kafkaTemplate.send(KafkaConstants.TOPIC_PAYMENT_EVENTS, UUID.randomUUID().toString(), payload);
-        log.info("Published original payment webhook payload to Kafka topic {}", KafkaConstants.TOPIC_PAYMENT_EVENTS);
+        com.fooddelivery.order.entity.OutboxEventEntity outboxEvent = com.fooddelivery.order.entity.OutboxEventEntity.builder()
+                .id(UUID.randomUUID())
+                .aggregateType("Payment")
+                .aggregateId(UUID.randomUUID().toString())
+                .eventType("PAYMENT_WEBHOOK")
+                .payload(payload)
+                .createdAt(java.time.LocalDateTime.now())
+                .status("UNPROCESSED")
+                .build();
+        outboxEventRepository.save(outboxEvent);
+        log.info("Persisted original payment webhook payload to outbox_events");
     }
 
     private String maskPii(String payload) {
