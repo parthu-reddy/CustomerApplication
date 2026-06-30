@@ -248,7 +248,11 @@ public class OrderSagaOrchestrator {
                     // Send notification to customer
                     sendNotification(orderId.toString(), order.getCustomerId(), "ORDER_DELIVERED");
                 } else if (order != null) {
-                    log.error("ILLEGAL_STATE_TRANSITION: Cannot process ORDER_DELIVERED for Order {}. Current status is {}. Allowed previous states are DISPATCHED, READY_FOR_PICKUP, OUT_FOR_DELIVERY.", orderId, order.getStatus());
+                    if (OrderStatus.DELIVERED.ordinal() < order.getStatus().ordinal()) {
+                        log.error("BACKWARD_STATE_TRANSITION_ATTEMPT: Cannot process ORDER_DELIVERED for Order {}. Current status {} is further along.", orderId, order.getStatus());
+                    } else {
+                        log.error("ILLEGAL_STATE_TRANSITION: Cannot process ORDER_DELIVERED for Order {}. Current status is {}. Allowed previous states are DISPATCHED, READY_FOR_PICKUP, OUT_FOR_DELIVERY.", orderId, order.getStatus());
+                    }
                 }
                 return;
             }
@@ -265,7 +269,11 @@ public class OrderSagaOrchestrator {
                     // Send notification to customer
                     sendNotification(orderId.toString(), order.getCustomerId(), "ORDER_CANCELLED_BY_RESTAURANT");
                 } else if (order != null) {
-                    log.error("ILLEGAL_STATE_TRANSITION: Cannot process {} for Order {}. Current status is {}. Allowed previous states are PAID, AWAITING_DELAY_APPROVAL, ACCEPTED, DISPATCHED, READY_FOR_PICKUP.", eventType, orderId, order.getStatus());
+                    if (OrderStatus.CANCELLED_BY_RESTAURANT.ordinal() < order.getStatus().ordinal()) {
+                        log.error("BACKWARD_STATE_TRANSITION_ATTEMPT: Cannot process {} for Order {}. Current status is {}.", eventType, orderId, order.getStatus());
+                    } else {
+                        log.error("ILLEGAL_STATE_TRANSITION: Cannot process {} for Order {}. Current status is {}. Allowed previous states are PAID, AWAITING_DELAY_APPROVAL, ACCEPTED, DISPATCHED, READY_FOR_PICKUP.", eventType, orderId, order.getStatus());
+                    }
                 }
                 return;
             }
@@ -283,7 +291,11 @@ public class OrderSagaOrchestrator {
                         // Send notification to customer
                         sendNotification(orderId.toString(), order.getCustomerId(), "DELIVERY_FAILED");
                     } else if (order != null) {
-                        log.error("ILLEGAL_STATE_TRANSITION: Cannot process DELIVERY_FAILED status update for Order {}. Current status is {}. Allowed previous states are DISPATCHED, OUT_FOR_DELIVERY, READY_FOR_PICKUP.", orderId, order.getStatus());
+                        if (OrderStatus.DELIVERY_FAILED.ordinal() < order.getStatus().ordinal()) {
+                            log.error("BACKWARD_STATE_TRANSITION_ATTEMPT: Cannot process DELIVERY_FAILED status update for Order {}. Current status is {}.", orderId, order.getStatus());
+                        } else {
+                            log.error("ILLEGAL_STATE_TRANSITION: Cannot process DELIVERY_FAILED status update for Order {}. Current status is {}. Allowed previous states are DISPATCHED, OUT_FOR_DELIVERY, READY_FOR_PICKUP.", orderId, order.getStatus());
+                        }
                     }
                 } else if (updateStatus != null) {
                     log.info("Order {} status updated to {}.", orderId, updateStatus);
@@ -304,7 +316,11 @@ public class OrderSagaOrchestrator {
                                 orderRepository.save(order);
                                 sendNotification(orderId.toString(), order.getCustomerId(), "ORDER_STATUS_" + updateStatus);
                             } else {
-                                log.error("ILLEGAL_STATE_TRANSITION: Cannot process status update to {} for Order {}. Current status is {}.", updateStatus, orderId, order.getStatus());
+                                if (newStatus.ordinal() < order.getStatus().ordinal()) {
+                                    log.error("BACKWARD_STATE_TRANSITION_ATTEMPT: Cannot process status update to {} for Order {}. Current status is {}.", updateStatus, orderId, order.getStatus());
+                                } else {
+                                    log.error("ILLEGAL_STATE_TRANSITION: Cannot process status update to {} for Order {}. Current status is {}.", updateStatus, orderId, order.getStatus());
+                                }
                             }
                         } catch (IllegalArgumentException e) {
                             log.warn("Unknown OrderStatus: {}", updateStatus);
@@ -363,7 +379,11 @@ public class OrderSagaOrchestrator {
                     // Send notification to customer
                     sendNotification(orderId.toString(), order.getCustomerId(), "DISPATCH_FAILED");
                 } else if (order != null) {
-                    log.error("ILLEGAL_STATE_TRANSITION: Cannot process DISPATCH_FAILED for Order {}. Current status is {}. Allowed previous states are ACCEPTED, READY_FOR_PICKUP, DISPATCHED.", orderId, order.getStatus());
+                    if (OrderStatus.DELIVERY_FAILED.ordinal() < order.getStatus().ordinal()) {
+                        log.error("BACKWARD_STATE_TRANSITION_ATTEMPT: Cannot process DISPATCH_FAILED for Order {}. Current status is {}.", orderId, order.getStatus());
+                    } else {
+                        log.error("ILLEGAL_STATE_TRANSITION: Cannot process DISPATCH_FAILED for Order {}. Current status is {}. Allowed previous states are ACCEPTED, READY_FOR_PICKUP, DISPATCHED.", orderId, order.getStatus());
+                    }
                 }
                 return;
             }
@@ -378,7 +398,11 @@ public class OrderSagaOrchestrator {
                     // Send notification to customer
                     sendNotification(orderId.toString(), order.getCustomerId(), "DELAY_APPROVAL_REQUESTED");
                 } else if (order != null) {
-                    log.error("ILLEGAL_STATE_TRANSITION: Cannot process ORDER_DELAY_APPROVAL_REQUESTED for Order {}. Current status is {}. Expected PAID.", orderId, order.getStatus());
+                    if (OrderStatus.AWAITING_DELAY_APPROVAL.ordinal() < order.getStatus().ordinal()) {
+                        log.error("BACKWARD_STATE_TRANSITION_ATTEMPT: Cannot process ORDER_DELAY_APPROVAL_REQUESTED for Order {}. Current status is {}.", orderId, order.getStatus());
+                    } else {
+                        log.error("ILLEGAL_STATE_TRANSITION: Cannot process ORDER_DELAY_APPROVAL_REQUESTED for Order {}. Current status is {}. Expected PAID.", orderId, order.getStatus());
+                    }
                 }
                 return;
             }
@@ -394,7 +418,11 @@ public class OrderSagaOrchestrator {
                     // Send notification to customer
                     sendNotification(orderId.toString(), order.getCustomerId(), "ORDER_DELAY_REJECTED");
                 } else if (order != null) {
-                    log.error("ILLEGAL_STATE_TRANSITION: Cannot process ORDER_DELAY_REJECTED for Order {}. Current status is {}. Expected AWAITING_DELAY_APPROVAL.", orderId, order.getStatus());
+                    if (OrderStatus.CANCELLED.ordinal() < order.getStatus().ordinal()) {
+                        log.error("BACKWARD_STATE_TRANSITION_ATTEMPT: Cannot process ORDER_DELAY_REJECTED for Order {}. Current status is {}.", orderId, order.getStatus());
+                    } else {
+                        log.error("ILLEGAL_STATE_TRANSITION: Cannot process ORDER_DELAY_REJECTED for Order {}. Current status is {}. Expected AWAITING_DELAY_APPROVAL.", orderId, order.getStatus());
+                    }
                 }
                 return;
             }
@@ -417,7 +445,11 @@ public class OrderSagaOrchestrator {
                     
                     // Dispatch logic will now be handled by DeliveryExecutiveApplication listening to this same event
                 } else if (order != null) {
-                    log.error("ILLEGAL_STATE_TRANSITION: Cannot process ORDER_ACCEPTED for Order {}. Current status is {}. Expected PAID or AWAITING_DELAY_APPROVAL.", orderId, order.getStatus());
+                    if (OrderStatus.ACCEPTED.ordinal() < order.getStatus().ordinal()) {
+                        log.error("BACKWARD_STATE_TRANSITION_ATTEMPT: Cannot process ORDER_ACCEPTED for Order {}. Current status is {}.", orderId, order.getStatus());
+                    } else {
+                        log.error("ILLEGAL_STATE_TRANSITION: Cannot process ORDER_ACCEPTED for Order {}. Current status is {}. Expected PAID or AWAITING_DELAY_APPROVAL.", orderId, order.getStatus());
+                    }
                 }
                 return;
             }
@@ -432,7 +464,11 @@ public class OrderSagaOrchestrator {
                     // Send notification to customer
                     sendNotification(orderId.toString(), order.getCustomerId(), "ORDER_READY_FOR_PICKUP");
                 } else if (order != null) {
-                    log.error("ILLEGAL_STATE_TRANSITION: Cannot process ORDER_READY for Order {}. Current status is {}. Expected ACCEPTED or DISPATCHED.", orderId, order.getStatus());
+                    if (OrderStatus.READY_FOR_PICKUP.ordinal() < order.getStatus().ordinal()) {
+                        log.error("BACKWARD_STATE_TRANSITION_ATTEMPT: Cannot process ORDER_READY for Order {}. Current status is {}.", orderId, order.getStatus());
+                    } else {
+                        log.error("ILLEGAL_STATE_TRANSITION: Cannot process ORDER_READY for Order {}. Current status is {}. Expected ACCEPTED or DISPATCHED.", orderId, order.getStatus());
+                    }
                 }
                 return;
             }
