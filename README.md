@@ -24,23 +24,21 @@ sequenceDiagram
     participant C as Customer API
     participant Outbox as Outbox Poller
     participant K as Kafka
-    participant Rest as Restaurant App
     participant Pay as Payment Gateway App
+    participant Rest as Restaurant App
     participant Del as Delivery App
 
-    C->>C: Create Order (Status: PENDING)
-    C->>C: Save OutboxEvent
-    Outbox->>K: Publish ORDER_CREATED
+    C->>C: Create Order (Status: CREATED)
     
-    K->>Rest: Consume ORDER_CREATED
-    Rest->>K: Publish ORDER_ACCEPTED
-    K->>C: Saga Consumes ORDER_ACCEPTED
-    C->>C: Update Status: ACCEPTED
-    
-    K->>Pay: (Payment Intent Processed)
-    Pay->>K: Publish PAYMENT_SUCCESS
-    K->>C: Saga Consumes PAYMENT_SUCCESS
+    C->>Pay: Customer Completes Payment
+    Pay->>K: Publish PAYMENT_COMPLETED
+    K->>C: Saga Consumes PAYMENT_COMPLETED
     C->>C: Update Status: PAID
+    C->>C: Save OutboxEvent
+    Outbox->>K: Publish ORDER_PAID
+    
+    K->>Rest: Consume ORDER_PAID
+    Rest->>K: Publish ORDER_ACCEPTED
     
     K->>Del: Consume ORDER_ACCEPTED
     Del->>K: Publish DRIVER_ASSIGNED
