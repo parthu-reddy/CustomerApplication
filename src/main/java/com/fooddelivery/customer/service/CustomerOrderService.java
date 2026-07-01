@@ -115,25 +115,34 @@ public class CustomerOrderService {
             }
 
             // Validate restaurant exists and is active via REST
-            ResponseEntity<RestaurantDTO> restaurantResponse = restTemplate.getForEntity(
-                RESTAURANT_SERVICE_URL + "/api/v1/restaurants/" + restaurantId, RestaurantDTO.class);
+            ResponseEntity<java.util.Map> restaurantResponse = restTemplate.getForEntity(
+                RESTAURANT_SERVICE_URL + "/api/v1/restaurants/" + restaurantId, java.util.Map.class);
                 
             if (!restaurantResponse.getStatusCode().is2xxSuccessful() || restaurantResponse.getBody() == null) {
                 throw new IllegalArgumentException(com.fooddelivery.common.constants.AppConstants.ERROR_MSG_RESTAURANT_NOT_FOUND + restaurantId);
             }
             
-            RestaurantDTO restaurant = restaurantResponse.getBody();
-            if (!restaurant.isActive()) {
-                throw new IllegalArgumentException("Restaurant is not currently active: " + restaurant.name());
+            java.util.Map<String, Object> responseBody = restaurantResponse.getBody();
+            java.util.Map<String, Object> restaurantData = (java.util.Map<String, Object>) responseBody.get("data");
+            
+            if (restaurantData == null) {
+                throw new IllegalArgumentException(com.fooddelivery.common.constants.AppConstants.ERROR_MSG_RESTAURANT_NOT_FOUND + restaurantId);
+            }
+            
+            Boolean isActive = (Boolean) restaurantData.get("isActive");
+            if (isActive == null || !isActive) {
+                throw new IllegalArgumentException("Restaurant is not currently active: " + restaurantData.get("name"));
             }
 
-            if (restaurant.lat() == null || restaurant.lng() == null) {
+            Double rLat = (Double) restaurantData.get("lat");
+            Double rLng = (Double) restaurantData.get("lng");
+            if (rLat == null || rLng == null) {
                 throw new IllegalStateException(com.fooddelivery.common.constants.AppConstants.ERROR_MSG_RESTAURANT_UNKNOWN);
             }
 
             // Check Driver Availability in MapsIntegration
             ResponseEntity<java.util.Map> mapsResponse = restTemplate.getForEntity(
-                MAPS_SERVICE_URL + "/api/fleet/availability/check?cityId=" + com.fooddelivery.common.constants.AppConstants.DEFAULT_CITY_ID + "&lat=" + restaurant.lat() + "&lng=" + restaurant.lng() + "&radius=" + com.fooddelivery.common.constants.AppConstants.MAX_DELIVERY_RADIUS_KM, java.util.Map.class);
+                MAPS_SERVICE_URL + "/api/fleet/availability/check?cityId=" + com.fooddelivery.common.constants.AppConstants.DEFAULT_CITY_ID + "&lat=" + rLat + "&lng=" + rLng + "&radius=" + com.fooddelivery.common.constants.AppConstants.MAX_DELIVERY_RADIUS_KM, java.util.Map.class);
                 
             boolean hasDrivers = false;
             if (mapsResponse.getStatusCode().is2xxSuccessful() && mapsResponse.getBody() != null) {
@@ -151,7 +160,7 @@ public class CustomerOrderService {
             }
 
             // Distance check (Haversine)
-            double distance = calculateDistance(restaurant.lat(), restaurant.lng(), address.getLatitude(), address.getLongitude());
+            double distance = calculateDistance(rLat, rLng, address.getLatitude(), address.getLongitude());
             if (distance > com.fooddelivery.common.constants.AppConstants.MAX_DELIVERY_RADIUS_KM) {
                 throw new IllegalArgumentException("Delivery address is outside the " + com.fooddelivery.common.constants.AppConstants.MAX_DELIVERY_RADIUS_KM + "km radius. Distance: " + String.format("%.2f", distance) + " km.");
             }

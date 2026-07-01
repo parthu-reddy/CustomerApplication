@@ -54,7 +54,12 @@ public class CustomerRestaurantController {
             throw new IllegalArgumentException(com.fooddelivery.common.constants.AppConstants.ERROR_MSG_RESTAURANT_NOT_FOUND + id);
         }
         
-        java.util.Map<String, Object> restaurant = restaurantResponse.getBody();
+        java.util.Map<String, Object> responseBody = restaurantResponse.getBody();
+        java.util.Map<String, Object> restaurant = (java.util.Map<String, Object>) responseBody.get("data");
+        if (restaurant == null) {
+            throw new IllegalArgumentException(com.fooddelivery.common.constants.AppConstants.ERROR_MSG_RESTAURANT_NOT_FOUND + id);
+        }
+        
         Double lat = (Double) restaurant.get("lat");
         Double lng = (Double) restaurant.get("lng");
         

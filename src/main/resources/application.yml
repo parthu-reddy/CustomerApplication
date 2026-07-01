@@ -54,3 +54,5 @@ payment-service:
   base-url: ${PAYMENT_SERVICE_URL:http://localhost:8080}
 maps-service:
   base-url: ${MAPS_SERVICE_URL:http://localhost:8083}
+restaurant-service:
+  base-url: ${RESTAURANT_SERVICE_URL:http://localhost:8094}

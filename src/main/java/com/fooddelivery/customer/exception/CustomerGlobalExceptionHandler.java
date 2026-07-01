@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 
 @ControllerAdvice
 @Slf4j
-public class GlobalExceptionHandler {
+public class CustomerGlobalExceptionHandler {
 
     @ExceptionHandler(DeliveryPartnerUnavailableException.class)
     public ResponseEntity<ApiResponse<Void>> handleDeliveryPartnerUnavailableException(DeliveryPartnerUnavailableException ex) {

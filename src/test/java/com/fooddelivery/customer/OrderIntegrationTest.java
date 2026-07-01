@@ -57,13 +57,29 @@ public class OrderIntegrationTest extends BaseIntegrationTest {
         RestAssured.port = port;
         
         // Mock Restaurant API
-        com.fooddelivery.customer.service.CustomerOrderService.RestaurantDTO activeRestaurant = 
-            new com.fooddelivery.customer.service.CustomerOrderService.RestaurantDTO(restaurantId, "Test Restaurant", true, 12.9716, 77.5946);
-        ResponseEntity<com.fooddelivery.customer.service.CustomerOrderService.RestaurantDTO> response = 
-            new ResponseEntity<>(activeRestaurant, HttpStatus.OK);
-            
-        Mockito.when(restTemplate.getForEntity(ArgumentMatchers.anyString(), ArgumentMatchers.eq(com.fooddelivery.customer.service.CustomerOrderService.RestaurantDTO.class)))
+        java.util.Map<String, Object> dataMap = new java.util.HashMap<>();
+        dataMap.put("id", restaurantId.toString());
+        dataMap.put("name", "Test Restaurant");
+        dataMap.put("isActive", true);
+        dataMap.put("lat", 12.9716);
+        dataMap.put("lng", 77.5946);
+
+        java.util.Map<String, Object> apiResponse = new java.util.HashMap<>();
+        apiResponse.put("success", true);
+        apiResponse.put("message", "Restaurant fetched successfully");
+        apiResponse.put("data", dataMap);
+
+        ResponseEntity<java.util.Map> response = new ResponseEntity<>(apiResponse, HttpStatus.OK);
+        
+        java.util.Map<String, Object> mapsResponseMap = new java.util.HashMap<>();
+        mapsResponseMap.put("available", true);
+        ResponseEntity<java.util.Map> mapsResponseEntity = new ResponseEntity<>(mapsResponseMap, HttpStatus.OK);
+
+        Mockito.when(restTemplate.getForEntity(ArgumentMatchers.contains("restaurants"), ArgumentMatchers.eq(java.util.Map.class)))
             .thenReturn(response);
+            
+        Mockito.when(restTemplate.getForEntity(ArgumentMatchers.contains("fleet"), ArgumentMatchers.eq(java.util.Map.class)))
+            .thenReturn(mapsResponseEntity);
             
         // Mock Menu API
         com.fooddelivery.customer.service.CustomerOrderService.MenuItemDTO menuItem = 

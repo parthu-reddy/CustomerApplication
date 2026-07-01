@@ -540,13 +540,16 @@ public class OrderSagaOrchestrator {
     public void publishDelayApprovalEvent(Order order, boolean approved) {
         try {
             String eventType = approved ? EventType.ORDER_DELAY_APPROVED : EventType.ORDER_DELAY_REJECTED;
+            com.fasterxml.jackson.databind.node.ObjectNode payloadNode = objectMapper.createObjectNode();
+            payloadNode.put("eventType", eventType);
+            payloadNode.put("orderId", order.getId().toString());
+            payloadNode.put("restaurantId", order.getRestaurantId().toString());
             OutboxEventEntity outboxEvent = OutboxEventEntity.builder()
                     .id(UUID.randomUUID())
                     .aggregateType(AppConstants.AGGREGATE_ORDER)
                     .aggregateId(order.getId().toString())
                     .eventType(eventType)
-                    .payload(String.format("{\"eventType\":\"%s\", \"orderId\":\"%s\", \"restaurantId\":\"%s\"}",
-                            eventType, order.getId(), order.getRestaurantId()))
+                    .payload(objectMapper.writeValueAsString(payloadNode))
                     .createdAt(LocalDateTime.now())
                     .build();
             outboxEventRepository.save(outboxEvent);
