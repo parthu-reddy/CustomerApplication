@@ -46,12 +46,27 @@ class OrderSagaOrchestratorTest {
     @Mock
     private org.springframework.web.client.RestTemplate restTemplate;
 
+    @Mock
+    private org.springframework.transaction.support.TransactionTemplate transactionTemplate;
+
     private ObjectMapper objectMapper = new ObjectMapper();
 
     private OrderSagaOrchestrator orderSagaOrchestrator;
 
     @BeforeEach
     void setUp() {
+        // Mock executeWithoutResult to immediately run the lambda
+        org.mockito.Mockito.lenient().doAnswer(invocation -> {
+            java.util.function.Consumer<org.springframework.transaction.TransactionStatus> action = invocation.getArgument(0);
+            action.accept(null);
+            return null;
+        }).when(transactionTemplate).executeWithoutResult(org.mockito.ArgumentMatchers.any());
+
+        org.mockito.Mockito.lenient().doAnswer(invocation -> {
+            org.springframework.transaction.support.TransactionCallback<?> callback = invocation.getArgument(0);
+            return callback.doInTransaction(null);
+        }).when(transactionTemplate).execute(org.mockito.ArgumentMatchers.any());
+
         orderSagaOrchestrator = new OrderSagaOrchestrator(
                 orderRepository,
                 outboxEventRepository,
@@ -59,7 +74,8 @@ class OrderSagaOrchestratorTest {
                 objectMapper,
                 kafkaTemplate,
                 ledgerService,
-                restTemplate
+                restTemplate,
+                transactionTemplate
         );
     }
 
@@ -79,8 +95,8 @@ class OrderSagaOrchestratorTest {
         verify(outboxEventRepository).save(outboxCaptor.capture());
         
         OutboxEventEntity savedOutbox = outboxCaptor.getValue();
-        assertThat(savedOutbox.getEventType()).isEqualTo("ORDER_CREATED");
-        assertThat(savedOutbox.getAggregateType()).isEqualTo("Order");
+        assertThat(savedOutbox.getEventType()).isEqualTo(com.fooddelivery.common.constants.EventType.ORDER_CREATED);
+        assertThat(savedOutbox.getAggregateType()).isEqualTo(com.fooddelivery.common.constants.AppConstants.AGGREGATE_ORDER);
     }
 
     @Test
@@ -100,7 +116,7 @@ class OrderSagaOrchestratorTest {
         PaymentIntent intent = new PaymentIntent();
         intent.setId(UUID.randomUUID());
         intent.setInternalOrderId(internalOrderId);
-        intent.setStatus("CREATED");
+        intent.setStatus(com.fooddelivery.common.constants.PaymentIntentStatus.CREATED);
 
         Order order = Order.builder().id(internalOrderId).customerId(UUID.randomUUID()).status(OrderStatus.CREATED).build();
 
@@ -113,7 +129,7 @@ class OrderSagaOrchestratorTest {
         assertThat(order.getStatus()).isEqualTo(OrderStatus.PAID);
         
         verify(paymentIntentRepository).save(intent);
-        assertThat(intent.getStatus()).isEqualTo("SUCCESS");
+        assertThat(intent.getStatus()).isEqualTo(com.fooddelivery.common.constants.PaymentIntentStatus.SUCCESS);
 
         verify(outboxEventRepository, times(2)).save(any(OutboxEventEntity.class));
     }
@@ -127,7 +143,7 @@ class OrderSagaOrchestratorTest {
 
         when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
         
-        orderSagaOrchestrator.handleOrderEvents(payload, "ORDER_ACCEPTED");
+        orderSagaOrchestrator.handleOrderEvents(payload, com.fooddelivery.common.constants.EventType.ORDER_ACCEPTED);
 
         assertThat(order.getStatus()).isEqualTo(OrderStatus.ACCEPTED);
         verify(orderRepository).save(order);

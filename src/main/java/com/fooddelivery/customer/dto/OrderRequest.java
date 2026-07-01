@@ -15,5 +15,6 @@ import java.util.UUID;
 public class OrderRequest {
     private UUID customerId;
     private UUID restaurantId;
+    private UUID deliveryAddressId;
     private List<OrderItemRequest> items;
 }

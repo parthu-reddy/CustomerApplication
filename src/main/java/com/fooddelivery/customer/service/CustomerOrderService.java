@@ -32,44 +32,128 @@ public class CustomerOrderService {
     private final OrderSagaOrchestrator orderSagaOrchestrator;
     private final StringRedisTemplate redisTemplate;
     private final PaymentGatewayOrchestrator paymentGatewayOrchestrator;
+    private final com.fooddelivery.customer.repository.CustomerAddressRepository addressRepository;
     
     // Using a new RestTemplate for now
     private final RestTemplate restTemplate;
+    
+    private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
+    private final com.fooddelivery.order.repository.IOutboxEventRepository outboxEventRepository;
 
     @org.springframework.beans.factory.annotation.Value("${restaurant-service.base-url:http://localhost:8094}")
     private String RESTAURANT_SERVICE_URL;
 
+    @org.springframework.beans.factory.annotation.Value("${maps-service.base-url:http://localhost:8083}")
+    private String MAPS_SERVICE_URL;
+
     public record OrderWithPayment(Order order, String paymentIntent) {}
 
     // DTOs for REST calls
-    public record RestaurantDTO(UUID id, String name, Boolean isActive) {}
+    public record RestaurantDTO(UUID id, String name, Boolean isActive, Double lat, Double lng) {}
     public record MenuItemDTO(UUID id, UUID restaurantId, String name, BigDecimal price, Boolean isAvailable, Integer prepTimeMinutes) {}
 
-    @org.springframework.transaction.annotation.Transactional
-    public OrderWithPayment createOrderWithPayment(UUID customerId, UUID restaurantId, List<OrderItemRequest> requestedItems) {
-        Order order = createOrder(customerId, restaurantId, requestedItems);
-        String intent = paymentGatewayOrchestrator.generateUpiIntent(order);
-        return new OrderWithPayment(order, intent);
+    public OrderWithPayment createOrderWithPayment(UUID customerId, UUID restaurantId, UUID deliveryAddressId, List<OrderItemRequest> requestedItems) {
+        Order order = createOrder(customerId, restaurantId, deliveryAddressId, requestedItems);
+        
+        try {
+            String intent = paymentGatewayOrchestrator.generateUpiIntent(order);
+            return new OrderWithPayment(order, intent);
+        } catch (Exception e) {
+            // COMPENSATION: The order was already committed to DB via startOrderSaga().
+            // The Outbox already has an ORDER_CREATED event queued. We must explicitly
+            // cancel the order and publish an ORDER_CANCELLED event to prevent a phantom
+            // order from propagating through the system.
+            log.error("PAYMENT_INTENT_FAILURE: Payment intent generation failed for Order {}. " +
+                    "Compensating by cancelling order. CustomerId={}, RestaurantId={}, TotalAmount={}",
+                    order.getId(), customerId, restaurantId, order.getTotalAmount(), e);
+            
+            transactionTemplate.executeWithoutResult(status -> {
+                Order freshOrder = orderRepository.findById(order.getId()).orElse(null);
+                if (freshOrder != null && freshOrder.getStatus() == OrderStatus.CREATED) {
+                    freshOrder.setStatus(OrderStatus.CANCELLED);
+                    freshOrder.setCancellationReason("Payment intent generation failed: " + e.getMessage());
+                    orderRepository.save(freshOrder);
+                    
+                    // Insert compensation event into outbox so downstream consumers
+                    // (restaurant, delivery) know this order is dead on arrival
+                    com.fooddelivery.order.entity.OutboxEventEntity cancelEvent = com.fooddelivery.order.entity.OutboxEventEntity.builder()
+                            .id(UUID.randomUUID())
+                            .aggregateType(com.fooddelivery.common.constants.AppConstants.AGGREGATE_ORDER)
+                            .aggregateId(freshOrder.getId().toString())
+                            .eventType(com.fooddelivery.common.constants.EventType.ORDER_CANCELLED)
+                            .payload(String.format("{\"eventType\":\"ORDER_CANCELLED\", \"orderId\":\"%s\", \"reason\":\"Payment intent generation failed\"}", freshOrder.getId()))
+                            .createdAt(java.time.LocalDateTime.now())
+                            .build();
+                    outboxEventRepository.save(cancelEvent);
+                    
+                    log.info("COMPENSATION_COMPLETE: Order {} cancelled and ORDER_CANCELLED outbox event saved.", freshOrder.getId());
+                } else {
+                    log.error("COMPENSATION_SKIPPED: Order {} not found or not in CREATED state (status={}). Cannot compensate.",
+                            order.getId(), freshOrder != null ? freshOrder.getStatus() : "NOT_FOUND");
+                }
+            });
+            
+            throw new RuntimeException("Payment intent generation failed for order " + order.getId(), e);
+        }
     }
 
-    @org.springframework.transaction.annotation.Transactional
-    protected Order createOrder(UUID customerId, UUID restaurantId, List<OrderItemRequest> requestedItems) {
+    protected Order createOrder(UUID customerId, UUID restaurantId, UUID deliveryAddressId, List<OrderItemRequest> requestedItems) {
         if (requestedItems == null || requestedItems.isEmpty()) {
             throw new IllegalArgumentException("Order must contain at least one item.");
         }
+        if (deliveryAddressId == null) {
+            throw new IllegalArgumentException("Delivery address is required.");
+        }
         
         try {
+            // Fetch delivery address
+            com.fooddelivery.customer.entity.CustomerAddress address = addressRepository.findById(deliveryAddressId)
+                .orElseThrow(() -> new IllegalArgumentException("Delivery address not found"));
+            
+            if (!address.getCustomerId().equals(customerId)) {
+                throw new IllegalArgumentException("Address does not belong to customer");
+            }
+
             // Validate restaurant exists and is active via REST
             ResponseEntity<RestaurantDTO> restaurantResponse = restTemplate.getForEntity(
                 RESTAURANT_SERVICE_URL + "/api/v1/restaurants/" + restaurantId, RestaurantDTO.class);
                 
             if (!restaurantResponse.getStatusCode().is2xxSuccessful() || restaurantResponse.getBody() == null) {
-                throw new IllegalArgumentException("Restaurant not found: " + restaurantId);
+                throw new IllegalArgumentException(com.fooddelivery.common.constants.AppConstants.ERROR_MSG_RESTAURANT_NOT_FOUND + restaurantId);
             }
             
             RestaurantDTO restaurant = restaurantResponse.getBody();
             if (!restaurant.isActive()) {
                 throw new IllegalArgumentException("Restaurant is not currently active: " + restaurant.name());
+            }
+
+            if (restaurant.lat() == null || restaurant.lng() == null) {
+                throw new IllegalStateException(com.fooddelivery.common.constants.AppConstants.ERROR_MSG_RESTAURANT_UNKNOWN);
+            }
+
+            // Check Driver Availability in MapsIntegration
+            ResponseEntity<java.util.Map> mapsResponse = restTemplate.getForEntity(
+                MAPS_SERVICE_URL + "/api/fleet/availability/check?cityId=" + com.fooddelivery.common.constants.AppConstants.DEFAULT_CITY_ID + "&lat=" + restaurant.lat() + "&lng=" + restaurant.lng() + "&radius=" + com.fooddelivery.common.constants.AppConstants.MAX_DELIVERY_RADIUS_KM, java.util.Map.class);
+                
+            boolean hasDrivers = false;
+            if (mapsResponse.getStatusCode().is2xxSuccessful() && mapsResponse.getBody() != null) {
+                Boolean available = (Boolean) mapsResponse.getBody().get("available");
+                if (Boolean.TRUE.equals(available)) {
+                    hasDrivers = true;
+                }
+            }
+            
+            if (!hasDrivers) {
+                throw new com.fooddelivery.customer.exception.DeliveryPartnerUnavailableException(
+                    com.fooddelivery.common.constants.AppConstants.ERROR_MSG_NO_DELIVERY_PARTNER_NEARBY, 
+                    com.fooddelivery.common.constants.AppConstants.ERROR_NO_DELIVERY_PARTNER_NEARBY
+                );
+            }
+
+            // Distance check (Haversine)
+            double distance = calculateDistance(restaurant.lat(), restaurant.lng(), address.getLatitude(), address.getLongitude());
+            if (distance > com.fooddelivery.common.constants.AppConstants.MAX_DELIVERY_RADIUS_KM) {
+                throw new IllegalArgumentException("Delivery address is outside the " + com.fooddelivery.common.constants.AppConstants.MAX_DELIVERY_RADIUS_KM + "km radius. Distance: " + String.format("%.2f", distance) + " km.");
             }
 
             BigDecimal totalAmount = BigDecimal.ZERO;
@@ -133,6 +217,10 @@ public class CustomerOrderService {
                     .id(UUID.randomUUID())
                     .customerId(customerId)
                     .restaurantId(restaurantId)
+                    .deliveryAddressId(deliveryAddressId)
+                    .deliveryAddress(formatAddress(address))
+                    .deliveryLat(address.getLatitude())
+                    .deliveryLng(address.getLongitude())
                     .status(OrderStatus.CREATED)
                     .orderItems(new ArrayList<>())
                     .estimatedPrepTimeMinutes(maxPrepTime)
@@ -154,7 +242,6 @@ public class CustomerOrderService {
         }
     }
 
-    @org.springframework.transaction.annotation.Transactional
     public void handleDelayApproval(UUID orderId, boolean approved) {
         Order order = orderRepository.findById(orderId)
             .orElseThrow(() -> new IllegalArgumentException("Order not found"));
@@ -165,25 +252,48 @@ public class CustomerOrderService {
         
         if (approved) {
             // we don't change the status, just let it stay AWAITING_DELAY_APPROVAL until restaurant sends ORDER_ACCEPTED
-            com.fooddelivery.order.entity.OutboxEventEntity event = new com.fooddelivery.order.entity.OutboxEventEntity();
-            event.setAggregateId(order.getId().toString());
-            event.setAggregateType("ORDER");
-            event.setEventType("ORDER_DELAY_APPROVED");
-            event.setPayload(String.format("{\"eventType\":\"ORDER_DELAY_APPROVED\", \"orderId\":\"%s\", \"restaurantId\":\"%s\"}",
-                    order.getId(), order.getRestaurantId()));
-            // I don't have the outbox repository in this service, it is in OrderSagaOrchestrator or similar.
-            // Wait, CustomerOrderService does not inject OutboxRepository. 
-            // Better to let OrderSagaOrchestrator handle the approval response publication.
-            orderSagaOrchestrator.publishDelayApprovalEvent(order, true);
+            transactionTemplate.executeWithoutResult(status -> {
+                com.fooddelivery.order.entity.OutboxEventEntity event = new com.fooddelivery.order.entity.OutboxEventEntity();
+                event.setAggregateId(order.getId().toString());
+                event.setAggregateType(com.fooddelivery.common.constants.AppConstants.AGGREGATE_ORDER);
+                event.setEventType(com.fooddelivery.common.constants.EventType.ORDER_DELAY_APPROVED);
+                event.setPayload(String.format("{\"eventType\":\"ORDER_DELAY_APPROVED\", \"orderId\":\"%s\", \"restaurantId\":\"%s\"}",
+                        order.getId(), order.getRestaurantId()));
+                orderSagaOrchestrator.publishDelayApprovalEvent(order, true);
+            });
         } else {
-            order.setStatus(OrderStatus.CANCELLED);
-            order.setCancellationReason("Customer manually rejected additional prep time request");
-            orderRepository.save(order);
+            transactionTemplate.executeWithoutResult(status -> {
+                order.setStatus(OrderStatus.CANCELLED);
+                order.setCancellationReason("Customer manually rejected additional prep time request");
+                orderRepository.save(order);
+                orderSagaOrchestrator.publishDelayApprovalEvent(order, false);
+            });
             
-            // Refund the customer
+            // Refund the customer (makes HTTP call, so keep outside transaction)
             orderSagaOrchestrator.processRefund(order);
-            
-            orderSagaOrchestrator.publishDelayApprovalEvent(order, false);
         }
+    }
+
+    private double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+        final int R = 6371; // Radius of the earth in km
+        double latDistance = Math.toRadians(lat2 - lat1);
+        double lonDistance = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c; // in km
+    }
+    
+    private String formatAddress(com.fooddelivery.customer.entity.CustomerAddress address) {
+        StringBuilder sb = new StringBuilder();
+        if (address.getAddressLine1() != null) sb.append(address.getAddressLine1());
+        if (address.getAddressLine2() != null && !address.getAddressLine2().isEmpty()) {
+            sb.append(", ").append(address.getAddressLine2());
+        }
+        if (address.getCity() != null) sb.append(", ").append(address.getCity());
+        if (address.getState() != null) sb.append(", ").append(address.getState());
+        if (address.getZipCode() != null) sb.append(" - ").append(address.getZipCode());
+        return sb.toString();
     }
 }

@@ -45,6 +45,19 @@ public class Order {
     
     private UUID deliveryExecutiveId;
     
+    @Column(name = "delivery_address_id")
+    private UUID deliveryAddressId;
+    
+    @Column(name = "delivery_lat")
+    private Double deliveryLat;
+    
+    @Column(name = "delivery_lng")
+    private Double deliveryLng;
+    
+    @Column(name = "delivery_address_text")
+    private String deliveryAddress;
+
+    
     @Column(name = "estimated_prep_time_minutes")
     private Integer estimatedPrepTimeMinutes;
     

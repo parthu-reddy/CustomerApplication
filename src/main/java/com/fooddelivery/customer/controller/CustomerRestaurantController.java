@@ -23,11 +23,14 @@ public class CustomerRestaurantController {
     @org.springframework.beans.factory.annotation.Value("${restaurant-service.base-url:http://localhost:8094}")
     private String RESTAURANT_SERVICE_URL;
 
+    @org.springframework.beans.factory.annotation.Value("${maps-service.base-url:http://localhost:8083}")
+    private String MAPS_SERVICE_URL;
+
     @GetMapping("/nearby")
     public ResponseEntity<ApiResponse<List<Object>>> getNearbyRestaurants(
             @RequestParam double lat, 
             @RequestParam double lng,
-            @RequestParam(defaultValue = "5000") double radius) {
+            @RequestParam(defaultValue = com.fooddelivery.common.constants.AppConstants.MAX_DELIVERY_RADIUS_METERS_STR) double radius) {
         
         ResponseEntity<ApiResponse<List<Object>>> response = restTemplate.exchange(
             RESTAURANT_SERVICE_URL + "/api/v1/restaurants/nearby?lat=" + lat + "&lng=" + lng + "&radius=" + radius,
@@ -37,5 +40,43 @@ public class CustomerRestaurantController {
         );
         
         return ResponseEntity.ok(response.getBody());
+    }
+
+    @GetMapping("/{id}/delivery-availability")
+    public ResponseEntity<ApiResponse<Boolean>> checkDeliveryAvailability(
+            @org.springframework.web.bind.annotation.PathVariable java.util.UUID id) {
+        
+        // 1. Fetch Restaurant Coordinates
+        ResponseEntity<java.util.Map> restaurantResponse = restTemplate.getForEntity(
+            RESTAURANT_SERVICE_URL + "/api/v1/restaurants/" + id, java.util.Map.class);
+            
+        if (!restaurantResponse.getStatusCode().is2xxSuccessful() || restaurantResponse.getBody() == null) {
+            throw new IllegalArgumentException(com.fooddelivery.common.constants.AppConstants.ERROR_MSG_RESTAURANT_NOT_FOUND + id);
+        }
+        
+        java.util.Map<String, Object> restaurant = restaurantResponse.getBody();
+        Double lat = (Double) restaurant.get("lat");
+        Double lng = (Double) restaurant.get("lng");
+        
+        if (lat == null || lng == null) {
+            throw new IllegalStateException(com.fooddelivery.common.constants.AppConstants.ERROR_MSG_RESTAURANT_UNKNOWN);
+        }
+        
+        // 2. Check Driver Availability in MapsIntegration
+        ResponseEntity<java.util.Map> mapsResponse = restTemplate.getForEntity(
+            MAPS_SERVICE_URL + "/api/fleet/availability/check?cityId=" + com.fooddelivery.common.constants.AppConstants.DEFAULT_CITY_ID + "&lat=" + lat + "&lng=" + lng + "&radius=" + com.fooddelivery.common.constants.AppConstants.MAX_DELIVERY_RADIUS_KM, java.util.Map.class);
+            
+        if (mapsResponse.getStatusCode().is2xxSuccessful() && mapsResponse.getBody() != null) {
+            Boolean available = (Boolean) mapsResponse.getBody().get("available");
+            if (Boolean.TRUE.equals(available)) {
+                return ResponseEntity.ok(ApiResponse.success(true, "Delivery partner available."));
+            }
+        }
+        
+        // 3. Throw Exception if not available
+        throw new com.fooddelivery.customer.exception.DeliveryPartnerUnavailableException(
+            com.fooddelivery.common.constants.AppConstants.ERROR_MSG_NO_DELIVERY_PARTNER_NEARBY, 
+            com.fooddelivery.common.constants.AppConstants.ERROR_NO_DELIVERY_PARTNER_NEARBY
+        );
     }
 }

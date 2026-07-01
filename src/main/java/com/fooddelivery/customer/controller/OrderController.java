@@ -29,6 +29,7 @@ public class OrderController {
         CustomerOrderService.OrderWithPayment result = customerOrderService.createOrderWithPayment(
                 request.getCustomerId(),
                 request.getRestaurantId(),
+                request.getDeliveryAddressId(),
                 request.getItems()
         );
         

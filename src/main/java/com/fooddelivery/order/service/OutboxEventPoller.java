@@ -26,7 +26,7 @@ public class OutboxEventPoller {
     @Transactional
     public void pollOutboxEvents() {
         // Fetch up to 100 unprocessed events directly using the repository query with FOR UPDATE SKIP LOCKED
-        List<OutboxEventEntity> unprocessedEvents = outboxEventRepository.findUnprocessedEventsAndLock(List.of("UNPROCESSED", "FAILED"));
+        List<OutboxEventEntity> unprocessedEvents = outboxEventRepository.findUnprocessedEventsAndLock(List.of(com.fooddelivery.common.constants.AppConstants.OUTBOX_STATUS_UNPROCESSED, com.fooddelivery.common.constants.AppConstants.OUTBOX_STATUS_FAILED));
 
         if (unprocessedEvents.isEmpty()) {
             return; // Nothing to process
@@ -37,10 +37,10 @@ public class OutboxEventPoller {
         for (OutboxEventEntity event : unprocessedEvents) {
             try {
                 // Publish to Kafka based on aggregate type or just order-events
-                String topic = "order-events";
-                if ("Payment".equals(event.getAggregateType())) {
-                    topic = "payment-events";
-                } else if ("Notification".equals(event.getAggregateType())) {
+                String topic = KafkaConstants.TOPIC_ORDER_EVENTS;
+                if (com.fooddelivery.common.constants.AppConstants.AGGREGATE_PAYMENT.equals(event.getAggregateType())) {
+                    topic = KafkaConstants.TOPIC_PAYMENT_EVENTS;
+                } else if (com.fooddelivery.common.constants.AppConstants.AGGREGATE_NOTIFICATION.equals(event.getAggregateType())) {
                     topic = KafkaConstants.TOPIC_NOTIFICATIONS_DISPATCH;
                 }
                 
@@ -51,15 +51,15 @@ public class OutboxEventPoller {
                         .setHeader("eventType", event.getEventType())
                         .build();
                         
-                kafkaTemplate.send(message);
+                kafkaTemplate.send(message).get(3, java.util.concurrent.TimeUnit.SECONDS);
                 
                 // Mark as processed
-                event.setStatus("PROCESSED");
+                event.setStatus(com.fooddelivery.common.constants.AppConstants.OUTBOX_STATUS_PROCESSED);
                 event.setProcessedAt(LocalDateTime.now());
                 log.info("Successfully published outbox event {} to topic {}", event.getId(), topic);
             } catch (Exception e) {
                 log.error("Failed to publish outbox event {}", event.getId(), e);
-                event.setStatus("FAILED");
+                event.setStatus(com.fooddelivery.common.constants.AppConstants.OUTBOX_STATUS_FAILED);
                 event.setErrorMessage(e.getMessage());
             }
         }

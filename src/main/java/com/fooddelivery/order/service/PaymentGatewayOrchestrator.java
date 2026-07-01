@@ -30,7 +30,6 @@ public class PaymentGatewayOrchestrator {
     @org.springframework.beans.factory.annotation.Value("${payment-service.base-url:http://localhost:8080}")
     private String paymentServiceBaseUrl;
 
-    @Transactional
     public String generateUpiIntent(Order order) {
         log.info("Requesting Payment Intent for Order: {} from PaymentGatewayIntegration service", order.getId());
 
