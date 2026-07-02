@@ -29,9 +29,9 @@ To ensure atomic database updates and Kafka event emissions:
 ## Saga Orchestration & Financial Ledger
 1. **Order Creation**: Order is saved (Status: `PENDING_PAYMENT`). Outbox event (`ORDER_CREATED`) is emitted.
 2. **Payment Integration**: `WebhookController` handles callbacks. Saga receives `PAYMENT_SUCCESS`.
-3. **Logistics Dispatch**: Emits events to Delivery app. Wait for `DRIVER_ASSIGNED`.
-4. **Kitchen Acceptance**: Waits for `ORDER_ACCEPTED` from Restaurant app.
+3. **Logistics Dispatch**: Emits events to Delivery app. Wait for `DRIVER_ASSIGNED`. If `DISPATCH_FAILED`, triggers `DELIVERY_FAILED` and refund.
+4. **Kitchen Acceptance**: Waits for `ORDER_ACCEPTED` from Restaurant app. If `ORDER_REJECTED` or `ORDER_CANCELLED_BY_RESTAURANT`, triggers `CANCELLED_BY_RESTAURANT` and refund. If delay requires approval, waits for `ORDER_DELAY_APPROVED` or `ORDER_DELAY_REJECTED` (which transitions to `CANCELLED`).
 5. **Logistics Completion**: Waits for `ORDER_DELIVERED` from Delivery app.
 6. **Ledger**: The `LedgerService` uses optimistic locking (`@Version`) to safely credit and debit the platform/restaurant/driver accounts asynchronously once delivered.
 
-For visual diagrams, see `SYSTEM_FLOW_DIAGRAMS.md` in the repository root.
+For visual diagrams, see `Deployment/flow_diagram.md` and `README.md` in the repository root.

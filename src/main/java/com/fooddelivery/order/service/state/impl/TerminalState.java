@@ -67,21 +67,33 @@ public class TerminalState implements OrderState {
     @Override
     public void handleDelayRejected(OrderContext ctx) {
         log.warn("Ignoring ORDER_DELAY_REJECTED for Order {}. Already terminal: {}", ctx.getOrder().getId(), ctx.getOrder().getStatus());
+        if (ctx.getOrder().getStatus() == com.fooddelivery.common.enums.OrderStatus.CANCELLED) {
+            ctx.setRequiresRefund(true);
+        }
     }
 
     @Override
     public void handleOrderCancelledByRestaurant(OrderContext ctx) {
         log.warn("Ignoring ORDER_CANCELLED_BY_RESTAURANT for Order {}. Already terminal: {}", ctx.getOrder().getId(), ctx.getOrder().getStatus());
+        if (ctx.getOrder().getStatus() == com.fooddelivery.common.enums.OrderStatus.CANCELLED) {
+            ctx.setRequiresRefund(true);
+        }
     }
 
     @Override
     public void handleDispatchFailed(OrderContext ctx) {
         log.warn("Ignoring DISPATCH_FAILED for Order {}. Already terminal: {}", ctx.getOrder().getId(), ctx.getOrder().getStatus());
+        if (ctx.getOrder().getStatus() == com.fooddelivery.common.enums.OrderStatus.CANCELLED) {
+            ctx.setRequiresRefund(true);
+        }
     }
 
     @Override
     public void handleDeliveryFailed(OrderContext ctx) {
         log.warn("Ignoring DELIVERY_FAILED for Order {}. Already terminal: {}", ctx.getOrder().getId(), ctx.getOrder().getStatus());
+        if (ctx.getOrder().getStatus() == com.fooddelivery.common.enums.OrderStatus.DELIVERY_FAILED) {
+            ctx.setRequiresRefund(true);
+        }
     }
 
     @Override

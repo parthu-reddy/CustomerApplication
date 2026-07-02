@@ -28,11 +28,12 @@ public class AwaitingDelayApprovalState implements OrderState {
         order.setStatus(OrderStatus.CANCELLED);
         ctx.getActionService().saveOrder(order);
         
-        ctx.getActionService().emitOrderCancelledEvent(order.getId(), "Customer rejected delay");
+        String reason = ctx.getEventPayload().path("reason").asText("Customer rejected delay");
+        ctx.getActionService().emitOrderCancelledEvent(order.getId(), reason);
         ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_DELAY_REJECTED);
         ctx.setRequiresRefund(true);
     }
-
+    
     @Override
     public void handleOrderCancelledByRestaurant(OrderContext ctx) {
         Order order = ctx.getOrder();

@@ -296,18 +296,12 @@ public class CustomerOrderService {
         if (approved) {
             // we don't change the status, just let it stay AWAITING_DELAY_APPROVAL until restaurant sends ORDER_ACCEPTED
             transactionTemplate.executeWithoutResult(status -> {
-                orderSagaOrchestrator.publishDelayApprovalEvent(order, true);
+                orderSagaOrchestrator.publishDelayApprovalEvent(order, true, null);
             });
         } else {
             transactionTemplate.executeWithoutResult(status -> {
-                order.setStatus(OrderStatus.CANCELLED);
-                order.setCancellationReason("Customer manually rejected additional prep time request");
-                orderRepository.save(order);
-                orderSagaOrchestrator.publishDelayApprovalEvent(order, false);
+                orderSagaOrchestrator.publishDelayApprovalEvent(order, false, "Customer manually rejected additional prep time request");
             });
-            
-            // Refund the customer (makes HTTP call, so keep outside transaction)
-            orderSagaOrchestrator.processRefund(order);
         }
     }
 

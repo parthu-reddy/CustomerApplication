@@ -279,13 +279,16 @@ public class OrderSagaOrchestrator {
     }
 
     @Transactional
-    public void publishDelayApprovalEvent(Order order, boolean approved) {
+    public void publishDelayApprovalEvent(Order order, boolean approved, String reason) {
         try {
             String eventType = approved ? EventType.ORDER_DELAY_APPROVED : EventType.ORDER_DELAY_REJECTED;
             com.fasterxml.jackson.databind.node.ObjectNode payloadNode = objectMapper.createObjectNode();
             payloadNode.put("eventType", eventType);
             payloadNode.put("orderId", order.getId().toString());
             payloadNode.put("restaurantId", order.getRestaurantId().toString());
+            if (reason != null && !reason.isEmpty()) {
+                payloadNode.put("reason", reason);
+            }
             OutboxEventEntity outboxEvent = OutboxEventEntity.builder()
                     .id(UUID.randomUUID())
                     .aggregateType(AppConstants.AGGREGATE_ORDER)
@@ -315,26 +318,17 @@ public class OrderSagaOrchestrator {
         for (Order order : delayedOrders) {
             log.info("Order {} exceeded 10-minute delay approval timeout. Cancelling order.", order.getId());
             
-            boolean updated = Boolean.TRUE.equals(transactionTemplate.execute(status -> {
+            boolean eventPublished = Boolean.TRUE.equals(transactionTemplate.execute(status -> {
                 Order dbOrder = orderRepository.findById(order.getId()).orElse(null);
                 if (dbOrder != null && dbOrder.getStatus() == OrderStatus.AWAITING_DELAY_APPROVAL) {
-                    dbOrder.setStatus(OrderStatus.CANCELLED);
-                    dbOrder.setCancellationReason("Auto-cancelled: Customer did not respond to delay approval in 10 minutes");
-                    orderRepository.save(dbOrder);
+                    publishDelayApprovalEvent(dbOrder, false, "Auto-cancelled: Customer did not respond to delay approval in 10 minutes");
                     return true;
                 }
                 return false;
             }));
             
-            if (updated) {
-                // Refund the customer (Outside transaction!)
-                processRefund(order);
-                
-                // Publish rejection event to restaurant to let them know it was auto-cancelled
-                publishDelayApprovalEvent(order, false);
-                
-                // Send notification to customer
-                sendNotification(order.getId().toString(), order.getCustomerId(), EventType.NOTIFY_ORDER_CANCELLED_DELAY_TIMEOUT);
+            if (eventPublished) {
+                log.info("Published ORDER_DELAY_REJECTED for order {} due to timeout.", order.getId());
             }
         }
     }
@@ -362,8 +356,11 @@ public class OrderSagaOrchestrator {
                         while (!success && retries < AppConstants.MAX_OPTIMISTIC_LOCK_RETRIES) {
                             try {
                                 transactionTemplate.executeWithoutResult(status -> {
-                                    intent.setStatus(PaymentIntentStatus.REFUNDED);
-                                    paymentIntentRepository.save(intent);
+                                    // RE-FETCH inside transaction to get latest version for optimistic locking retry
+                                    com.fooddelivery.order.entity.PaymentIntent latestIntent = paymentIntentRepository.findById(intent.getId())
+                                            .orElseThrow(() -> new RuntimeException("PaymentIntent not found during refund retry"));
+                                    latestIntent.setStatus(PaymentIntentStatus.REFUNDED);
+                                    paymentIntentRepository.save(latestIntent);
                                     
                                     UUID refundTransferId = UUID.nameUUIDFromBytes(("REFUND_" + order.getId()).getBytes());
                                     ledgerService.recordTransaction(refundTransferId, PLATFORM_ACCOUNT_ID, AppConstants.ACCOUNT_TYPE_PLATFORM, order.getCustomerId(), AppConstants.ACCOUNT_TYPE_CUSTOMER, order.getTotalAmount());
