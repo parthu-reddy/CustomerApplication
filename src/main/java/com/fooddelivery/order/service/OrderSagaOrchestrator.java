@@ -51,6 +51,7 @@ public class OrderSagaOrchestrator {
         EVENT_HANDLERS.put(EventType.ORDER_REJECTED, com.fooddelivery.order.service.state.OrderState::handleOrderCancelledByRestaurant);
         EVENT_HANDLERS.put(EventType.DRIVER_ASSIGNED, com.fooddelivery.order.service.state.OrderState::handleDriverAssigned);
         EVENT_HANDLERS.put(EventType.DISPATCH_FAILED, com.fooddelivery.order.service.state.OrderState::handleDispatchFailed);
+        EVENT_HANDLERS.put(EventType.DELIVERY_FAILED, com.fooddelivery.order.service.state.OrderState::handleDeliveryFailed);
         EVENT_HANDLERS.put(EventType.ORDER_DELAY_APPROVAL_REQUESTED, com.fooddelivery.order.service.state.OrderState::handleDelayApprovalRequested);
         EVENT_HANDLERS.put(EventType.ORDER_DELAY_REJECTED, com.fooddelivery.order.service.state.OrderState::handleDelayRejected);
         EVENT_HANDLERS.put(EventType.ORDER_ACCEPTED, com.fooddelivery.order.service.state.OrderState::handleOrderAccepted);

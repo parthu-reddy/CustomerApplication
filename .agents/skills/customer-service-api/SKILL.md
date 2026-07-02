@@ -180,6 +180,18 @@ Orders use the State Pattern (`OrderState` interface) with implementations:
 - Any state → `TerminalState` (for cancellations, rejections, delivery failures)
 - `TerminalState` handles: `CANCELLED`, `CANCELLED_BY_RESTAURANT`, `DELIVERY_FAILED`, `CANCELLED_AND_REFUNDED`
 
+## Background Jobs
+
+### StaleOrderSweeper
+- Runs every **5 minutes**.
+- Finds orders in `CREATED` state older than **15 minutes**.
+- Moves them to `CANCELLED` since the customer failed to complete payment in time.
+
+### AbandonedDeliverySweeper
+- Runs every **5 minutes**.
+- Finds orders in `DISPATCHED` or `OUT_FOR_DELIVERY` state older than **2 hours**.
+- Dispatches an `ORDER_DELIVERY_FAILED` outbox event and moves them to `DELIVERY_FAILED` state, triggering automatic customer refund and notification.
+
 ## Database
 - **PostgreSQL** database: `customer_db`
 - **Flyway migrations**: `src/main/resources/db/migration/` (V1–V7)

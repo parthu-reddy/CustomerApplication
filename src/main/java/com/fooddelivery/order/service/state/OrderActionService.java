@@ -71,6 +71,28 @@ public class OrderActionService {
             throw new OrderProcessingException("Failed to publish ORDER_CANCELLED event", e);
         }
     }
+    
+    public void emitOrderDeliveryFailedEvent(UUID orderId, String reason) {
+        try {
+            com.fasterxml.jackson.databind.node.ObjectNode payloadNode = objectMapper.createObjectNode();
+            payloadNode.put("eventType", "DELIVERY_FAILED");
+            payloadNode.put("orderId", orderId.toString());
+            payloadNode.put("reason", reason);
+            OutboxEventEntity outboxEvent = OutboxEventEntity.builder()
+                    .id(UUID.randomUUID())
+                    .aggregateType(AppConstants.AGGREGATE_ORDER)
+                    .aggregateId(orderId.toString())
+                    .eventType("DELIVERY_FAILED")
+                    .payload(objectMapper.writeValueAsString(payloadNode))
+                    .createdAt(LocalDateTime.now())
+                    .status(AppConstants.OUTBOX_STATUS_UNPROCESSED)
+                    .build();
+            outboxEventRepository.save(outboxEvent);
+        } catch (Exception e) {
+            log.error("Failed to publish DELIVERY_FAILED event", e);
+            throw new OrderProcessingException("Failed to publish DELIVERY_FAILED event", e);
+        }
+    }
 
     public void emitOrderPaidEvent(Order order) {
         try {
