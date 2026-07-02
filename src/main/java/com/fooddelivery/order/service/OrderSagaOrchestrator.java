@@ -8,10 +8,10 @@ import com.fooddelivery.common.constants.KafkaConstants;
 import com.fooddelivery.common.constants.PaymentIntentStatus;
 import com.fooddelivery.common.exception.OrderProcessingException;
 import com.fooddelivery.order.entity.Order;
-import com.fooddelivery.order.entity.OutboxEventEntity;
+import com.fooddelivery.common.outbox.entity.OutboxEventEntity;
 import com.fooddelivery.common.enums.OrderStatus;
 import com.fooddelivery.order.repository.IOrderRepository;
-import com.fooddelivery.order.repository.IOutboxEventRepository;
+import com.fooddelivery.common.outbox.repository.OutboxEventRepository;
 import com.fooddelivery.order.repository.IPaymentIntentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +28,8 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 
 @Service
 @RequiredArgsConstructor
@@ -35,13 +37,28 @@ import java.util.UUID;
 public class OrderSagaOrchestrator {
     
     private final IOrderRepository orderRepository;
-    private final IOutboxEventRepository outboxEventRepository;
+    private final OutboxEventRepository outboxEventRepository;
     private final IPaymentIntentRepository paymentIntentRepository;
     private final ObjectMapper objectMapper;
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final DoubleEntryLedgerService ledgerService;
+    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+    
+    private static final java.util.Map<String, java.util.function.BiConsumer<com.fooddelivery.order.service.state.OrderState, com.fooddelivery.order.service.state.OrderContext>> EVENT_HANDLERS = new java.util.HashMap<>();
+    static {
+        EVENT_HANDLERS.put(EventType.ORDER_DELIVERED, com.fooddelivery.order.service.state.OrderState::handleOrderDelivered);
+        EVENT_HANDLERS.put(EventType.ORDER_CANCELLED_BY_RESTAURANT, com.fooddelivery.order.service.state.OrderState::handleOrderCancelledByRestaurant);
+        EVENT_HANDLERS.put(EventType.ORDER_REJECTED, com.fooddelivery.order.service.state.OrderState::handleOrderCancelledByRestaurant);
+        EVENT_HANDLERS.put(EventType.DRIVER_ASSIGNED, com.fooddelivery.order.service.state.OrderState::handleDriverAssigned);
+        EVENT_HANDLERS.put(EventType.DISPATCH_FAILED, com.fooddelivery.order.service.state.OrderState::handleDispatchFailed);
+        EVENT_HANDLERS.put(EventType.ORDER_DELAY_APPROVAL_REQUESTED, com.fooddelivery.order.service.state.OrderState::handleDelayApprovalRequested);
+        EVENT_HANDLERS.put(EventType.ORDER_DELAY_REJECTED, com.fooddelivery.order.service.state.OrderState::handleDelayRejected);
+        EVENT_HANDLERS.put(EventType.ORDER_ACCEPTED, com.fooddelivery.order.service.state.OrderState::handleOrderAccepted);
+        EVENT_HANDLERS.put(EventType.ORDER_READY, com.fooddelivery.order.service.state.OrderState::handleOrderReady);
+    }
     private final org.springframework.web.client.RestTemplate restTemplate;
     private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
+    private final com.fooddelivery.order.service.state.OrderActionService orderActionService;
 
     // We assume the system account ID for the platform is a fixed UUID for this prototype
     private static final UUID PLATFORM_ACCOUNT_ID = UUID.fromString("00000000-0000-0000-0000-000000000000");
@@ -138,80 +155,21 @@ public class OrderSagaOrchestrator {
                 return null;
             }
 
-            if (isFailure) {
-                if (order.getStatus() != OrderStatus.CREATED) {
-                    log.error("ILLEGAL_STATE_TRANSITION: Ignoring payment failure for order {} as it is not in CREATED state (Current status: {})", orderUUID, order.getStatus());
-                    return null;
+            com.fooddelivery.order.service.state.OrderContext context = new com.fooddelivery.order.service.state.OrderContext(order, rootNode, orderActionService);
+            com.fooddelivery.order.service.state.OrderState state = com.fooddelivery.order.service.state.OrderStateFactory.getState(order.getStatus());
+
+            try {
+                if (isFailure) {
+                    state.handlePaymentFailure(context);
+                } else {
+                    state.handlePaymentSuccess(context);
                 }
-                log.info("Payment failed for Order {}. Cancelling order.", orderUUID);
-                if (!isTerminalState(order.getStatus())) {
-                    order.setStatus(OrderStatus.CANCELLED);
-                    orderRepository.save(order);
-                }
-                if (!PaymentIntentStatus.FAILED.equals(intent.getStatus())) {
-                    intent.setStatus(PaymentIntentStatus.FAILED);
-                    paymentIntentRepository.save(intent);
-                }
-                return null;
+            } catch (com.fooddelivery.order.service.state.IllegalStateTransitionException e) {
+                log.error("ILLEGAL_STATE_TRANSITION: {}", e.getMessage());
             }
 
-            // Success scenario
-            if (order.getStatus() != OrderStatus.CREATED) {
-                log.error("ILLEGAL_STATE_TRANSITION: Order {} is not in CREATED state (Current status: {}). Ignoring payment success event.", orderUUID, order.getStatus());
-                if (!PaymentIntentStatus.SUCCESS.equals(intent.getStatus())) {
-                    intent.setStatus(PaymentIntentStatus.SUCCESS);
-                    paymentIntentRepository.save(intent);
-                    log.info("PaymentIntent {} status updated to SUCCESS", intent.getId());
-                    
-                    // Record late payment from customer to platform
-                    UUID paymentTransferId = UUID.nameUUIDFromBytes(("PAYMENT_" + orderUUID).getBytes());
-                    ledgerService.recordTransaction(paymentTransferId, order.getCustomerId(), AppConstants.ACCOUNT_TYPE_CUSTOMER, PLATFORM_ACCOUNT_ID, AppConstants.ACCOUNT_TYPE_PLATFORM, order.getTotalAmount());
-                    
-                    if (isTerminalState(order.getStatus()) && order.getStatus() != OrderStatus.DELIVERED) {
-                        log.info("Order {} is in terminal state {}. Processing immediate refund for late payment success.", orderUUID, order.getStatus());
-                        return order;
-                    }
-                }
-                return null;
-            }
-            
-            order.setStatus(OrderStatus.PAID);
-            orderRepository.save(order);
-            
-            // Record initial payment from customer to platform
-            UUID paymentTransferId = UUID.nameUUIDFromBytes(("PAYMENT_" + orderUUID).getBytes());
-            ledgerService.recordTransaction(paymentTransferId, order.getCustomerId(), AppConstants.ACCOUNT_TYPE_CUSTOMER, PLATFORM_ACCOUNT_ID, AppConstants.ACCOUNT_TYPE_PLATFORM, order.getTotalAmount());
-            
-            com.fooddelivery.common.event.OrderPaidEvent paidEvent = com.fooddelivery.common.event.OrderPaidEvent.builder()
-                    .orderId(order.getId())
-                    .restaurantId(order.getRestaurantId())
-                    .estimatedPrepTimeMinutes(order.getEstimatedPrepTimeMinutes())
-                    .deliveryLat(order.getDeliveryLat())
-                    .deliveryLng(order.getDeliveryLng())
-                    .deliveryAddress(order.getDeliveryAddress())
-                    .build();
-            
-            OutboxEventEntity outboxEvent = OutboxEventEntity.builder()
-                    .id(UUID.randomUUID())
-                    .aggregateType(AppConstants.AGGREGATE_ORDER)
-                    .aggregateId(order.getId().toString())
-                    .eventType(EventType.ORDER_PAID)
-                    .payload(objectMapper.writeValueAsString(paidEvent))
-                    .createdAt(LocalDateTime.now())
-                    .status(AppConstants.OUTBOX_STATUS_UNPROCESSED)
-                    .build();
-            outboxEventRepository.save(outboxEvent);
-            
-            // Send notification to customer
-            sendNotification(orderUUID.toString(), order.getCustomerId(), EventType.ORDER_PAID);
-            
-            log.info("Order {} status updated to PAID and outbox event saved", orderUUID);
-            
-            // Update PaymentIntent in the same transaction
-            if (!PaymentIntentStatus.SUCCESS.equals(intent.getStatus())) {
-                intent.setStatus(PaymentIntentStatus.SUCCESS);
-                paymentIntentRepository.save(intent);
-                log.info("PaymentIntent {} status updated to SUCCESS", intent.getId());
+            if (context.isRequiresRefund()) {
+                return order;
             }
             return null;
                     } catch (RuntimeException e) {
@@ -262,255 +220,39 @@ public class OrderSagaOrchestrator {
             
             UUID orderId = UUID.fromString(orderIdStr);
             
-            if (EventType.ORDER_DELIVERED.equals(eventType)) {
-                log.info("Order {} delivered. Processing ledger accounting.", orderId);
-                Order order = orderRepository.findById(orderId).orElse(null);
-                if (order != null && (order.getStatus() == OrderStatus.DISPATCHED || order.getStatus() == OrderStatus.READY_FOR_PICKUP || order.getStatus() == OrderStatus.OUT_FOR_DELIVERY)) {
-                    order.setStatus(OrderStatus.DELIVERED);
-                    orderRepository.save(order);
-                    
-                    // Calculate splits: 80% to restaurant, 20% to platform.
-                    // For simplicity, driver gets flat 50.0.
-                    java.math.BigDecimal total = order.getTotalAmount();
-                    java.math.BigDecimal restPayout = total.multiply(new java.math.BigDecimal("0.80"));
-                    java.math.BigDecimal driverPayout = new java.math.BigDecimal("50.00");
-                    
-                    UUID restTransferId = UUID.nameUUIDFromBytes(("REST_PAYOUT_" + orderId).getBytes());
-                    ledgerService.recordTransaction(restTransferId, PLATFORM_ACCOUNT_ID, AppConstants.ACCOUNT_TYPE_PLATFORM, order.getRestaurantId(), AppConstants.ACCOUNT_TYPE_RESTAURANT, restPayout);
-                    
-                    if (order.getDeliveryExecutiveId() != null) {
-                        UUID driverTransferId = UUID.nameUUIDFromBytes(("DRIVER_PAYOUT_" + orderId).getBytes());
-                        ledgerService.recordTransaction(driverTransferId, PLATFORM_ACCOUNT_ID, AppConstants.ACCOUNT_TYPE_PLATFORM, order.getDeliveryExecutiveId(), AppConstants.ACCOUNT_TYPE_DRIVER, driverPayout);
-                    }
-                    
-                    // Send notification to customer
-                    sendNotification(orderId.toString(), order.getCustomerId(), EventType.ORDER_DELIVERED);
-                } else if (order != null) {
-                    if (OrderStatus.DELIVERED.ordinal() < order.getStatus().ordinal()) {
-                        log.error("BACKWARD_STATE_TRANSITION_ATTEMPT: Cannot process ORDER_DELIVERED for Order {}. Current status {} is further along.", orderId, order.getStatus());
-                    } else {
-                        log.error("ILLEGAL_STATE_TRANSITION: Cannot process ORDER_DELIVERED for Order {}. Current status is {}. Allowed previous states are DISPATCHED, READY_FOR_PICKUP, OUT_FOR_DELIVERY.", orderId, order.getStatus());
-                    }
-                }
+            Order order = orderRepository.findById(orderId).orElse(null);
+            if (order == null) {
+                log.warn("Order {} not found, skipping event", orderId);
                 return null;
             }
-            
-            if (EventType.ORDER_CANCELLED_BY_RESTAURANT.equals(eventType) || EventType.ORDER_REJECTED.equals(eventType)) {
-                log.info("Order {} cancelled/rejected by restaurant. Processing refund.", orderId);
-                Order order = orderRepository.findById(orderId).orElse(null);
-                if (order != null && (order.getStatus() == OrderStatus.PAID || order.getStatus() == OrderStatus.AWAITING_DELAY_APPROVAL || order.getStatus() == OrderStatus.ACCEPTED || order.getStatus() == OrderStatus.DISPATCHED || order.getStatus() == OrderStatus.READY_FOR_PICKUP)) {
-                    order.setStatus(OrderStatus.CANCELLED_BY_RESTAURANT);
-                    order.setCancellationReason(rootNode.path("reason").asText("Restaurant could not fulfill the order"));
-                    orderRepository.save(order);
-                    
-                    // Send notification to customer
-                    sendNotification(orderId.toString(), order.getCustomerId(), EventType.ORDER_CANCELLED_BY_RESTAURANT);
-                    return order; // Need refund
-                } else if (order != null) {
-                    if (OrderStatus.CANCELLED_BY_RESTAURANT.ordinal() < order.getStatus().ordinal()) {
-                        log.error("BACKWARD_STATE_TRANSITION_ATTEMPT: Cannot process {} for Order {}. Current status is {}.", eventType, orderId, order.getStatus());
-                    } else {
-                        log.error("ILLEGAL_STATE_TRANSITION: Cannot process {} for Order {}. Current status is {}. Allowed previous states are PAID, AWAITING_DELAY_APPROVAL, ACCEPTED, DISPATCHED, READY_FOR_PICKUP.", eventType, orderId, order.getStatus());
-                    }
-                }
-                return null;
-            }
-            
-            if (EventType.ORDER_STATUS_UPDATED.equals(eventType)) {
-                String updateStatus = rootNode.path("status").asText(null);
-                if (EventType.DELIVERY_FAILED.equals(updateStatus)) {
-                    log.info("Order {} delivery failed. Processing refund.", orderId);
-                    Order order = orderRepository.findById(orderId).orElse(null);
-                    if (order != null && (order.getStatus() == OrderStatus.DISPATCHED || order.getStatus() == OrderStatus.OUT_FOR_DELIVERY || order.getStatus() == OrderStatus.READY_FOR_PICKUP)) {
-                        order.setStatus(OrderStatus.DELIVERY_FAILED);
-                        orderRepository.save(order);
-                        
-                        // Send notification to customer
-                        sendNotification(orderId.toString(), order.getCustomerId(), EventType.DELIVERY_FAILED);
-                        return order; // Need refund
-                    } else if (order != null) {
-                        if (OrderStatus.DELIVERY_FAILED.ordinal() < order.getStatus().ordinal()) {
-                            log.error("BACKWARD_STATE_TRANSITION_ATTEMPT: Cannot process DELIVERY_FAILED status update for Order {}. Current status is {}.", orderId, order.getStatus());
-                        } else {
-                            log.error("ILLEGAL_STATE_TRANSITION: Cannot process DELIVERY_FAILED status update for Order {}. Current status is {}. Allowed previous states are DISPATCHED, OUT_FOR_DELIVERY, READY_FOR_PICKUP.", orderId, order.getStatus());
-                        }
-                    }
-                } else if (updateStatus != null) {
-                    log.info("Order {} status updated to {}.", orderId, updateStatus);
-                    Order order = orderRepository.findById(orderId).orElse(null);
-                    if (order != null && !isTerminalState(order.getStatus())) {
-                        try {
-                            OrderStatus newStatus = OrderStatus.valueOf(updateStatus);
-                            boolean validTransition = false;
-                            
-                            if (newStatus == OrderStatus.READY_FOR_PICKUP && (order.getStatus() == OrderStatus.ACCEPTED || order.getStatus() == OrderStatus.DISPATCHED)) {
-                                validTransition = true;
-                            } else if (newStatus == OrderStatus.OUT_FOR_DELIVERY && (order.getStatus() == OrderStatus.DISPATCHED || order.getStatus() == OrderStatus.READY_FOR_PICKUP)) {
-                                validTransition = true;
-                            }
-                            
-                            if (validTransition) {
-                                order.setStatus(newStatus);
-                                orderRepository.save(order);
-                                sendNotification(orderId.toString(), order.getCustomerId(), "ORDER_STATUS_" + updateStatus);
-                            } else {
-                                if (newStatus.ordinal() < order.getStatus().ordinal()) {
-                                    log.error("BACKWARD_STATE_TRANSITION_ATTEMPT: Cannot process status update to {} for Order {}. Current status is {}.", updateStatus, orderId, order.getStatus());
-                                } else {
-                                    log.error("ILLEGAL_STATE_TRANSITION: Cannot process status update to {} for Order {}. Current status is {}.", updateStatus, orderId, order.getStatus());
-                                }
-                            }
-                        } catch (IllegalArgumentException e) {
-                            log.warn("Unknown OrderStatus: {}", updateStatus);
-                        }
-                    } else if (order != null) {
-                        log.error("ILLEGAL_STATE_TRANSITION: Cannot process status update to {} for Order {}. Current status {} is already terminal.", updateStatus, orderId, order.getStatus());
-                    }
-                }
-                return null;
-            }
-            
-            if (EventType.ORDER_DRIVER_REJECTED.equals(eventType)) {
-                log.info("Driver rejected/timed out ping for Order {}. Redispatching will be handled by DeliveryExecutiveApplication.", orderId);
-                // DeliveryExecutiveApplication is listening to this event and will handle redispatch
-                return null;
-            }
-            
-            if (EventType.DRIVER_ASSIGNED.equals(eventType)) {
-                String driverIdStr = rootNode.path("driverId").asText(null);
-                log.info("Driver {} assigned to Order {}. Updating status.", driverIdStr, orderId);
-                Order order = orderRepository.findById(orderId).orElse(null);
-                if (order != null && (order.getStatus() == OrderStatus.ACCEPTED || order.getStatus() == OrderStatus.READY_FOR_PICKUP || order.getStatus() == OrderStatus.DISPATCHED)) {
-                    UUID driverUUID;
-                    try {
-                        driverUUID = UUID.fromString(driverIdStr);
-                    } catch (IllegalArgumentException e) {
-                        log.error("Invalid UUID format for driverId: {}. Skipping event.", driverIdStr);
-                        return null;
-                    }
-                    order.setDeliveryExecutiveId(driverUUID);
-                    if (order.getStatus() == OrderStatus.READY_FOR_PICKUP) {
-                        log.error("BACKWARD_STATE_TRANSITION_ATTEMPT: Order {} is already READY_FOR_PICKUP. DRIVER_ASSIGNED event will not revert status to DISPATCHED.", orderId);
-                    } else if (order.getStatus() == OrderStatus.DISPATCHED) {
-                        log.info("Order {} is already DISPATCHED. Updating driverId only.", orderId);
-                    } else {
-                        order.setStatus(OrderStatus.DISPATCHED);
-                    }
-                    orderRepository.save(order);
-                    
-                    // Send notification to the CUSTOMER that the driver is on the way
-                    sendNotification(orderId.toString(), order.getCustomerId(), EventType.NOTIFY_DRIVER_ON_THE_WAY);
-                } else if (order != null) {
-                    log.error("ILLEGAL_STATE_TRANSITION: Cannot process DRIVER_ASSIGNED for Order {}. Current status is {}. Allowed previous states are ACCEPTED, READY_FOR_PICKUP, DISPATCHED.", orderId, order.getStatus());
-                }
-                return null;
-            }
-            
-            if (EventType.DISPATCH_FAILED.equals(eventType)) {
-                log.warn("Failed to assign driver for Order {}. Processing refund.", orderId);
-                Order order = orderRepository.findById(orderId).orElse(null);
-                if (order != null && (order.getStatus() == OrderStatus.ACCEPTED || order.getStatus() == OrderStatus.READY_FOR_PICKUP || order.getStatus() == OrderStatus.DISPATCHED)) {
-                    order.setStatus(OrderStatus.DELIVERY_FAILED);
-                    orderRepository.save(order);
-                    
-                    // Send notification to customer
-                    sendNotification(orderId.toString(), order.getCustomerId(), EventType.DISPATCH_FAILED);
-                    return order; // Need refund
-                } else if (order != null) {
-                    if (OrderStatus.DELIVERY_FAILED.ordinal() < order.getStatus().ordinal()) {
-                        log.error("BACKWARD_STATE_TRANSITION_ATTEMPT: Cannot process DISPATCH_FAILED for Order {}. Current status is {}.", orderId, order.getStatus());
-                    } else {
-                        log.error("ILLEGAL_STATE_TRANSITION: Cannot process DISPATCH_FAILED for Order {}. Current status is {}. Allowed previous states are ACCEPTED, READY_FOR_PICKUP, DISPATCHED.", orderId, order.getStatus());
-                    }
-                }
-                return null;
-            }
-            
-            if (EventType.ORDER_DELAY_APPROVAL_REQUESTED.equals(eventType)) {
-                log.info("Restaurant requested delay approval for Order {}", orderId);
-                Order order = orderRepository.findById(orderId).orElse(null);
-                if (order != null && order.getStatus() == OrderStatus.PAID) {
-                    order.setStatus(OrderStatus.AWAITING_DELAY_APPROVAL);
-                    orderRepository.save(order);
-                    
-                    // Send notification to customer
-                    sendNotification(orderId.toString(), order.getCustomerId(), EventType.NOTIFY_DELAY_APPROVAL_REQUESTED);
-                } else if (order != null) {
-                    if (OrderStatus.AWAITING_DELAY_APPROVAL.ordinal() < order.getStatus().ordinal()) {
-                        log.error("BACKWARD_STATE_TRANSITION_ATTEMPT: Cannot process ORDER_DELAY_APPROVAL_REQUESTED for Order {}. Current status is {}.", orderId, order.getStatus());
-                    } else {
-                        log.error("ILLEGAL_STATE_TRANSITION: Cannot process ORDER_DELAY_APPROVAL_REQUESTED for Order {}. Current status is {}. Expected PAID.", orderId, order.getStatus());
-                    }
-                }
-                return null;
-            }
-            
-            if (EventType.ORDER_DELAY_REJECTED.equals(eventType)) {
-                log.info("Customer rejected delay for Order {}. Processing refund.", orderId);
-                Order order = orderRepository.findById(orderId).orElse(null);
-                if (order != null && order.getStatus() == OrderStatus.AWAITING_DELAY_APPROVAL) {
-                    order.setStatus(OrderStatus.CANCELLED);
-                    orderRepository.save(order);
-                    
-                    // Send notification to customer
-                    sendNotification(orderId.toString(), order.getCustomerId(), EventType.ORDER_DELAY_REJECTED);
-                    return order; // Need refund
-                } else if (order != null) {
-                    if (OrderStatus.CANCELLED.ordinal() < order.getStatus().ordinal()) {
-                        log.error("BACKWARD_STATE_TRANSITION_ATTEMPT: Cannot process ORDER_DELAY_REJECTED for Order {}. Current status is {}.", orderId, order.getStatus());
-                    } else {
-                        log.error("ILLEGAL_STATE_TRANSITION: Cannot process ORDER_DELAY_REJECTED for Order {}. Current status is {}. Expected AWAITING_DELAY_APPROVAL.", orderId, order.getStatus());
-                    }
-                }
-                return null;
-            }
-            
 
-            if (EventType.ORDER_ACCEPTED.equals(eventType)) {
-                log.info("Order {} accepted by restaurant.", orderId);
-                
-                Order order = orderRepository.findById(orderId).orElse(null);
-                if (order != null && (order.getStatus() == OrderStatus.PAID || order.getStatus() == OrderStatus.AWAITING_DELAY_APPROVAL)) {
-                    order.setStatus(OrderStatus.ACCEPTED);
-                    
-                    com.fasterxml.jackson.databind.JsonNode prepNode = rootNode.path("estimatedPrepTimeMinutes");
-                    if (!prepNode.isMissingNode() && !prepNode.isNull()) {
-                        order.setEstimatedPrepTimeMinutes(prepNode.asInt());
-                    }
-                    
-                    orderRepository.save(order);
-                    log.info("Order {} status updated to ACCEPTED.", orderId);
-                    
-                    // Dispatch logic will now be handled by DeliveryExecutiveApplication listening to this same event
-                } else if (order != null) {
-                    if (OrderStatus.ACCEPTED.ordinal() < order.getStatus().ordinal()) {
-                        log.error("BACKWARD_STATE_TRANSITION_ATTEMPT: Cannot process ORDER_ACCEPTED for Order {}. Current status is {}.", orderId, order.getStatus());
+            com.fooddelivery.order.service.state.OrderContext context = new com.fooddelivery.order.service.state.OrderContext(order, rootNode, orderActionService);
+            com.fooddelivery.order.service.state.OrderState state = com.fooddelivery.order.service.state.OrderStateFactory.getState(order.getStatus());
+
+            try {
+                java.util.function.BiConsumer<com.fooddelivery.order.service.state.OrderState, com.fooddelivery.order.service.state.OrderContext> handler = EVENT_HANDLERS.get(eventType);
+                if (handler != null) {
+                    handler.accept(state, context);
+                } else if (EventType.ORDER_STATUS_UPDATED.equals(eventType)) {
+                    String updateStatus = rootNode.path("status").asText(null);
+                    if (EventType.DELIVERY_FAILED.equals(updateStatus)) {
+                        state.handleDeliveryFailed(context);
                     } else {
-                        log.error("ILLEGAL_STATE_TRANSITION: Cannot process ORDER_ACCEPTED for Order {}. Current status is {}. Expected PAID or AWAITING_DELAY_APPROVAL.", orderId, order.getStatus());
+                        state.handleStatusUpdate(context);
                     }
+                } else if (EventType.ORDER_DRIVER_REJECTED.equals(eventType)) {
+                    log.info("Driver rejected/timed out ping for Order {}. Redispatching will be handled by DeliveryExecutiveApplication.", orderId);
+                } else {
+                    log.warn("Unmapped event type {} for Order {}. Ignoring.", eventType, orderId);
                 }
-                return null;
+            } catch (com.fooddelivery.order.service.state.IllegalStateTransitionException e) {
+                log.error("ILLEGAL_STATE_TRANSITION: {}", e.getMessage());
             }
             
-            if (EventType.ORDER_READY.equals(eventType)) {
-                log.info("Order {} is ready for pickup.", orderId);
-                Order order = orderRepository.findById(orderId).orElse(null);
-                if (order != null && (order.getStatus() == OrderStatus.ACCEPTED || order.getStatus() == OrderStatus.DISPATCHED)) {
-                    order.setStatus(OrderStatus.READY_FOR_PICKUP);
-                    orderRepository.save(order);
-                    
-                    // Send notification to customer
-                    sendNotification(orderId.toString(), order.getCustomerId(), EventType.NOTIFY_ORDER_READY_FOR_PICKUP);
-                } else if (order != null) {
-                    if (OrderStatus.READY_FOR_PICKUP.ordinal() < order.getStatus().ordinal()) {
-                        log.error("BACKWARD_STATE_TRANSITION_ATTEMPT: Cannot process ORDER_READY for Order {}. Current status is {}.", orderId, order.getStatus());
-                    } else {
-                        log.error("ILLEGAL_STATE_TRANSITION: Cannot process ORDER_READY for Order {}. Current status is {}. Expected ACCEPTED or DISPATCHED.", orderId, order.getStatus());
-                    }
-                }
-                return null;
+            if (context.isRequiresRefund()) {
+                return order;
             }
-                        return null;
+            return null;
                     } catch (RuntimeException e) {
                         throw e;
                     } catch (Exception e) {

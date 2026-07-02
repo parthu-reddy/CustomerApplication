@@ -24,7 +24,7 @@ public class PaymentGatewayOrchestrator {
     private final IPaymentIntentRepository paymentIntentRepository;
     private final IOrderRepository orderRepository;
     private final RestTemplate restTemplate;
-    private final com.fooddelivery.order.repository.IOutboxEventRepository outboxEventRepository;
+    private final com.fooddelivery.common.outbox.repository.OutboxEventRepository outboxEventRepository;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
     @org.springframework.beans.factory.annotation.Value("${payment-service.base-url:http://localhost:8080}")

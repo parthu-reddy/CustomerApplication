@@ -30,6 +30,13 @@ public class CustomerOrderService {
 
     private final IOrderRepository orderRepository;
     private final OrderSagaOrchestrator orderSagaOrchestrator;
+    
+    private final java.util.concurrent.ExecutorService executorService = java.util.concurrent.Executors.newFixedThreadPool(50);
+
+    @jakarta.annotation.PreDestroy
+    public void cleanup() {
+        executorService.shutdown();
+    }
     private final StringRedisTemplate redisTemplate;
     private final PaymentGatewayOrchestrator paymentGatewayOrchestrator;
     private final com.fooddelivery.customer.repository.CustomerAddressRepository addressRepository;
@@ -38,7 +45,7 @@ public class CustomerOrderService {
     private final RestTemplate restTemplate;
     
     private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
-    private final com.fooddelivery.order.repository.IOutboxEventRepository outboxEventRepository;
+    private final com.fooddelivery.common.outbox.repository.OutboxEventRepository outboxEventRepository;
 
     @org.springframework.beans.factory.annotation.Value("${restaurant-service.base-url:http://localhost:8094}")
     private String RESTAURANT_SERVICE_URL;
@@ -76,7 +83,7 @@ public class CustomerOrderService {
                     
                     // Insert compensation event into outbox so downstream consumers
                     // (restaurant, delivery) know this order is dead on arrival
-                    com.fooddelivery.order.entity.OutboxEventEntity cancelEvent = com.fooddelivery.order.entity.OutboxEventEntity.builder()
+                    com.fooddelivery.common.outbox.entity.OutboxEventEntity cancelEvent = com.fooddelivery.common.outbox.entity.OutboxEventEntity.builder()
                             .id(UUID.randomUUID())
                             .aggregateType(com.fooddelivery.common.constants.AppConstants.AGGREGATE_ORDER)
                             .aggregateId(freshOrder.getId().toString())
@@ -114,44 +121,81 @@ public class CustomerOrderService {
                 throw new IllegalArgumentException("Address does not belong to customer");
             }
 
-            // Validate restaurant exists and is active via REST
-            ResponseEntity<java.util.Map> restaurantResponse = restTemplate.getForEntity(
-                RESTAURANT_SERVICE_URL + "/api/v1/restaurants/" + restaurantId, java.util.Map.class);
-                
-            if (!restaurantResponse.getStatusCode().is2xxSuccessful() || restaurantResponse.getBody() == null) {
-                throw new IllegalArgumentException(com.fooddelivery.common.constants.AppConstants.ERROR_MSG_RESTAURANT_NOT_FOUND + restaurantId);
-            }
-            
-            java.util.Map<String, Object> responseBody = restaurantResponse.getBody();
-            java.util.Map<String, Object> restaurantData = (java.util.Map<String, Object>) responseBody.get("data");
-            
-            if (restaurantData == null) {
-                throw new IllegalArgumentException(com.fooddelivery.common.constants.AppConstants.ERROR_MSG_RESTAURANT_NOT_FOUND + restaurantId);
-            }
-            
-            Boolean isActive = (Boolean) restaurantData.get("isActive");
-            if (isActive == null || !isActive) {
-                throw new IllegalArgumentException("Restaurant is not currently active: " + restaurantData.get("name"));
-            }
-
-            Double rLat = (Double) restaurantData.get("lat");
-            Double rLng = (Double) restaurantData.get("lng");
-            if (rLat == null || rLng == null) {
-                throw new IllegalStateException(com.fooddelivery.common.constants.AppConstants.ERROR_MSG_RESTAURANT_UNKNOWN);
-            }
-
-            // Check Driver Availability in MapsIntegration
-            ResponseEntity<java.util.Map> mapsResponse = restTemplate.getForEntity(
-                MAPS_SERVICE_URL + "/api/fleet/availability/check?cityId=" + com.fooddelivery.common.constants.AppConstants.DEFAULT_CITY_ID + "&lat=" + rLat + "&lng=" + rLng + "&radius=" + com.fooddelivery.common.constants.AppConstants.MAX_DELIVERY_RADIUS_KM, java.util.Map.class);
-                
-            boolean hasDrivers = false;
-            if (mapsResponse.getStatusCode().is2xxSuccessful() && mapsResponse.getBody() != null) {
-                Boolean available = (Boolean) mapsResponse.getBody().get("available");
-                if (Boolean.TRUE.equals(available)) {
-                    hasDrivers = true;
+            for (OrderItemRequest req : requestedItems) {
+                if (req.getQuantity() == null || req.getQuantity() <= 0) {
+                    throw new IllegalArgumentException("Quantity must be strictly positive");
                 }
             }
+
+            String menuIds = requestedItems.stream()
+                .map(req -> req.getMenuItemId().toString())
+                .collect(Collectors.joining(","));
+
+            // 1. Launch Menu Fetch Async
+            java.util.concurrent.CompletableFuture<ResponseEntity<List<MenuItemDTO>>> menuFuture = java.util.concurrent.CompletableFuture.supplyAsync(() -> 
+                restTemplate.exchange(
+                    RESTAURANT_SERVICE_URL + "/api/v1/restaurants/" + restaurantId + "/menu/batch?ids=" + menuIds,
+                    HttpMethod.GET, null, new ParameterizedTypeReference<List<MenuItemDTO>>() {}),
+                executorService
+            );
+
+            // 2. Launch Restaurant Fetch Async -> Maps Fetch Async
+            java.util.concurrent.CompletableFuture<java.util.Map<String, Object>> restaurantDataFuture = java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+                ResponseEntity<java.util.Map> restaurantResponse = restTemplate.getForEntity(
+                    RESTAURANT_SERVICE_URL + "/api/v1/restaurants/" + restaurantId, java.util.Map.class);
+                    
+                if (!restaurantResponse.getStatusCode().is2xxSuccessful() || restaurantResponse.getBody() == null) {
+                    throw new RuntimeException(new IllegalArgumentException(com.fooddelivery.common.constants.AppConstants.ERROR_MSG_RESTAURANT_NOT_FOUND + restaurantId));
+                }
+                
+                java.util.Map<String, Object> responseBody = restaurantResponse.getBody();
+                java.util.Map<String, Object> restaurantData = (java.util.Map<String, Object>) responseBody.get("data");
+                
+                if (restaurantData == null) {
+                    throw new RuntimeException(new IllegalArgumentException(com.fooddelivery.common.constants.AppConstants.ERROR_MSG_RESTAURANT_NOT_FOUND + restaurantId));
+                }
+                
+                Boolean isActive = (Boolean) restaurantData.get("isActive");
+                if (isActive == null || !isActive) {
+                    throw new RuntimeException(new IllegalArgumentException("Restaurant is not currently active: " + restaurantData.get("name")));
+                }
+                
+                Double rLat = (Double) restaurantData.get("lat");
+                Double rLng = (Double) restaurantData.get("lng");
+                if (rLat == null || rLng == null) {
+                    throw new RuntimeException(new IllegalStateException(com.fooddelivery.common.constants.AppConstants.ERROR_MSG_RESTAURANT_UNKNOWN));
+                }
+                
+                return restaurantData;
+            }, executorService);
+
+            java.util.concurrent.CompletableFuture<Boolean> mapsFuture = restaurantDataFuture.thenApplyAsync(restaurantData -> {
+                Double rLat = (Double) restaurantData.get("lat");
+                Double rLng = (Double) restaurantData.get("lng");
+                ResponseEntity<java.util.Map> mapsResponse = restTemplate.getForEntity(
+                    MAPS_SERVICE_URL + "/api/fleet/availability/check?cityId=" + com.fooddelivery.common.constants.AppConstants.DEFAULT_CITY_ID + "&lat=" + rLat + "&lng=" + rLng + "&radius=" + com.fooddelivery.common.constants.AppConstants.MAX_DELIVERY_RADIUS_KM, java.util.Map.class);
+                    
+                if (mapsResponse.getStatusCode().is2xxSuccessful() && mapsResponse.getBody() != null) {
+                    return Boolean.TRUE.equals(mapsResponse.getBody().get("available"));
+                }
+                return false;
+            });
+
+            // Wait for all async calls to complete
+            try {
+                java.util.concurrent.CompletableFuture.allOf(menuFuture, restaurantDataFuture, mapsFuture).join();
+            } catch (java.util.concurrent.CompletionException ce) {
+                if (ce.getCause() instanceof RuntimeException) {
+                    throw (RuntimeException) ce.getCause();
+                }
+                throw new RuntimeException(ce.getCause());
+            }
+
+            java.util.Map<String, Object> restaurantData = restaurantDataFuture.get();
+            Double rLat = (Double) restaurantData.get("lat");
+            Double rLng = (Double) restaurantData.get("lng");
             
+            boolean hasDrivers = mapsFuture.get();
             if (!hasDrivers) {
                 throw new com.fooddelivery.customer.exception.DeliveryPartnerUnavailableException(
                     com.fooddelivery.common.constants.AppConstants.ERROR_MSG_NO_DELIVERY_PARTNER_NEARBY, 
@@ -168,21 +212,7 @@ public class CustomerOrderService {
             BigDecimal totalAmount = BigDecimal.ZERO;
             List<OrderItem> orderItems = new ArrayList<>();
 
-            for (OrderItemRequest req : requestedItems) {
-                if (req.getQuantity() == null || req.getQuantity() <= 0) {
-                    throw new IllegalArgumentException("Quantity must be strictly positive");
-                }
-            }
-
-            // Fetch menu items via REST
-            String menuIds = requestedItems.stream()
-                .map(req -> req.getMenuItemId().toString())
-                .collect(Collectors.joining(","));
-                
-            ResponseEntity<List<MenuItemDTO>> menuResponse = restTemplate.exchange(
-                RESTAURANT_SERVICE_URL + "/api/v1/restaurants/" + restaurantId + "/menu/batch?ids=" + menuIds,
-                HttpMethod.GET, null, new ParameterizedTypeReference<List<MenuItemDTO>>() {});
-
+            ResponseEntity<List<MenuItemDTO>> menuResponse = menuFuture.get();
             if (!menuResponse.getStatusCode().is2xxSuccessful() || menuResponse.getBody() == null) {
                 throw new IllegalArgumentException("Failed to fetch menu items");
             }
@@ -245,6 +275,10 @@ public class CustomerOrderService {
             
             log.info("Created order {} for customer {} with total amount {}", order.getId(), customerId, totalAmount);
             return order;
+        } catch (com.fooddelivery.customer.exception.DeliveryPartnerUnavailableException e) {
+            throw e;
+        } catch (IllegalArgumentException e) {
+            throw e;
         } catch (Exception e) {
             log.error("Failed to create order", e);
             throw new RuntimeException("Failed to create order", e);
@@ -262,12 +296,6 @@ public class CustomerOrderService {
         if (approved) {
             // we don't change the status, just let it stay AWAITING_DELAY_APPROVAL until restaurant sends ORDER_ACCEPTED
             transactionTemplate.executeWithoutResult(status -> {
-                com.fooddelivery.order.entity.OutboxEventEntity event = new com.fooddelivery.order.entity.OutboxEventEntity();
-                event.setAggregateId(order.getId().toString());
-                event.setAggregateType(com.fooddelivery.common.constants.AppConstants.AGGREGATE_ORDER);
-                event.setEventType(com.fooddelivery.common.constants.EventType.ORDER_DELAY_APPROVED);
-                event.setPayload(String.format("{\"eventType\":\"ORDER_DELAY_APPROVED\", \"orderId\":\"%s\", \"restaurantId\":\"%s\"}",
-                        order.getId(), order.getRestaurantId()));
                 orderSagaOrchestrator.publishDelayApprovalEvent(order, true);
             });
         } else {

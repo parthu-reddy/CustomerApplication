@@ -3,11 +3,11 @@ package com.fooddelivery.order.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fooddelivery.common.constants.KafkaConstants;
 import com.fooddelivery.order.entity.Order;
-import com.fooddelivery.order.entity.OutboxEventEntity;
+import com.fooddelivery.common.outbox.entity.OutboxEventEntity;
 import com.fooddelivery.order.entity.PaymentIntent;
 import com.fooddelivery.common.enums.OrderStatus;
 import com.fooddelivery.order.repository.IOrderRepository;
-import com.fooddelivery.order.repository.IOutboxEventRepository;
+import com.fooddelivery.common.outbox.repository.OutboxEventRepository;
 import com.fooddelivery.order.repository.IPaymentIntentRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -32,7 +32,7 @@ class OrderSagaOrchestratorTest {
     private IOrderRepository orderRepository;
 
     @Mock
-    private IOutboxEventRepository outboxEventRepository;
+    private OutboxEventRepository outboxEventRepository;
 
     @Mock
     private IPaymentIntentRepository paymentIntentRepository;
@@ -53,6 +53,8 @@ class OrderSagaOrchestratorTest {
 
     private OrderSagaOrchestrator orderSagaOrchestrator;
 
+    private com.fooddelivery.order.service.state.OrderActionService orderActionService;
+
     @BeforeEach
     void setUp() {
         // Mock executeWithoutResult to immediately run the lambda
@@ -66,6 +68,14 @@ class OrderSagaOrchestratorTest {
             org.springframework.transaction.support.TransactionCallback<?> callback = invocation.getArgument(0);
             return callback.doInTransaction(null);
         }).when(transactionTemplate).execute(org.mockito.ArgumentMatchers.any());
+        
+        orderActionService = new com.fooddelivery.order.service.state.OrderActionService(
+                orderRepository,
+                outboxEventRepository,
+                paymentIntentRepository,
+                objectMapper,
+                ledgerService
+        );
 
         orderSagaOrchestrator = new OrderSagaOrchestrator(
                 orderRepository,
@@ -75,7 +85,8 @@ class OrderSagaOrchestratorTest {
                 kafkaTemplate,
                 ledgerService,
                 restTemplate,
-                transactionTemplate
+                transactionTemplate,
+                orderActionService
         );
     }
 
@@ -121,6 +132,7 @@ class OrderSagaOrchestratorTest {
         Order order = Order.builder().id(internalOrderId).customerId(UUID.randomUUID()).status(OrderStatus.CREATED).build();
 
         when(paymentIntentRepository.findByGatewayOrderId(gatewayOrderId)).thenReturn(Optional.of(intent));
+        when(paymentIntentRepository.findByInternalOrderId(internalOrderId)).thenReturn(Optional.of(intent));
         when(orderRepository.findById(internalOrderId)).thenReturn(Optional.of(order));
         // Act
         orderSagaOrchestrator.handlePaymentEvents(payload);

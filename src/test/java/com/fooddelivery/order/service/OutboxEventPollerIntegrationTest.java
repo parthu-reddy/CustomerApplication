@@ -1,8 +1,9 @@
 package com.fooddelivery.order.service;
 
 import com.fooddelivery.common.test.BaseIntegrationTest;
-import com.fooddelivery.order.entity.OutboxEventEntity;
-import com.fooddelivery.order.repository.IOutboxEventRepository;
+import com.fooddelivery.common.outbox.entity.OutboxEventEntity;
+import com.fooddelivery.common.outbox.repository.OutboxEventRepository;
+import com.fooddelivery.common.outbox.service.OutboxEventPoller;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -28,7 +29,7 @@ import static org.testcontainers.shaded.org.awaitility.Awaitility.await;
 class OutboxEventPollerIntegrationTest extends BaseIntegrationTest {
 
     @Autowired
-    private IOutboxEventRepository outboxEventRepository;
+    private OutboxEventRepository outboxEventRepository;
 
     @Autowired
     private OutboxEventPoller outboxEventPoller;

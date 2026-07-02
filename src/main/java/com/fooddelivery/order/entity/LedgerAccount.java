@@ -13,7 +13,9 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 @Entity
-@Table(name = "ledger_accounts")
+@Table(name = "ledger_accounts", uniqueConstraints = {
+    @jakarta.persistence.UniqueConstraint(columnNames = {"ownerId", "ownerType"})
+})
 @Data
 @Builder
 @NoArgsConstructor

@@ -70,14 +70,9 @@ public class DoubleEntryLedgerService {
     private LedgerAccount getOrCreateAccount(UUID ownerId, String ownerType) {
         return accountRepository.findByOwnerIdAndOwnerType(ownerId, ownerType)
                 .orElseGet(() -> {
-                    LedgerAccount newAccount = LedgerAccount.builder()
-                            .id(UUID.randomUUID())
-                            .ownerId(ownerId)
-                            .ownerType(ownerType)
-                            .balance(BigDecimal.ZERO)
-                            .lockVersion(0)
-                            .build();
-                    return accountRepository.save(newAccount);
+                    accountRepository.insertIfNotExists(UUID.randomUUID(), ownerId, ownerType);
+                    return accountRepository.findByOwnerIdAndOwnerType(ownerId, ownerType)
+                            .orElseThrow(() -> new IllegalStateException("Failed to get or create account concurrently"));
                 });
     }
 }
