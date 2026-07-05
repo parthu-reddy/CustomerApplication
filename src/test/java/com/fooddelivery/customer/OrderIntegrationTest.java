@@ -135,6 +135,8 @@ public class OrderIntegrationTest extends BaseIntegrationTest {
 
         given()
             .contentType(ContentType.JSON)
+            .header("X-User-Id", customerId.toString())
+            .header("X-User-Role", "CUSTOMER")
             .body(request)
         .when()
             .post("/api/v1/orders")

@@ -8,6 +8,7 @@ import com.fooddelivery.customer.repository.CustomerAddressRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.List;
 import java.util.UUID;
@@ -22,8 +23,14 @@ public class CustomerAddressController {
 
     @PostMapping
     public ResponseEntity<ApiResponse<CustomerAddressDto>> addAddress(
+            HttpServletRequest httpServletRequest,
             @PathVariable UUID customerId,
             @RequestBody AddressRequest request) {
+            
+        String authCustomerId = (String) httpServletRequest.getAttribute("CUSTOMER_ID");
+        if (authCustomerId == null || !authCustomerId.equals(customerId.toString())) {
+            return ResponseEntity.status(401).body(ApiResponse.error("Unauthorized"));
+        }
         
         CustomerAddress address = CustomerAddress.builder()
                 .id(UUID.randomUUID())
@@ -43,7 +50,12 @@ public class CustomerAddressController {
     }
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<CustomerAddressDto>>> getAddresses(@PathVariable UUID customerId) {
+    public ResponseEntity<ApiResponse<List<CustomerAddressDto>>> getAddresses(HttpServletRequest httpServletRequest, @PathVariable UUID customerId) {
+        String authCustomerId = (String) httpServletRequest.getAttribute("CUSTOMER_ID");
+        if (authCustomerId == null || !authCustomerId.equals(customerId.toString())) {
+            return ResponseEntity.status(401).body(ApiResponse.error("Unauthorized"));
+        }
+        
         List<CustomerAddress> addresses = addressRepository.findByCustomerId(customerId);
         List<CustomerAddressDto> dtos = addresses.stream().map(this::toDto).collect(Collectors.toList());
         return ResponseEntity.ok(ApiResponse.success(dtos, "Addresses retrieved"));

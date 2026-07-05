@@ -5,14 +5,15 @@ import com.fooddelivery.customer.controller.*;
 import com.fooddelivery.customer.dto.*;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.stereotype.Service;
+import jakarta.servlet.http.HttpServletRequest;
 
+import java.lang.reflect.Proxy;
 import java.util.UUID;
 import java.util.List;
 
 @Service
 public class CustomerMcpService {
 
-    private final AuthController authController;
     private final CustomerAddressController addressController;
     private final CustomerRestaurantController restaurantController;
     private final OrderController orderController;
@@ -20,14 +21,12 @@ public class CustomerMcpService {
     private final CustomerTrackingController trackingController;
     private final ObjectMapper objectMapper;
 
-    public CustomerMcpService(AuthController authController,
-                              CustomerAddressController addressController,
+    public CustomerMcpService(CustomerAddressController addressController,
                               CustomerRestaurantController restaurantController,
                               OrderController orderController,
                               PlacesController placesController,
                               CustomerTrackingController trackingController,
                               ObjectMapper objectMapper) {
-        this.authController = authController;
         this.addressController = addressController;
         this.restaurantController = restaurantController;
         this.orderController = orderController;
@@ -36,29 +35,24 @@ public class CustomerMcpService {
         this.objectMapper = objectMapper;
     }
 
-    @Tool(description = "Initiate authentication for a customer. Provide phoneNumber.")
-    public String initiateAuth(String phoneNumber) {
-        try {
-            return objectMapper.writeValueAsString(authController.initiateLogin(phoneNumber).getBody());
-        } catch (Exception e) {
-            return "Error: " + e.getMessage();
-        }
-    }
-
-    @Tool(description = "Verify authentication for a customer. Provide phoneNumber and otp.")
-    public String verifyAuth(String phoneNumber, String otp) {
-        try {
-            return objectMapper.writeValueAsString(authController.verifyOtp(phoneNumber, otp).getBody());
-        } catch (Exception e) {
-            return "Error: " + e.getMessage();
-        }
+    private HttpServletRequest createMockRequest(String customerId) {
+        return (HttpServletRequest) Proxy.newProxyInstance(
+                HttpServletRequest.class.getClassLoader(),
+                new Class[]{HttpServletRequest.class},
+                (proxy, method, args) -> {
+                    if ("getAttribute".equals(method.getName()) && "CUSTOMER_ID".equals(args[0])) {
+                        return customerId;
+                    }
+                    return null;
+                }
+        );
     }
 
     @Tool(description = "Add an address for a customer. Provide customerId, label, and JSON string of the address object.")
     public String addAddress(String customerId, String addressJson) {
         try {
             AddressRequest req = objectMapper.readValue(addressJson, AddressRequest.class);
-            return objectMapper.writeValueAsString(addressController.addAddress(UUID.fromString(customerId), req).getBody());
+            return objectMapper.writeValueAsString(addressController.addAddress(createMockRequest(customerId), UUID.fromString(customerId), req).getBody());
         } catch (Exception e) {
             return "Error: " + e.getMessage();
         }
@@ -67,7 +61,7 @@ public class CustomerMcpService {
     @Tool(description = "Get addresses for a customer. Provide customerId.")
     public String getAddresses(String customerId) {
         try {
-            return objectMapper.writeValueAsString(addressController.getAddresses(UUID.fromString(customerId)).getBody());
+            return objectMapper.writeValueAsString(addressController.getAddresses(createMockRequest(customerId), UUID.fromString(customerId)).getBody());
         } catch (Exception e) {
             return "Error: " + e.getMessage();
         }
@@ -91,11 +85,11 @@ public class CustomerMcpService {
         }
     }
 
-    @Tool(description = "Create a customer order. Provide a JSON string representing the OrderRequest object.")
-    public String createOrder(String orderRequestJson) {
+    @Tool(description = "Create a customer order. Provide customerId and a JSON string representing the OrderRequest object.")
+    public String createOrder(String customerId, String orderRequestJson) {
         try {
             OrderRequest req = objectMapper.readValue(orderRequestJson, OrderRequest.class);
-            return objectMapper.writeValueAsString(orderController.createOrder(req).getBody());
+            return objectMapper.writeValueAsString(orderController.createOrder(createMockRequest(customerId), req).getBody());
         } catch (Exception e) {
             return "Error: " + e.getMessage();
         }

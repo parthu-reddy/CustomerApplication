@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 
 import java.util.List;
@@ -25,9 +26,17 @@ public class OrderController {
     private final CustomerOrderService customerOrderService;
 
     @PostMapping
-    public ResponseEntity<ApiResponse<OrderResponse>> createOrder(@RequestBody OrderRequest request) {
+    public ResponseEntity<ApiResponse<OrderResponse>> createOrder(
+            HttpServletRequest httpServletRequest,
+            @RequestBody OrderRequest request) {
+            
+        String customerIdStr = (String) httpServletRequest.getAttribute("CUSTOMER_ID");
+        if (customerIdStr == null) {
+            return ResponseEntity.status(401).body(ApiResponse.error("Unauthorized"));
+        }
+        
         CustomerOrderService.OrderWithPayment result = customerOrderService.createOrderWithPayment(
-                request.getCustomerId(),
+                java.util.UUID.fromString(customerIdStr),
                 request.getRestaurantId(),
                 request.getDeliveryAddressId(),
                 request.getItems()
