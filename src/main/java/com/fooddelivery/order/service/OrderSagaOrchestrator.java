@@ -64,8 +64,7 @@ public class OrderSagaOrchestrator {
     // We assume the system account ID for the platform is a fixed UUID for this prototype
     private static final UUID PLATFORM_ACCOUNT_ID = UUID.fromString("00000000-0000-0000-0000-000000000000");
 
-    @Value("${payment-service.base-url}")
-    private String paymentServiceBaseUrl;
+    private static final String paymentServiceBaseUrl = "http://payment-service";
 
     @Transactional
     public Order startOrderSaga(Order order) {

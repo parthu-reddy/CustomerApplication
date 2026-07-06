@@ -27,8 +27,7 @@ public class PaymentGatewayOrchestrator {
     private final com.fooddelivery.common.outbox.repository.OutboxEventRepository outboxEventRepository;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
-    @org.springframework.beans.factory.annotation.Value("${payment-service.base-url:http://localhost:8080}")
-    private String paymentServiceBaseUrl;
+    private static final String paymentServiceBaseUrl = "http://payment-service";
 
     public String generateUpiIntent(Order order) {
         log.info("Requesting Payment Intent for Order: {} from PaymentGatewayIntegration service", order.getId());

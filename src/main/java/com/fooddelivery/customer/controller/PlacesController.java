@@ -12,9 +12,12 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+
 @RestController
 @RequestMapping("/api/v1/places")
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('CUSTOMER')")
 public class PlacesController {
 
     private final PlacesService placesService;

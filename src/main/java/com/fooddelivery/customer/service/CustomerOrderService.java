@@ -47,11 +47,9 @@ public class CustomerOrderService {
     private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
     private final com.fooddelivery.common.outbox.repository.OutboxEventRepository outboxEventRepository;
 
-    @org.springframework.beans.factory.annotation.Value("${restaurant-service.base-url:http://localhost:8094}")
-    private String RESTAURANT_SERVICE_URL;
+    private static final String RESTAURANT_SERVICE_URL = "http://restaurant-service";
 
-    @org.springframework.beans.factory.annotation.Value("${maps-service.base-url:http://localhost:8083}")
-    private String MAPS_SERVICE_URL;
+    private static final String MAPS_SERVICE_URL = "http://mapsintegration";
 
     public record OrderWithPayment(Order order, String paymentIntent) {}
 
@@ -285,9 +283,13 @@ public class CustomerOrderService {
         }
     }
 
-    public void handleDelayApproval(UUID orderId, boolean approved) {
+    public void handleDelayApproval(UUID customerId, UUID orderId, boolean approved) {
         Order order = orderRepository.findById(orderId)
             .orElseThrow(() -> new IllegalArgumentException("Order not found"));
+            
+        if (!order.getCustomerId().equals(customerId)) {
+            throw new org.springframework.security.access.AccessDeniedException("You are not authorized to perform this action on this order");
+        }
             
         if (order.getStatus() != OrderStatus.AWAITING_DELAY_APPROVAL) {
             throw new IllegalStateException("Order is not awaiting delay approval. Current status: " + order.getStatus());

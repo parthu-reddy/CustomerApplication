@@ -5,8 +5,7 @@ import com.fooddelivery.customer.controller.*;
 import com.fooddelivery.customer.dto.*;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.stereotype.Service;
-import jakarta.servlet.http.HttpServletRequest;
-
+import java.security.Principal;
 import java.lang.reflect.Proxy;
 import java.util.UUID;
 import java.util.List;
@@ -35,24 +34,15 @@ public class CustomerMcpService {
         this.objectMapper = objectMapper;
     }
 
-    private HttpServletRequest createMockRequest(String customerId) {
-        return (HttpServletRequest) Proxy.newProxyInstance(
-                HttpServletRequest.class.getClassLoader(),
-                new Class[]{HttpServletRequest.class},
-                (proxy, method, args) -> {
-                    if ("getAttribute".equals(method.getName()) && "CUSTOMER_ID".equals(args[0])) {
-                        return customerId;
-                    }
-                    return null;
-                }
-        );
+    private Principal createMockPrincipal(String customerId) {
+        return () -> customerId;
     }
 
     @Tool(description = "Add an address for a customer. Provide customerId, label, and JSON string of the address object.")
     public String addAddress(String customerId, String addressJson) {
         try {
             AddressRequest req = objectMapper.readValue(addressJson, AddressRequest.class);
-            return objectMapper.writeValueAsString(addressController.addAddress(createMockRequest(customerId), UUID.fromString(customerId), req).getBody());
+            return objectMapper.writeValueAsString(addressController.addAddress(UUID.fromString(customerId), req).getBody());
         } catch (Exception e) {
             return "Error: " + e.getMessage();
         }
@@ -61,7 +51,7 @@ public class CustomerMcpService {
     @Tool(description = "Get addresses for a customer. Provide customerId.")
     public String getAddresses(String customerId) {
         try {
-            return objectMapper.writeValueAsString(addressController.getAddresses(createMockRequest(customerId), UUID.fromString(customerId)).getBody());
+            return objectMapper.writeValueAsString(addressController.getAddresses(UUID.fromString(customerId)).getBody());
         } catch (Exception e) {
             return "Error: " + e.getMessage();
         }
@@ -89,18 +79,18 @@ public class CustomerMcpService {
     public String createOrder(String customerId, String orderRequestJson) {
         try {
             OrderRequest req = objectMapper.readValue(orderRequestJson, OrderRequest.class);
-            return objectMapper.writeValueAsString(orderController.createOrder(createMockRequest(customerId), req).getBody());
+            return objectMapper.writeValueAsString(orderController.createOrder(createMockPrincipal(customerId), req).getBody());
         } catch (Exception e) {
             return "Error: " + e.getMessage();
         }
     }
 
-    @Tool(description = "Handle delay approval for a customer order. Provide orderId and boolean approved.")
-    public String handleDelayApproval(String orderId, boolean approved) {
+    @Tool(description = "Handle delay approval for a customer order. Provide customerId, orderId and boolean approved.")
+    public String handleDelayApproval(String customerId, String orderId, boolean approved) {
         try {
             DelayApprovalRequest req = new DelayApprovalRequest();
             req.setApproved(approved);
-            return objectMapper.writeValueAsString(orderController.handleDelayApproval(UUID.fromString(orderId), req).getBody());
+            return objectMapper.writeValueAsString(orderController.handleDelayApproval(createMockPrincipal(customerId), UUID.fromString(orderId), req).getBody());
         } catch (Exception e) {
             return "Error: " + e.getMessage();
         }

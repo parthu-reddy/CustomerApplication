@@ -13,18 +13,19 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+
 @RestController
 @RequestMapping("/api/v1/restaurants")
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('CUSTOMER')")
 public class CustomerRestaurantController {
 
     private final RestTemplate restTemplate;
 
-    @org.springframework.beans.factory.annotation.Value("${restaurant-service.base-url:http://localhost:8094}")
-    private String RESTAURANT_SERVICE_URL;
+    private static final String RESTAURANT_SERVICE_URL = "http://restaurant-service";
 
-    @org.springframework.beans.factory.annotation.Value("${maps-service.base-url:http://localhost:8083}")
-    private String MAPS_SERVICE_URL;
+    private static final String MAPS_SERVICE_URL = "http://mapsintegration";
 
     @GetMapping("/nearby")
     public ResponseEntity<ApiResponse<List<Object>>> getNearbyRestaurants(

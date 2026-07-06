@@ -18,25 +18,26 @@ import lombok.RequiredArgsConstructor;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+import jakarta.validation.Valid;
+
 @RestController
 @RequestMapping("/api/v1/orders")
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('CUSTOMER')")
 public class OrderController {
 
     private final CustomerOrderService customerOrderService;
 
     @PostMapping
     public ResponseEntity<ApiResponse<OrderResponse>> createOrder(
-            HttpServletRequest httpServletRequest,
-            @RequestBody OrderRequest request) {
+            java.security.Principal principal,
+            @Valid @RequestBody OrderRequest request) {
             
-        String customerIdStr = (String) httpServletRequest.getAttribute("CUSTOMER_ID");
-        if (customerIdStr == null) {
-            return ResponseEntity.status(401).body(ApiResponse.error("Unauthorized"));
-        }
+        java.util.UUID customerId = java.util.UUID.fromString(principal.getName());
         
         CustomerOrderService.OrderWithPayment result = customerOrderService.createOrderWithPayment(
-                java.util.UUID.fromString(customerIdStr),
+                customerId,
                 request.getRestaurantId(),
                 request.getDeliveryAddressId(),
                 request.getItems()
@@ -50,10 +51,13 @@ public class OrderController {
 
     @PostMapping("/{orderId}/delay-approval")
     public ResponseEntity<ApiResponse<Void>> handleDelayApproval(
+            java.security.Principal principal,
             @org.springframework.web.bind.annotation.PathVariable java.util.UUID orderId,
             @RequestBody com.fooddelivery.customer.dto.DelayApprovalRequest request) {
         
-        customerOrderService.handleDelayApproval(orderId, request.isApproved());
+        java.util.UUID customerId = java.util.UUID.fromString(principal.getName());
+        
+        customerOrderService.handleDelayApproval(customerId, orderId, request.isApproved());
         return ResponseEntity.ok(ApiResponse.success(null, "Delay approval processed"));
     }
 

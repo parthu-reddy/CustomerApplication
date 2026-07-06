@@ -1,57 +1,14 @@
-# Customer Application
+# CustomerApplication
 
-The Customer Application acts as the core gateway and order state machine for the Food Delivery platform. It provides the customer-facing REST APIs and hosts the **Order Saga Orchestrator**.
+The CustomerApplication is the backend service handling all consumer-facing operations. It allows users to browse restaurants, add items to their cart, create orders, and track order status.
 
-## Responsibilities
+## Setup & Build
+1. Build the service: `mvn clean install`
+2. Run the application: `mvn spring-boot:run`
+3. Port: `8081`
 
-1. **Customer Management**: Registration, profile handling.
-2. **Order Intake**: Receiving orders, validating cart totals, and generating initial `PENDING` order states.
-3. **Outbox Pattern**: Reliable publishing of initial `ORDER_CREATED` events via the transactional outbox table (`outbox_events`).
-4. **Saga Orchestrator**: The `OrderSagaOrchestrator` manages the distributed transaction of a food delivery order. It listens to Kafka events from the Restaurant, Payment, and Delivery microservices to progress the order through its state machine and calculates financial ledger splits upon delivery.
-
-## Database Schema (customer_db)
-
-- `customers`: Profiles and auth.
-- `orders`, `order_items`: Core commerce tables.
-- `outbox_events`: Polled by a scheduler to guarantee at-least-once delivery to Kafka.
-- `payment_intents`, `refunds`: Local materialized view of payment state to drive the saga.
-- `ledgers`, `ledger_accounts`, `ledger_entries`: Double-entry accounting system to track platform fees, restaurant payouts, and delivery executive earnings upon successful order completion.
-
-## Order Saga Sequence
-
-```mermaid
-sequenceDiagram
-    participant C as Customer API
-    participant Outbox as Outbox Poller
-    participant K as Kafka
-    participant Pay as Payment Gateway App
-    participant Rest as Restaurant App
-    participant Del as Delivery App
-
-    C->>C: Create Order (Status: CREATED)
-    
-    C->>Pay: Customer Completes Payment
-    Pay->>K: Publish PAYMENT_COMPLETED
-    K->>C: Saga Consumes PAYMENT_COMPLETED
-    C->>C: Update Status: PAID
-    C->>C: Save OutboxEvent
-    Outbox->>K: Publish ORDER_PAID
-    
-    K->>Rest: Consume ORDER_PAID
-    Rest->>K: Publish ORDER_ACCEPTED
-    
-    K->>Del: Consume ORDER_ACCEPTED
-    Del->>K: Publish DRIVER_ASSIGNED
-    K->>C: Saga Consumes DRIVER_ASSIGNED
-    C->>C: Update Status: DISPATCHED
-    
-    Del->>K: Publish ORDER_DELIVERED
-    K->>C: Saga Consumes ORDER_DELIVERED
-    C->>C: Update Status: DELIVERED
-    C->>C: Ledger Settlement (80% Rest, 20% Plat)
-```
-
-## Setup & Running
-
-1. Ensure the PostgreSQL `customer_db` is running.
-2. Run `mvn spring-boot:run`. Flyway will automatically apply migrations (`V1__init_schema.sql`).
+## Key Responsibilities
+- **Restaurant Discovery**: View available restaurants and menus.
+- **Cart Management**: Add/Remove items from the shopping cart.
+- **Order Lifecycle**: Create orders and integrate with the PaymentService.
+- **Real-time Tracking**: Provides WebSocket endpoints for live order tracking.

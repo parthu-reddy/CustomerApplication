@@ -17,8 +17,7 @@ public class PlacesService {
 
     private final RestTemplate restTemplate;
 
-    @org.springframework.beans.factory.annotation.Value("${maps-service.base-url:http://localhost:8083}")
-    private String mapsServiceBaseUrl;
+    private static final String mapsServiceBaseUrl = "http://mapsintegration";
 
     public List<Map<String, Object>> autocomplete(String input) {
         log.info("Requesting autocomplete for input: {} from MapsIntegration", input);

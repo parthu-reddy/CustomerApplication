@@ -16,16 +16,21 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.io.IOException;
 import java.util.UUID;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+
 @RestController
 @RequestMapping("/api/v1/orders/{orderId}/live-tracking")
 @RequiredArgsConstructor
 @Slf4j
+@PreAuthorize("hasRole('CUSTOMER') and @customerSecurityHelper.isOrderOwner(#orderId, authentication.principal)")
 public class CustomerTrackingController {
 
     private final StringRedisTemplate redisTemplate;
+    private final com.fooddelivery.order.repository.IOrderRepository orderRepository;
 
     @GetMapping(produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter trackOrder(@PathVariable UUID orderId) {
+
         SseEmitter emitter = new SseEmitter(600000L); // 10 minutes timeout
         
         String trackingChannel = "tracking:order:" + orderId;
