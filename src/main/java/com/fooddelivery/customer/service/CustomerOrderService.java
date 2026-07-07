@@ -129,55 +129,80 @@ public class CustomerOrderService {
                 .map(req -> req.getMenuItemId().toString())
                 .collect(Collectors.joining(","));
 
-            // 1. Launch Menu Fetch Async
-            java.util.concurrent.CompletableFuture<ResponseEntity<List<MenuItemDTO>>> menuFuture = java.util.concurrent.CompletableFuture.supplyAsync(() -> 
-                restTemplate.exchange(
-                    RESTAURANT_SERVICE_URL + "/api/v1/restaurants/" + restaurantId + "/menu/batch?ids=" + menuIds,
-                    HttpMethod.GET, null, new ParameterizedTypeReference<List<MenuItemDTO>>() {}),
-                executorService
-            );
+            org.springframework.web.context.request.RequestAttributes requestAttributes = org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
+            org.springframework.security.core.context.SecurityContext securityContext = org.springframework.security.core.context.SecurityContextHolder.getContext();
 
-            // 2. Launch Restaurant Fetch Async -> Maps Fetch Async
-            java.util.concurrent.CompletableFuture<java.util.Map<String, Object>> restaurantDataFuture = java.util.concurrent.CompletableFuture.supplyAsync(() -> {
-                ResponseEntity<java.util.Map> restaurantResponse = restTemplate.getForEntity(
-                    RESTAURANT_SERVICE_URL + "/api/v1/restaurants/" + restaurantId, java.util.Map.class);
-                    
-                if (!restaurantResponse.getStatusCode().is2xxSuccessful() || restaurantResponse.getBody() == null) {
-                    throw new RuntimeException(new IllegalArgumentException(com.fooddelivery.common.constants.AppConstants.ERROR_MSG_RESTAURANT_NOT_FOUND + restaurantId));
+            // 1. Launch Menu Fetch Async
+            java.util.concurrent.CompletableFuture<ResponseEntity<List<MenuItemDTO>>> menuFuture = java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+                org.springframework.web.context.request.RequestContextHolder.setRequestAttributes(requestAttributes);
+                org.springframework.security.core.context.SecurityContextHolder.setContext(securityContext);
+                try {
+                    return restTemplate.exchange(
+                        RESTAURANT_SERVICE_URL + "/api/v1/restaurants/" + restaurantId + "/menu/batch?ids=" + menuIds,
+                        HttpMethod.GET, null, new ParameterizedTypeReference<List<MenuItemDTO>>() {});
+                } finally {
+                    org.springframework.web.context.request.RequestContextHolder.resetRequestAttributes();
+                    org.springframework.security.core.context.SecurityContextHolder.clearContext();
                 }
-                
-                java.util.Map<String, Object> responseBody = restaurantResponse.getBody();
-                java.util.Map<String, Object> restaurantData = (java.util.Map<String, Object>) responseBody.get("data");
-                
-                if (restaurantData == null) {
-                    throw new RuntimeException(new IllegalArgumentException(com.fooddelivery.common.constants.AppConstants.ERROR_MSG_RESTAURANT_NOT_FOUND + restaurantId));
-                }
-                
-                Boolean isActive = (Boolean) restaurantData.get("isActive");
-                if (isActive == null || !isActive) {
-                    throw new RuntimeException(new IllegalArgumentException("Restaurant is not currently active: " + restaurantData.get("name")));
-                }
-                
-                Double rLat = (Double) restaurantData.get("lat");
-                Double rLng = (Double) restaurantData.get("lng");
-                if (rLat == null || rLng == null) {
-                    throw new RuntimeException(new IllegalStateException(com.fooddelivery.common.constants.AppConstants.ERROR_MSG_RESTAURANT_UNKNOWN));
-                }
-                
-                return restaurantData;
             }, executorService);
 
-            java.util.concurrent.CompletableFuture<Boolean> mapsFuture = restaurantDataFuture.thenApplyAsync(restaurantData -> {
-                Double rLat = (Double) restaurantData.get("lat");
-                Double rLng = (Double) restaurantData.get("lng");
-                ResponseEntity<java.util.Map> mapsResponse = restTemplate.getForEntity(
-                    MAPS_SERVICE_URL + "/api/fleet/availability/check?cityId=" + com.fooddelivery.common.constants.AppConstants.DEFAULT_CITY_ID + "&lat=" + rLat + "&lng=" + rLng + "&radius=" + com.fooddelivery.common.constants.AppConstants.MAX_DELIVERY_RADIUS_KM, java.util.Map.class);
+            // 2. Launch Restaurant Fetch Async -> Maps Fetch Async
+            // 2. Launch Restaurant Fetch Async
+            java.util.concurrent.CompletableFuture<java.util.Map<String, Object>> restaurantDataFuture = java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+                org.springframework.web.context.request.RequestContextHolder.setRequestAttributes(requestAttributes);
+                org.springframework.security.core.context.SecurityContextHolder.setContext(securityContext);
+                try {
+                    ResponseEntity<java.util.Map> restaurantResponse = restTemplate.getForEntity(
+                        RESTAURANT_SERVICE_URL + "/api/v1/restaurants/" + restaurantId, java.util.Map.class);
+                        
+                    if (!restaurantResponse.getStatusCode().is2xxSuccessful() || restaurantResponse.getBody() == null) {
+                        throw new RuntimeException(new IllegalArgumentException(com.fooddelivery.common.constants.AppConstants.ERROR_MSG_RESTAURANT_NOT_FOUND + restaurantId));
+                    }
                     
-                if (mapsResponse.getStatusCode().is2xxSuccessful() && mapsResponse.getBody() != null) {
-                    return Boolean.TRUE.equals(mapsResponse.getBody().get("available"));
+                    java.util.Map<String, Object> responseBody = restaurantResponse.getBody();
+                    java.util.Map<String, Object> restaurantData = (java.util.Map<String, Object>) responseBody.get("data");
+                    
+                    if (restaurantData == null) {
+                        throw new RuntimeException(new IllegalArgumentException(com.fooddelivery.common.constants.AppConstants.ERROR_MSG_RESTAURANT_NOT_FOUND + restaurantId));
+                    }
+                    
+                    Boolean isActive = (Boolean) restaurantData.get("isActive");
+                    if (isActive == null || !isActive) {
+                        throw new RuntimeException(new IllegalArgumentException("Restaurant is not currently active: " + restaurantData.get("name")));
+                    }
+                    
+                    Double rLat = (Double) restaurantData.get("lat");
+                    Double rLng = (Double) restaurantData.get("lng");
+                    if (rLat == null || rLng == null) {
+                        throw new RuntimeException(new IllegalStateException(com.fooddelivery.common.constants.AppConstants.ERROR_MSG_RESTAURANT_UNKNOWN));
+                    }
+                    
+                    return restaurantData;
+                } finally {
+                    org.springframework.web.context.request.RequestContextHolder.resetRequestAttributes();
+                    org.springframework.security.core.context.SecurityContextHolder.clearContext();
                 }
-                return false;
-            });
+            }, executorService);
+
+            // 3. Launch Maps Fetch Async
+            java.util.concurrent.CompletableFuture<Boolean> mapsFuture = restaurantDataFuture.thenApplyAsync(restaurantData -> {
+                org.springframework.web.context.request.RequestContextHolder.setRequestAttributes(requestAttributes);
+                org.springframework.security.core.context.SecurityContextHolder.setContext(securityContext);
+                try {
+                    Double rLat = (Double) restaurantData.get("lat");
+                    Double rLng = (Double) restaurantData.get("lng");
+                    ResponseEntity<java.util.Map> mapsResponse = restTemplate.getForEntity(
+                        MAPS_SERVICE_URL + "/api/fleet/availability/check?cityId=" + com.fooddelivery.common.constants.AppConstants.DEFAULT_CITY_ID + "&lat=" + rLat + "&lng=" + rLng + "&radius=" + com.fooddelivery.common.constants.AppConstants.MAX_DELIVERY_RADIUS_KM, java.util.Map.class);
+                        
+                    if (mapsResponse.getStatusCode().is2xxSuccessful() && mapsResponse.getBody() != null) {
+                        return Boolean.TRUE.equals(mapsResponse.getBody().get("available"));
+                    }
+                    return false;
+                } finally {
+                    org.springframework.web.context.request.RequestContextHolder.resetRequestAttributes();
+                    org.springframework.security.core.context.SecurityContextHolder.clearContext();
+                }
+            }, executorService);
 
             // Wait for all async calls to complete
             try {

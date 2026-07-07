@@ -1,3 +1,4 @@
+-- Source: V1__init_schema.sql
 CREATE EXTENSION IF NOT EXISTS postgis; 
 
 CREATE TABLE orders (
@@ -55,7 +56,7 @@ CREATE TABLE ledgers (
     type VARCHAR(50) NOT NULL,
     amount DECIMAL(10, 2) NOT NULL,
     balance_after DECIMAL(10, 2) NOT NULL,
-    version BIGINT NOT NULL DEFAULT 0,
+    version INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 CREATE INDEX idx_ledgers_account_id_created ON ledgers(account_id, created_at DESC);
@@ -134,3 +135,61 @@ CREATE TABLE webhook_deliveries (
     masked_payload JSONB NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+
+-- Source: V2__add_estimated_prep_time_to_orders.sql
+ALTER TABLE orders ADD COLUMN estimated_prep_time_minutes INTEGER DEFAULT 15;
+
+
+-- Source: V3__add_cancellation_reason_to_orders.sql
+ALTER TABLE orders ADD COLUMN cancellation_reason VARCHAR(255);
+
+
+-- Source: V4__add_gateway_name_to_payment_intents.sql
+ALTER TABLE payment_intents ADD COLUMN gateway_name VARCHAR(100);
+
+
+-- Source: V5__add_customer_address.sql
+CREATE TABLE customer_addresses (
+    id UUID PRIMARY KEY,
+    customer_id UUID NOT NULL REFERENCES customers(id),
+    label VARCHAR(50),
+    address_line1 VARCHAR(255) NOT NULL,
+    address_line2 VARCHAR(255),
+    city VARCHAR(100) NOT NULL,
+    state VARCHAR(100) NOT NULL,
+    zip_code VARCHAR(20) NOT NULL,
+    latitude DOUBLE PRECISION NOT NULL,
+    longitude DOUBLE PRECISION NOT NULL,
+    is_default BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+CREATE INDEX idx_customer_addresses_customer_id ON customer_addresses(customer_id);
+
+ALTER TABLE orders ADD COLUMN delivery_lat DOUBLE PRECISION;
+ALTER TABLE orders ADD COLUMN delivery_lng DOUBLE PRECISION;
+ALTER TABLE orders ADD COLUMN delivery_address_id UUID REFERENCES customer_addresses(id);
+
+
+-- Source: V6__add_delivery_address_text.sql
+ALTER TABLE orders ADD COLUMN delivery_address_text VARCHAR(1000);
+
+
+-- Source: V7__add_ledger_account_constraint.sql
+-- Remove duplicates keeping one
+DELETE FROM ledger_accounts a USING (
+    SELECT id,
+           ROW_NUMBER() OVER(PARTITION BY owner_id, owner_type ORDER BY id) as rn
+    FROM ledger_accounts
+) b
+WHERE a.id = b.id AND b.rn > 1;
+
+ALTER TABLE ledger_accounts
+ADD CONSTRAINT uk_ledger_account_owner UNIQUE (owner_id, owner_type);
+
+
+-- Source: V10__add_retry_count_to_outbox.sql
+ALTER TABLE outbox_events ADD COLUMN IF NOT EXISTS retry_count INT DEFAULT 0;
+
+
