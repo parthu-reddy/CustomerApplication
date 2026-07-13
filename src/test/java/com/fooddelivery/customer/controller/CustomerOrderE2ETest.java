@@ -59,6 +59,7 @@ class CustomerOrderE2ETest extends BaseIntegrationTest {
         dataMap.put("id", restaurantId.toString());
         dataMap.put("name", "Test Restaurant");
         dataMap.put("isActive", true);
+        dataMap.put("isOpen", true);
         dataMap.put("lat", 12.9716);
         dataMap.put("lng", 77.5946);
 
