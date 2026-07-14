@@ -57,6 +57,10 @@ public class CustomerOrderService {
     public record RestaurantDTO(UUID id, String name, Boolean isActive, Double lat, Double lng) {}
     public record MenuItemDTO(UUID id, UUID restaurantId, String name, BigDecimal price, Boolean isAvailable, Integer prepTimeMinutes) {}
 
+    public List<Order> getOrdersByCustomer(UUID customerId) {
+        return orderRepository.findByCustomerId(customerId);
+    }
+
     public OrderWithPayment createOrderWithPayment(UUID customerId, UUID restaurantId, UUID deliveryAddressId, List<OrderItemRequest> requestedItems) {
         Order order = createOrder(customerId, restaurantId, deliveryAddressId, requestedItems);
         

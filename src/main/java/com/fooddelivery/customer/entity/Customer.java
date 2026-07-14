@@ -29,8 +29,6 @@ public class Customer {
     private UUID id;
 
     private String phoneNumber;
-    private String name;
-    private String email;
 
     @CreationTimestamp
     private LocalDateTime createdAt;

@@ -61,6 +61,15 @@ public class OrderController {
         return ResponseEntity.ok(ApiResponse.success(null, "Delay approval processed"));
     }
 
+    @org.springframework.web.bind.annotation.GetMapping
+    public ResponseEntity<ApiResponse<List<OrderResponse>>> getCustomerOrders(
+            java.security.Principal principal) {
+        java.util.UUID customerId = java.util.UUID.fromString(principal.getName());
+        List<Order> orders = customerOrderService.getOrdersByCustomer(customerId);
+        List<OrderResponse> responses = orders.stream().map(this::mapToResponse).collect(Collectors.toList());
+        return ResponseEntity.ok(ApiResponse.success(responses, "Orders retrieved"));
+    }
+
     private OrderResponse mapToResponse(Order order) {
         List<OrderItemResponse> itemResponses = order.getOrderItems().stream()
                 .map(item -> OrderItemResponse.builder()

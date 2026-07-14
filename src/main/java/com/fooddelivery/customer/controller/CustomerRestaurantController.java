@@ -31,7 +31,7 @@ public class CustomerRestaurantController {
     public ResponseEntity<ApiResponse<List<Object>>> getNearbyRestaurants(
             @RequestParam double lat, 
             @RequestParam double lng,
-            @RequestParam(defaultValue = com.fooddelivery.common.constants.AppConstants.MAX_DELIVERY_RADIUS_METERS_STR) double radius) {
+            @RequestParam(defaultValue = "5.0") double radius) {
         
         ResponseEntity<ApiResponse<List<Object>>> response = restTemplate.exchange(
             RESTAURANT_SERVICE_URL + "/api/v1/restaurants/nearby?lat=" + lat + "&lng=" + lng + "&radius=" + radius,

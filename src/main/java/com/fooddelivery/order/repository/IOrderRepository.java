@@ -9,4 +9,6 @@ import java.util.List;
 
 public interface IOrderRepository extends JpaRepository<Order, UUID> {
     List<Order> findByStatusAndUpdatedAtBefore(com.fooddelivery.common.enums.OrderStatus status, LocalDateTime time);
+    List<Order> findByCustomerId(UUID customerId);
+    List<Order> findByDeliveryExecutiveId(UUID deliveryExecutiveId);
 }

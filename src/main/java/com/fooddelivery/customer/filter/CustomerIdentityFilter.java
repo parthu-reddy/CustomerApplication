@@ -29,10 +29,15 @@ public class CustomerIdentityFilter extends OncePerRequestFilter {
         if (phone != null && !phone.isEmpty()) {
             Customer customer = customerRepository.findByPhoneNumber(phone)
                     .orElseGet(() -> {
-                        log.info("Creating new customer seamlessly for phone {} based on IdentityService JWT", phone);
-                        return customerRepository.save(Customer.builder()
-                                .phoneNumber(phone)
-                                .build());
+                        try {
+                            log.info("Creating new customer seamlessly for phone {} based on IdentityService JWT", phone);
+                            return customerRepository.save(Customer.builder()
+                                    .phoneNumber(phone)
+                                    .build());
+                        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+                            log.info("Customer already created concurrently for phone {}, fetching existing record", phone);
+                            return customerRepository.findByPhoneNumber(phone).orElseThrow();
+                        }
                     });
             
             // Allow downstream controllers to access the local Customer UUID
