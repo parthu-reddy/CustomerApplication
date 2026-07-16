@@ -15,6 +15,7 @@ import java.util.UUID;
 public class OrderItemResponse {
     private UUID id;
     private UUID menuItemId;
+    private String name;
     private Integer quantity;
     private BigDecimal price;
 }

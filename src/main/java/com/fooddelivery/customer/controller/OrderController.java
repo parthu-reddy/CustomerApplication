@@ -75,6 +75,7 @@ public class OrderController {
                 .map(item -> OrderItemResponse.builder()
                         .id(item.getId())
                         .menuItemId(item.getMenuItemId())
+                        .name(item.getName())
                         .quantity(item.getQuantity())
                         .price(item.getPrice())
                         .build())
@@ -84,8 +85,10 @@ public class OrderController {
                 .id(order.getId())
                 .customerId(order.getCustomerId())
                 .restaurantId(order.getRestaurantId())
+                .restaurantName(order.getRestaurantName())
                 .status(order.getStatus())
                 .totalAmount(order.getTotalAmount())
+                .deliveryAddress(order.getDeliveryAddress())
                 .items(itemResponses)
                 .createdAt(order.getCreatedAt())
                 .build();

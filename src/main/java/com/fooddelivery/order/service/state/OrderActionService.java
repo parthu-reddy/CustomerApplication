@@ -96,6 +96,21 @@ public class OrderActionService {
 
     public void emitOrderPaidEvent(Order order) {
         try {
+            
+            String itemsJsonStr = "[]";
+            try {
+                java.util.List<java.util.Map<String, Object>> itemList = order.getOrderItems().stream().map(i -> {
+                    java.util.Map<String, Object> map = new java.util.HashMap<>();
+                    map.put("name", i.getName());
+                    map.put("quantity", i.getQuantity());
+                    map.put("price", i.getPrice());
+                    return map;
+                }).collect(java.util.stream.Collectors.toList());
+                itemsJsonStr = objectMapper.writeValueAsString(itemList);
+            } catch(Exception ex) {
+                log.error("Failed to serialize items", ex);
+            }
+
             com.fooddelivery.common.event.OrderPaidEvent paidEvent = com.fooddelivery.common.event.OrderPaidEvent.builder()
                     .orderId(order.getId())
                     .restaurantId(order.getRestaurantId())
@@ -103,7 +118,9 @@ public class OrderActionService {
                     .deliveryLat(order.getDeliveryLat())
                     .deliveryLng(order.getDeliveryLng())
                     .deliveryAddress(order.getDeliveryAddress())
+                    .itemsJson(itemsJsonStr)
                     .build();
+
 
             OutboxEventEntity outboxEvent = OutboxEventEntity.builder()
                     .id(UUID.randomUUID())

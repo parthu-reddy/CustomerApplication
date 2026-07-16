@@ -69,14 +69,19 @@ public class CustomerRestaurantController {
         }
         
         // 2. Check Driver Availability in MapsIntegration
-        ResponseEntity<java.util.Map> mapsResponse = restTemplate.getForEntity(
-            MAPS_SERVICE_URL + "/api/fleet/availability/check?cityId=" + com.fooddelivery.common.constants.AppConstants.DEFAULT_CITY_ID + "&lat=" + lat + "&lng=" + lng + "&radius=" + com.fooddelivery.common.constants.AppConstants.MAX_DELIVERY_RADIUS_KM, java.util.Map.class);
-            
-        if (mapsResponse.getStatusCode().is2xxSuccessful() && mapsResponse.getBody() != null) {
-            Boolean available = (Boolean) mapsResponse.getBody().get("available");
-            if (Boolean.TRUE.equals(available)) {
-                return ResponseEntity.ok(ApiResponse.success(true, "Delivery partner available."));
+        try {
+            ResponseEntity<java.util.Map> mapsResponse = restTemplate.getForEntity(
+                MAPS_SERVICE_URL + "/api/fleet/availability/check?cityId=" + com.fooddelivery.common.constants.AppConstants.DEFAULT_CITY_ID + "&lat=" + lat + "&lng=" + lng + "&radius=" + com.fooddelivery.common.constants.AppConstants.MAX_DELIVERY_RADIUS_KM, java.util.Map.class);
+                
+            if (mapsResponse.getStatusCode().is2xxSuccessful() && mapsResponse.getBody() != null) {
+                Boolean available = (Boolean) mapsResponse.getBody().get("available");
+                if (Boolean.TRUE.equals(available)) {
+                    return ResponseEntity.ok(ApiResponse.success(true, "Delivery partner available."));
+                }
             }
+        } catch (org.springframework.web.client.RestClientException e) {
+            // Log and allow it to fall through to the unavailable exception
+            System.err.println("Failed to reach MapsIntegration for fleet check: " + e.getMessage());
         }
         
         // 3. Throw Exception if not available

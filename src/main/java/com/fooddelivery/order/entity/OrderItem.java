@@ -32,6 +32,7 @@ public class OrderItem {
     private Order order;
 
     private UUID menuItemId;
+    private String name;
     private Integer quantity;
     private BigDecimal price;
 

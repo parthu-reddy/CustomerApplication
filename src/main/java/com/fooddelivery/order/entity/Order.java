@@ -36,6 +36,7 @@ public class Order {
     
     private UUID customerId;
     private UUID restaurantId;
+    private String restaurantName;
     
     @Enumerated(EnumType.STRING)
     private OrderStatus status;

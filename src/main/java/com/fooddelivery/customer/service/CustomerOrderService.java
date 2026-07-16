@@ -175,6 +175,11 @@ public class CustomerOrderService {
                         throw new RuntimeException(new IllegalArgumentException("Restaurant is not currently active: " + restaurantData.get("name")));
                     }
                     
+                    Boolean isOpen = (Boolean) restaurantData.get("isOpen");
+                    if (isOpen != null && !isOpen) {
+                        throw new RuntimeException(new IllegalArgumentException("Restaurant is currently closed for the day or shift: " + restaurantData.get("name")));
+                    }
+                    
                     Double rLat = (Double) restaurantData.get("lat");
                     Double rLng = (Double) restaurantData.get("lng");
                     if (rLat == null || rLng == null) {
@@ -195,11 +200,16 @@ public class CustomerOrderService {
                 try {
                     Double rLat = (Double) restaurantData.get("lat");
                     Double rLng = (Double) restaurantData.get("lng");
-                    ResponseEntity<java.util.Map> mapsResponse = restTemplate.getForEntity(
-                        MAPS_SERVICE_URL + "/api/fleet/availability/check?cityId=" + com.fooddelivery.common.constants.AppConstants.DEFAULT_CITY_ID + "&lat=" + rLat + "&lng=" + rLng + "&radius=" + com.fooddelivery.common.constants.AppConstants.MAX_DELIVERY_RADIUS_KM, java.util.Map.class);
-                        
-                    if (mapsResponse.getStatusCode().is2xxSuccessful() && mapsResponse.getBody() != null) {
-                        return Boolean.TRUE.equals(mapsResponse.getBody().get("available"));
+                    
+                    try {
+                        ResponseEntity<java.util.Map> mapsResponse = restTemplate.getForEntity(
+                            MAPS_SERVICE_URL + "/api/fleet/availability/check?cityId=" + com.fooddelivery.common.constants.AppConstants.DEFAULT_CITY_ID + "&lat=" + rLat + "&lng=" + rLng + "&radius=" + com.fooddelivery.common.constants.AppConstants.MAX_DELIVERY_RADIUS_KM, java.util.Map.class);
+                            
+                        if (mapsResponse.getStatusCode().is2xxSuccessful() && mapsResponse.getBody() != null) {
+                            return Boolean.TRUE.equals(mapsResponse.getBody().get("available"));
+                        }
+                    } catch (org.springframework.web.client.RestClientException e) {
+                        log.warn("Failed to reach MapsIntegration for fleet check: {}", e.getMessage());
                     }
                     return false;
                 } finally {
@@ -272,6 +282,7 @@ public class CustomerOrderService {
                 OrderItem orderItem = OrderItem.builder()
                         .id(UUID.randomUUID())
                         .menuItemId(menuItem.id())
+                        .name(menuItem.name())
                         .quantity(req.getQuantity())
                         .price(menuItem.price())
                         .build();
@@ -283,6 +294,7 @@ public class CustomerOrderService {
                     .id(UUID.randomUUID())
                     .customerId(customerId)
                     .restaurantId(restaurantId)
+                    .restaurantName((String) restaurantData.get("name"))
                     .deliveryAddressId(deliveryAddressId)
                     .deliveryAddress(formatAddress(address))
                     .deliveryLat(address.getLatitude())

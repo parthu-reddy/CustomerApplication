@@ -19,9 +19,12 @@ public class OrderResponse {
     private UUID id;
     private UUID customerId;
     private UUID restaurantId;
+    private String restaurantName;
     private OrderStatus status;
     private BigDecimal totalAmount;
+    private String deliveryAddress;
     private List<OrderItemResponse> items;
     private LocalDateTime createdAt;
+    private UUID riderId;
     private String paymentIntent;
 }

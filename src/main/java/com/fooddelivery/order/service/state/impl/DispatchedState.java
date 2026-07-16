@@ -37,11 +37,11 @@ public class DispatchedState implements OrderState {
     @Override
     public void handleStatusUpdate(OrderContext ctx) {
         String updateStatus = ctx.getEventPayload().path("status").asText(null);
-        if (OrderStatus.OUT_FOR_DELIVERY.name().equals(updateStatus)) {
+        if (OrderStatus.OUT_FOR_DELIVERY.name().equals(updateStatus) || "PICKED_UP".equals(updateStatus)) {
             Order order = ctx.getOrder();
             order.setStatus(OrderStatus.OUT_FOR_DELIVERY);
             ctx.getActionService().saveOrder(order);
-            ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), "ORDER_STATUS_" + updateStatus);
+            ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), "ORDER_STATUS_OUT_FOR_DELIVERY");
         } else {
             OrderState.super.handleStatusUpdate(ctx);
         }
