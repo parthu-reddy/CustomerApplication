@@ -39,6 +39,12 @@ public class DispatchedState implements OrderState {
         String updateStatus = ctx.getEventPayload().path("status").asText(null);
         if (OrderStatus.OUT_FOR_DELIVERY.name().equals(updateStatus) || "PICKED_UP".equals(updateStatus)) {
             Order order = ctx.getOrder();
+            
+            String providedOtp = ctx.getEventPayload().path("pickupOtp").asText(null);
+            if (providedOtp == null || !providedOtp.equals(order.getPickupOtp())) {
+                throw new com.fooddelivery.order.service.state.IllegalStateTransitionException("Invalid or missing pickup OTP. Cannot transition to OUT_FOR_DELIVERY.");
+            }
+            
             order.setStatus(OrderStatus.OUT_FOR_DELIVERY);
             ctx.getActionService().saveOrder(order);
             ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), "ORDER_STATUS_OUT_FOR_DELIVERY");

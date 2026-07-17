@@ -12,4 +12,6 @@ public interface IOrderRepository extends JpaRepository<Order, UUID> {
     List<Order> findByCustomerId(UUID customerId);
     List<Order> findByDeliveryExecutiveId(UUID deliveryExecutiveId);
     List<Order> findByStatusInAndDeliveryExecutiveIdIsNull(List<com.fooddelivery.common.enums.OrderStatus> statuses);
+    List<Order> findByStatusIn(List<com.fooddelivery.common.enums.OrderStatus> statuses);
+    java.util.Optional<Order> findByIdAndCustomerId(UUID id, UUID customerId);
 }

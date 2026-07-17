@@ -58,6 +58,12 @@ public class Order {
     @Column(name = "delivery_address_text")
     private String deliveryAddress;
 
+    @Column(name = "pickup_otp")
+    private String pickupOtp;
+
+    @Column(name = "otp")
+    private String otp;
+
     
     @Column(name = "estimated_prep_time_minutes")
     private Integer estimatedPrepTimeMinutes;

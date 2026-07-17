@@ -61,6 +61,11 @@ public class CustomerOrderService {
         return orderRepository.findByCustomerId(customerId);
     }
 
+    public Order getOrderByIdAndCustomer(UUID orderId, UUID customerId) {
+        return orderRepository.findByIdAndCustomerId(orderId, customerId)
+            .orElseThrow(() -> new RuntimeException("Order not found or access denied"));
+    }
+
     public OrderWithPayment createOrderWithPayment(UUID customerId, UUID restaurantId, UUID deliveryAddressId, List<OrderItemRequest> requestedItems) {
         Order order = createOrder(customerId, restaurantId, deliveryAddressId, requestedItems);
         
@@ -299,6 +304,7 @@ public class CustomerOrderService {
                     .deliveryAddress(formatAddress(address))
                     .deliveryLat(address.getLatitude())
                     .deliveryLng(address.getLongitude())
+                    .otp(String.format("%06d", new java.util.Random().nextInt(1000000)))
                     .status(OrderStatus.CREATED)
                     .orderItems(new ArrayList<>())
                     .estimatedPrepTimeMinutes(maxPrepTime)

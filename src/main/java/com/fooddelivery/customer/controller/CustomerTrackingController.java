@@ -50,7 +50,12 @@ public class CustomerTrackingController {
             }
         };
         
-        connection.subscribe(listener, trackingChannel.getBytes());
+        // Run subscribe in a separate thread because connection.subscribe() is a BLOCKING call
+        // If run on the main request thread, it prevents the controller from returning,
+        // which causes the Open-Session-In-View filter to hold the JDBC connection forever!
+        new Thread(() -> {
+            connection.subscribe(listener, trackingChannel.getBytes());
+        }).start();
         
         // Cleanup: unsubscribe and close the Redis connection when the SSE ends
         Runnable cleanup = () -> {

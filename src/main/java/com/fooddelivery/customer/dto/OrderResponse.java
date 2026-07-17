@@ -23,8 +23,12 @@ public class OrderResponse {
     private OrderStatus status;
     private BigDecimal totalAmount;
     private String deliveryAddress;
+    private Double deliveryLat;
+    private Double deliveryLng;
     private List<OrderItemResponse> items;
     private LocalDateTime createdAt;
     private UUID riderId;
     private String paymentIntent;
+    private String pickupOtp;
+    private String otp;
 }

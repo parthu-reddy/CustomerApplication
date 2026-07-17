@@ -28,10 +28,11 @@ public class DriverOrderController {
     private final IOrderRepository orderRepository;
     private final StringRedisTemplate redisTemplate;
 
-    @GetMapping
-    public ResponseEntity<ApiResponse<List<OrderResponse>>> getDriverOrders(java.security.Principal principal) {
+    @GetMapping("/available")
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public ResponseEntity<ApiResponse<List<OrderResponse>>> getAvailableOrders(java.security.Principal principal) {
         UUID driverId = UUID.fromString(principal.getName());
-        List<Order> orders = new ArrayList<>(orderRepository.findByDeliveryExecutiveId(driverId));
+        List<Order> availableOrders = new ArrayList<>();
         
         // Find pings for this driver
         Set<String> keys = redisTemplate.keys("order:ping:pending:*");
@@ -43,8 +44,8 @@ public class DriverOrderController {
                     try {
                         UUID orderId = UUID.fromString(orderIdStr);
                         orderRepository.findById(orderId).ifPresent(order -> {
-                            if (!orders.contains(order)) {
-                                orders.add(order);
+                            if (order.getDeliveryExecutiveId() == null && order.getStatus() != null && "DISPATCHED".equalsIgnoreCase(order.getStatus().name())) {
+                                availableOrders.add(order);
                             }
                         });
                     } catch (Exception e) {
@@ -54,29 +55,68 @@ public class DriverOrderController {
             }
         }
         
-        List<OrderResponse> responses = orders.stream().map(this::mapToResponse).collect(Collectors.toList());
-        return ResponseEntity.ok(ApiResponse.success(responses, "Driver orders retrieved"));
+        List<OrderResponse> responses = availableOrders.stream().map(this::mapToResponse).collect(Collectors.toList());
+        return ResponseEntity.ok(ApiResponse.success(responses, "Available orders retrieved"));
+    }
+
+    @GetMapping("/active")
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public ResponseEntity<ApiResponse<List<OrderResponse>>> getActiveOrders(java.security.Principal principal) {
+        UUID driverId = UUID.fromString(principal.getName());
+        List<Order> activeOrders = orderRepository.findByDeliveryExecutiveId(driverId).stream()
+                .filter(o -> o.getStatus() != null && (o.getStatus().name().equalsIgnoreCase("DISPATCHED") || o.getStatus().name().equalsIgnoreCase("READY_FOR_PICKUP") || o.getStatus().name().equalsIgnoreCase("OUT_FOR_DELIVERY")))
+                .collect(Collectors.toList());
+        
+        List<OrderResponse> responses = activeOrders.stream().map(this::mapToResponse).collect(Collectors.toList());
+        return ResponseEntity.ok(ApiResponse.success(responses, "Active orders retrieved"));
+    }
+
+    @GetMapping("/history")
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public ResponseEntity<ApiResponse<List<OrderResponse>>> getHistoryOrders(java.security.Principal principal, 
+                                                                             @org.springframework.web.bind.annotation.RequestParam(required = false) String date) {
+        UUID driverId = UUID.fromString(principal.getName());
+        List<Order> terminalOrders = orderRepository.findByDeliveryExecutiveId(driverId).stream()
+                .filter(o -> o.getStatus() == null || (!o.getStatus().name().equalsIgnoreCase("DISPATCHED") && !o.getStatus().name().equalsIgnoreCase("READY_FOR_PICKUP") && !o.getStatus().name().equalsIgnoreCase("OUT_FOR_DELIVERY")))
+                .filter(o -> {
+                    if (date == null || date.isEmpty()) return true;
+                    if (o.getCreatedAt() == null) return true;
+                    return o.getCreatedAt().toLocalDate().toString().equals(date);
+                })
+                .collect(Collectors.toList());
+        
+        List<OrderResponse> responses = terminalOrders.stream().map(this::mapToResponse).collect(Collectors.toList());
+        return ResponseEntity.ok(ApiResponse.success(responses, "History orders retrieved"));
     }
 
     private OrderResponse mapToResponse(Order order) {
-        List<OrderItemResponse> itemResponses = order.getOrderItems().stream()
-                .map(item -> OrderItemResponse.builder()
-                        .id(item.getId())
-                        .menuItemId(item.getMenuItemId())
-                        .quantity(item.getQuantity())
-                        .price(item.getPrice())
-                        .build())
-                .collect(Collectors.toList());
+        List<OrderItemResponse> itemResponses = new java.util.ArrayList<>();
+        if (order.getOrderItems() != null) {
+            itemResponses = order.getOrderItems().stream()
+                    .map(item -> OrderItemResponse.builder()
+                            .id(item.getId())
+                            .menuItemId(item.getMenuItemId())
+                            .quantity(item.getQuantity())
+                            .price(item.getPrice())
+                            .build())
+                    .collect(Collectors.toList());
+        }
 
         return OrderResponse.builder()
                 .id(order.getId())
                 .customerId(order.getCustomerId())
                 .restaurantId(order.getRestaurantId())
+                .restaurantName(order.getRestaurantName())
                 .status(order.getStatus())
                 .totalAmount(order.getTotalAmount())
+                .deliveryAddress(order.getDeliveryAddress())
+                .deliveryLat(order.getDeliveryLat())
+                .deliveryLng(order.getDeliveryLng())
                 .items(itemResponses)
                 .createdAt(order.getCreatedAt())
                 .riderId(order.getDeliveryExecutiveId())
+                .pickupOtp(order.getPickupOtp())
+                .otp(order.getOtp())
                 .build();
     }
 }
