@@ -134,6 +134,8 @@ public class OrderController {
                 .items(itemResponses)
                 .createdAt(order.getCreatedAt())
                 .otp(order.getOtp())
+                .pickupOtp(order.getPickupOtp())
+                .estimatedCompletionTime(order.getEstimatedCompletionTime())
                 .build();
     }
 }

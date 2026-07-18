@@ -19,6 +19,11 @@ public class AwaitingDelayApprovalState implements OrderState {
             order.setEstimatedPrepTimeMinutes(prepNode.asInt());
         }
         
+        JsonNode completionNode = ctx.getEventPayload().path("estimatedCompletionTime");
+        if (!completionNode.isMissingNode() && !completionNode.isNull()) {
+            order.setEstimatedCompletionTime(completionNode.asLong());
+        }
+        
         ctx.getActionService().saveOrder(order);
     }
 

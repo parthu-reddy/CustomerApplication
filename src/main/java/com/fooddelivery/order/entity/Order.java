@@ -68,6 +68,9 @@ public class Order {
     @Column(name = "estimated_prep_time_minutes")
     private Integer estimatedPrepTimeMinutes;
     
+    @Column(name = "estimated_completion_time")
+    private Long estimatedCompletionTime;
+    
     @Column(name = "cancellation_reason")
     private String cancellationReason;
     
