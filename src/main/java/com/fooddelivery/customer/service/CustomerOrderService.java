@@ -61,6 +61,26 @@ public class CustomerOrderService {
         return orderRepository.findByCustomerId(customerId);
     }
 
+    private static final List<com.fooddelivery.common.enums.OrderStatus> REFUND_STATUSES = List.of(
+        com.fooddelivery.common.enums.OrderStatus.CANCELLED,
+        com.fooddelivery.common.enums.OrderStatus.CANCELLED_BY_RESTAURANT,
+        com.fooddelivery.common.enums.OrderStatus.DELIVERY_FAILED,
+        com.fooddelivery.common.enums.OrderStatus.PARTIALLY_REFUNDED,
+        com.fooddelivery.common.enums.OrderStatus.CANCELLED_AND_REFUNDED
+    );
+
+    public org.springframework.data.domain.Page<Order> getActiveOrdersPaginated(UUID customerId, org.springframework.data.domain.Pageable pageable) {
+        return orderRepository.findByCustomerIdAndStatusNotInOrderByCreatedAtDesc(customerId, REFUND_STATUSES, pageable);
+    }
+
+    public org.springframework.data.domain.Page<Order> getRefundOrdersPaginated(UUID customerId, org.springframework.data.domain.Pageable pageable) {
+        return orderRepository.findByCustomerIdAndStatusInOrderByCreatedAtDesc(customerId, REFUND_STATUSES, pageable);
+    }
+
+    public org.springframework.data.domain.Page<Order> getOrderHistoryPaginated(UUID customerId, org.springframework.data.domain.Pageable pageable) {
+        return orderRepository.findByCustomerIdOrderByCreatedAtDesc(customerId, pageable);
+    }
+
     public Order getOrderByIdAndCustomer(UUID orderId, UUID customerId) {
         return orderRepository.findByIdAndCustomerId(orderId, customerId)
             .orElseThrow(() -> new RuntimeException("Order not found or access denied"));

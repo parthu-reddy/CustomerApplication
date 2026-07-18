@@ -100,6 +100,7 @@ class CustomerOrderE2ETest extends BaseIntegrationTest {
             .thenReturn(new ResponseEntity<>("mocked_gateway_order_id_123", HttpStatus.OK));
 
         Customer customer = Customer.builder()
+                .id(UUID.randomUUID())
                 .phoneNumber("+123" + (int)(Math.random() * 10000000))
                 .build();
         customer = customerRepository.save(customer);

@@ -25,13 +25,15 @@ public class CustomerIdentityFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         
         String phone = request.getHeader("X-User-Phone");
+        String userId = request.getHeader("X-User-Id");
         
-        if (phone != null && !phone.isEmpty()) {
+        if (phone != null && !phone.isEmpty() && userId != null && !userId.isEmpty()) {
             Customer customer = customerRepository.findByPhoneNumber(phone)
                     .orElseGet(() -> {
                         try {
                             log.info("Creating new customer seamlessly for phone {} based on IdentityService JWT", phone);
                             return customerRepository.save(Customer.builder()
+                                    .id(java.util.UUID.fromString(userId))
                                     .phoneNumber(phone)
                                     .build());
                         } catch (org.springframework.dao.DataIntegrityViolationException e) {

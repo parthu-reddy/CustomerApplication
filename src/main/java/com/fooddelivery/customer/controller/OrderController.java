@@ -61,14 +61,43 @@ public class OrderController {
         return ResponseEntity.ok(ApiResponse.success(null, "Delay approval processed"));
     }
 
-    @org.springframework.web.bind.annotation.GetMapping
+    @org.springframework.web.bind.annotation.GetMapping("/active")
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
-    public ResponseEntity<ApiResponse<List<OrderResponse>>> getCustomerOrders(
-            java.security.Principal principal) {
+    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<OrderResponse>>> getActiveOrders(
+            java.security.Principal principal,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") int page,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "10") int size) {
         java.util.UUID customerId = java.util.UUID.fromString(principal.getName());
-        List<Order> orders = customerOrderService.getOrdersByCustomer(customerId);
-        List<OrderResponse> responses = orders.stream().map(this::mapToResponse).collect(Collectors.toList());
-        return ResponseEntity.ok(ApiResponse.success(responses, "Orders retrieved"));
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
+        org.springframework.data.domain.Page<Order> orders = customerOrderService.getActiveOrdersPaginated(customerId, pageable);
+        org.springframework.data.domain.Page<OrderResponse> responses = orders.map(this::mapToResponse);
+        return ResponseEntity.ok(ApiResponse.success(responses, "Active orders retrieved"));
+    }
+
+    @org.springframework.web.bind.annotation.GetMapping("/refunds")
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<OrderResponse>>> getRefundOrders(
+            java.security.Principal principal,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") int page,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "10") int size) {
+        java.util.UUID customerId = java.util.UUID.fromString(principal.getName());
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
+        org.springframework.data.domain.Page<Order> orders = customerOrderService.getRefundOrdersPaginated(customerId, pageable);
+        org.springframework.data.domain.Page<OrderResponse> responses = orders.map(this::mapToResponse);
+        return ResponseEntity.ok(ApiResponse.success(responses, "Refund orders retrieved"));
+    }
+
+    @org.springframework.web.bind.annotation.GetMapping("/history")
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<OrderResponse>>> getOrderHistory(
+            java.security.Principal principal,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") int page,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "10") int size) {
+        java.util.UUID customerId = java.util.UUID.fromString(principal.getName());
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
+        org.springframework.data.domain.Page<Order> orders = customerOrderService.getOrderHistoryPaginated(customerId, pageable);
+        org.springframework.data.domain.Page<OrderResponse> responses = orders.map(this::mapToResponse);
+        return ResponseEntity.ok(ApiResponse.success(responses, "Order history retrieved"));
     }
 
     @org.springframework.web.bind.annotation.GetMapping("/{orderId}")
