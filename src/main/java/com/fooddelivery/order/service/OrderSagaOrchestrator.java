@@ -70,6 +70,11 @@ public class OrderSagaOrchestrator {
         // Generate 6-digit pickup OTP
         String otp = String.format("%06d", new java.util.Random().nextInt(1000000));
         order.setPickupOtp(otp);
+        
+        // Generate 6-digit delivery OTP
+        String deliveryOtp = String.format("%06d", new java.util.Random().nextInt(1000000));
+        order.setOtp(deliveryOtp);
+        
         Order savedOrder = orderRepository.save(order);
         
         OrderCreatedEvent event = OrderCreatedEvent.builder()
@@ -81,6 +86,7 @@ public class OrderSagaOrchestrator {
                 .deliveryLng(savedOrder.getDeliveryLng())
                 .deliveryAddress(savedOrder.getDeliveryAddress())
                 .pickupOtp(savedOrder.getPickupOtp())
+                .deliveryOtp(savedOrder.getOtp())
                 .build();
                 
         try {

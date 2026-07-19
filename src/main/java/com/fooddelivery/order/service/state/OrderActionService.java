@@ -120,6 +120,7 @@ public class OrderActionService {
                     .deliveryAddress(order.getDeliveryAddress())
                     .itemsJson(itemsJsonStr)
                     .pickupOtp(order.getPickupOtp())
+                    .deliveryOtp(order.getOtp())
                     .build();
 
 
