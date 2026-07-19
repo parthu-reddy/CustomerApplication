@@ -1,19 +1,10 @@
--- CustomerApplication: Merged schema (formerly V1–V12)
--- Tables: customers, orders, order_items, payment_intents, refunds,
---         ledger_accounts, ledger_entries, ledgers, customer_addresses,
---         webhook_deliveries, outbox_events
--- Functions/Triggers: update_refunded_amount
-
 CREATE EXTENSION IF NOT EXISTS postgis;
 
 CREATE TABLE customers (
     id UUID PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    email VARCHAR(255),
     phone_number VARCHAR(20) NOT NULL UNIQUE,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    CONSTRAINT uk_customers_email UNIQUE (email)
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE customer_addresses (
@@ -25,8 +16,8 @@ CREATE TABLE customer_addresses (
     city VARCHAR(100) NOT NULL,
     state VARCHAR(100) NOT NULL,
     zip_code VARCHAR(20) NOT NULL,
-    latitude DOUBLE PRECISION NOT NULL,
-    longitude DOUBLE PRECISION NOT NULL,
+    latitude DOUBLE PRECISION NOT NULL CHECK (latitude >= -90 AND latitude <= 90),
+    longitude DOUBLE PRECISION NOT NULL CHECK (longitude >= -180 AND longitude <= 180),
     is_default BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
@@ -38,10 +29,11 @@ CREATE TABLE orders (
     id UUID PRIMARY KEY,
     customer_id UUID NOT NULL,
     restaurant_id UUID NOT NULL,
+    restaurant_name VARCHAR(255),
     delivery_executive_id UUID,
     status VARCHAR(50) NOT NULL,
-    total_amount DECIMAL(10, 2) NOT NULL,
-    estimated_prep_time_minutes INTEGER DEFAULT 15,
+    total_amount DECIMAL(10, 2) NOT NULL CHECK (total_amount >= 0),
+    estimated_prep_time_minutes INTEGER DEFAULT 15 CHECK (estimated_prep_time_minutes >= 0),
     cancellation_reason VARCHAR(255),
     delivery_lat DOUBLE PRECISION,
     delivery_lng DOUBLE PRECISION,
@@ -50,7 +42,9 @@ CREATE TABLE orders (
     version INT DEFAULT 0,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    CONSTRAINT chk_orders_total CHECK (total_amount >= 0)
+    pickup_otp VARCHAR(255),
+    estimated_completion_time BIGINT CHECK (estimated_completion_time >= 0),
+    otp VARCHAR(255)
 );
 
 CREATE INDEX idx_orders_customer_id ON orders(customer_id);
@@ -61,12 +55,11 @@ CREATE TABLE order_items (
     id UUID PRIMARY KEY,
     order_id UUID NOT NULL REFERENCES orders(id),
     menu_item_id UUID NOT NULL,
-    quantity INT NOT NULL,
-    price DECIMAL(10, 2) NOT NULL,
+    quantity INT NOT NULL CHECK (quantity > 0),
+    price DECIMAL(10, 2) NOT NULL CHECK (price >= 0),
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    CONSTRAINT chk_order_items_qty CHECK (quantity > 0),
-    CONSTRAINT chk_order_items_price CHECK (price >= 0)
+    name VARCHAR(255)
 );
 
 CREATE INDEX idx_order_items_order_id ON order_items(order_id);
@@ -77,12 +70,10 @@ CREATE TABLE payment_intents (
     internal_order_id UUID NOT NULL REFERENCES orders(id),
     gateway_order_id VARCHAR(255),
     gateway_name VARCHAR(100),
-    amount DECIMAL(15,2) NOT NULL,
-    refunded_amount DECIMAL(15,2) DEFAULT 0.00,
+    amount DECIMAL(15,2) NOT NULL CHECK (amount > 0),
+    refunded_amount DECIMAL(15,2) DEFAULT 0.00 CHECK (refunded_amount <= amount),
     status VARCHAR(50) DEFAULT 'INITIATED',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT chk_positive_amount CHECK (amount > 0),
-    CONSTRAINT chk_refund_limits CHECK (refunded_amount <= amount)
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_payment_intents_internal_order_id ON payment_intents(internal_order_id);
@@ -91,10 +82,9 @@ CREATE INDEX idx_payment_intents_status_created_at ON payment_intents(status, cr
 CREATE TABLE refunds (
     id UUID PRIMARY KEY,
     payment_intent_id UUID NOT NULL REFERENCES payment_intents(id),
-    amount DECIMAL(15,2) NOT NULL,
+    amount DECIMAL(15,2) NOT NULL CHECK (amount > 0),
     status VARCHAR(50) DEFAULT 'PROCESSED',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT chk_refund_positive CHECK (amount > 0)
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_refunds_payment_intent_id ON refunds(payment_intent_id);
@@ -139,7 +129,7 @@ CREATE TABLE ledger_entries (
     transaction_id UUID NOT NULL,
     account_id UUID REFERENCES ledger_accounts(id),
     direction VARCHAR(10) NOT NULL,
-    amount DECIMAL(15,2) NOT NULL,
+    amount DECIMAL(15,2) NOT NULL CHECK (amount >= 0),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -151,7 +141,7 @@ CREATE TABLE ledgers (
     account_id UUID NOT NULL,
     transaction_ref VARCHAR(255) NOT NULL,
     type VARCHAR(50) NOT NULL,
-    amount DECIMAL(10, 2) NOT NULL,
+    amount DECIMAL(10, 2) NOT NULL CHECK (amount >= 0),
     balance_after DECIMAL(10, 2) NOT NULL,
     version INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
