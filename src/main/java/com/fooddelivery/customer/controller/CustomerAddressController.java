@@ -5,6 +5,7 @@ import com.fooddelivery.customer.dto.AddressRequest;
 import com.fooddelivery.customer.dto.CustomerAddressDto;
 import com.fooddelivery.customer.entity.CustomerAddress;
 import com.fooddelivery.customer.repository.CustomerAddressRepository;
+import com.fooddelivery.customer.repository.ICustomerRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -24,11 +25,16 @@ import jakarta.validation.Valid;
 public class CustomerAddressController {
 
     private final CustomerAddressRepository addressRepository;
+    private final ICustomerRepository customerRepository;
 
     @PostMapping
     public ResponseEntity<ApiResponse<CustomerAddressDto>> addAddress(
             @PathVariable UUID customerId,
             @Valid @RequestBody AddressRequest request) {
+        
+        if (!customerRepository.existsById(customerId)) {
+            throw new IllegalArgumentException("Customer not found.");
+        }
         
         CustomerAddress address = CustomerAddress.builder()
                 .id(UUID.randomUUID())
@@ -49,6 +55,10 @@ public class CustomerAddressController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<CustomerAddressDto>>> getAddresses(@PathVariable UUID customerId) {
+        
+        if (!customerRepository.existsById(customerId)) {
+            throw new IllegalArgumentException("Customer not found.");
+        }
         
         List<CustomerAddress> addresses = addressRepository.findByCustomerId(customerId);
         List<CustomerAddressDto> dtos = addresses.stream().map(this::toDto).collect(Collectors.toList());

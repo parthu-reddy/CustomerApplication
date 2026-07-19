@@ -53,7 +53,7 @@ public class OrderController {
     public ResponseEntity<ApiResponse<Void>> handleDelayApproval(
             java.security.Principal principal,
             @org.springframework.web.bind.annotation.PathVariable java.util.UUID orderId,
-            @RequestBody com.fooddelivery.customer.dto.DelayApprovalRequest request) {
+            @Valid @RequestBody com.fooddelivery.customer.dto.DelayApprovalRequest request) {
         
         java.util.UUID customerId = java.util.UUID.fromString(principal.getName());
         
