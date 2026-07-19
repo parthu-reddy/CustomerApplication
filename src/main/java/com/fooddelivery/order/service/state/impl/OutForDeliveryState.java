@@ -16,6 +16,12 @@ public class OutForDeliveryState implements OrderState {
     @Override
     public void handleOrderDelivered(OrderContext ctx) {
         Order order = ctx.getOrder();
+        
+        String providedOtp = ctx.getEventPayload().path("deliveryOtp").asText(null);
+        if (providedOtp == null || !providedOtp.equals(order.getOtp())) {
+            throw new com.fooddelivery.order.service.state.IllegalStateTransitionException("Invalid or missing delivery OTP. Cannot transition to DELIVERED.");
+        }
+        
         order.setStatus(OrderStatus.DELIVERED);
         ctx.getActionService().saveOrder(order);
         
