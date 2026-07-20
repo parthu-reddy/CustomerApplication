@@ -3,6 +3,8 @@ package com.fooddelivery.order.service.state.impl;
 import com.fooddelivery.order.entity.Order;
 import com.fooddelivery.order.service.state.OrderContext;
 import com.fooddelivery.order.service.state.OrderState;
+import com.fooddelivery.order.service.state.OrderActionService;
+import com.fooddelivery.common.enums.AccountType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,9 +24,9 @@ public class TerminalState implements OrderState {
         ctx.getActionService().recordLedgerTransaction(
                 paymentTransferId, 
                 order.getCustomerId(), 
-                com.fooddelivery.common.constants.AppConstants.ACCOUNT_TYPE_CUSTOMER, 
-                com.fooddelivery.order.service.state.OrderActionService.PLATFORM_ACCOUNT_ID, 
-                com.fooddelivery.common.constants.AppConstants.ACCOUNT_TYPE_PLATFORM, 
+                AccountType.CUSTOMER, 
+                OrderActionService.PLATFORM_ACCOUNT_ID, 
+                AccountType.PLATFORM, 
                 order.getTotalAmount()
         );
         

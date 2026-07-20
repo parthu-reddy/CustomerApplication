@@ -136,14 +136,14 @@ public class OrderIntegrationTest extends BaseIntegrationTest {
         given()
             .contentType(ContentType.JSON)
             .header("X-User-Id", customerId.toString())
-            .header("X-User-Role", "CUSTOMER")
+            .header("X-User-Role", com.fooddelivery.common.enums.RoleName.CUSTOMER.name())
             .body(request)
         .when()
             .post("/api/v1/orders")
         .then()
             .statusCode(HttpStatus.OK.value())
             .body("data.id", notNullValue())
-            .body("data.status", equalTo("CREATED"));
+            .body("data.status", equalTo(com.fooddelivery.common.enums.OrderStatus.CREATED.name()));
             
         // Additional assertion: we can verify Kafka message is produced
     }

@@ -2,6 +2,7 @@ package com.fooddelivery.order.service;
 
 import com.fooddelivery.common.test.BaseIntegrationTest;
 import com.fooddelivery.common.outbox.entity.OutboxEventEntity;
+import com.fooddelivery.common.enums.OutboxStatus;
 import com.fooddelivery.common.outbox.repository.OutboxEventRepository;
 import com.fooddelivery.common.outbox.service.OutboxEventPoller;
 import org.apache.kafka.clients.consumer.Consumer;
@@ -53,7 +54,7 @@ class OutboxEventPollerIntegrationTest extends BaseIntegrationTest {
                 .aggregateId("11111111-1111-1111-1111-111111111111")
                 .eventType("TEST_EVENT")
                 .payload("{\"orderId\":\"11111111-1111-1111-1111-111111111111\", \"eventType\":\"TEST_EVENT\"}")
-                .status(com.fooddelivery.common.constants.AppConstants.OUTBOX_STATUS_UNPROCESSED)
+                .status(OutboxStatus.UNPROCESSED)
                 .createdAt(LocalDateTime.now().minusSeconds(10))
                 .build();
         
@@ -64,7 +65,7 @@ class OutboxEventPollerIntegrationTest extends BaseIntegrationTest {
 
         // Assert - DB status updated
         OutboxEventEntity updated = outboxEventRepository.findById(eventId).orElseThrow();
-        assertThat(updated.getStatus()).isEqualTo(com.fooddelivery.common.constants.AppConstants.OUTBOX_STATUS_PROCESSED);
+        assertThat(updated.getStatus()).isEqualTo(OutboxStatus.PROCESSED);
 
     }
 }

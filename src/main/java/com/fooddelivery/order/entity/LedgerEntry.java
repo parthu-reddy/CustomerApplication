@@ -24,7 +24,8 @@ public class LedgerEntry {
 
     private UUID transactionId;
     private UUID accountId;
-    private String direction; // CREDIT, DEBIT
+    @jakarta.persistence.Enumerated(jakarta.persistence.EnumType.STRING)
+    private com.fooddelivery.common.enums.TransactionDirection direction; // CREDIT, DEBIT
     private BigDecimal amount;
     private LocalDateTime createdAt;
 }

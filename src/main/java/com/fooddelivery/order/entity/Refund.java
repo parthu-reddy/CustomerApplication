@@ -4,6 +4,9 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.EnumType;
+import com.fooddelivery.common.enums.RefundStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -31,7 +34,8 @@ public class Refund {
     private BigDecimal amount;
 
     @Column(nullable = false, length = 50)
-    private String status;
+    @Enumerated(EnumType.STRING)
+    private RefundStatus status;
 
     @Column(name = "created_at", insertable = false, updatable = false)
     private LocalDateTime createdAt;

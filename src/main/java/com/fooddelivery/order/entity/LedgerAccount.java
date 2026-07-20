@@ -12,6 +12,10 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.util.UUID;
 
+import com.fooddelivery.common.enums.AccountType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.EnumType;
+
 @Entity
 @Table(name = "ledger_accounts", uniqueConstraints = {
     @jakarta.persistence.UniqueConstraint(columnNames = {"ownerId", "ownerType"})
@@ -24,7 +28,8 @@ public class LedgerAccount {
     @Id
     private UUID id;
 
-    private String ownerType;
+    @Enumerated(EnumType.STRING)
+    private AccountType ownerType;
     private UUID ownerId;
     
     private BigDecimal balance;

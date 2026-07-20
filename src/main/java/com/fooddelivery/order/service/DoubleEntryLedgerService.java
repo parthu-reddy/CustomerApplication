@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
+import com.fooddelivery.common.enums.AccountType;
 
 @Service
 @RequiredArgsConstructor
@@ -22,8 +23,8 @@ public class DoubleEntryLedgerService {
     private final ILedgerEntryRepository entryRepository;
 
     @Transactional
-    public void recordTransaction(UUID transactionId, UUID sourceOwnerId, String sourceOwnerType, 
-                                  UUID targetOwnerId, String targetOwnerType, BigDecimal amount) {
+    public void recordTransaction(UUID transactionId, UUID sourceOwnerId, AccountType sourceOwnerType, 
+                                  UUID targetOwnerId, AccountType targetOwnerType, BigDecimal amount) {
         if (amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Transaction amount must be positive");
         }
@@ -44,7 +45,7 @@ public class DoubleEntryLedgerService {
                 .id(UUID.randomUUID())
                 .transactionId(transactionId)
                 .accountId(sourceAccount.getId())
-                .direction("DEBIT")
+                .direction(com.fooddelivery.common.enums.TransactionDirection.DEBIT)
                 .amount(amount)
                 .createdAt(LocalDateTime.now())
                 .build();
@@ -58,7 +59,7 @@ public class DoubleEntryLedgerService {
                 .id(UUID.randomUUID())
                 .transactionId(transactionId)
                 .accountId(targetAccount.getId())
-                .direction("CREDIT")
+                .direction(com.fooddelivery.common.enums.TransactionDirection.CREDIT)
                 .amount(amount)
                 .createdAt(LocalDateTime.now())
                 .build();
@@ -67,10 +68,10 @@ public class DoubleEntryLedgerService {
         log.info("Recorded double entry transaction {} for amount {}", transactionId, amount);
     }
 
-    private LedgerAccount getOrCreateAccount(UUID ownerId, String ownerType) {
+    private LedgerAccount getOrCreateAccount(UUID ownerId, AccountType ownerType) {
         return accountRepository.findByOwnerIdAndOwnerType(ownerId, ownerType)
                 .orElseGet(() -> {
-                    accountRepository.insertIfNotExists(UUID.randomUUID(), ownerId, ownerType);
+                    accountRepository.insertIfNotExists(UUID.randomUUID(), ownerId, ownerType.name());
                     return accountRepository.findByOwnerIdAndOwnerType(ownerId, ownerType)
                             .orElseThrow(() -> new IllegalStateException("Failed to get or create account concurrently"));
                 });

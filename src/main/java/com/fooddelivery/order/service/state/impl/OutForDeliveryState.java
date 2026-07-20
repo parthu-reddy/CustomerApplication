@@ -7,6 +7,7 @@ import com.fooddelivery.order.entity.Order;
 import com.fooddelivery.order.service.state.OrderActionService;
 import com.fooddelivery.order.service.state.OrderContext;
 import com.fooddelivery.order.service.state.OrderState;
+import com.fooddelivery.common.enums.AccountType;
 
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -32,15 +33,15 @@ public class OutForDeliveryState implements OrderState {
         
         UUID restTransferId = UUID.nameUUIDFromBytes(("REST_PAYOUT_" + order.getId()).getBytes());
         ctx.getActionService().recordLedgerTransaction(
-                restTransferId, OrderActionService.PLATFORM_ACCOUNT_ID, AppConstants.ACCOUNT_TYPE_PLATFORM, 
-                order.getRestaurantId(), AppConstants.ACCOUNT_TYPE_RESTAURANT, restPayout
+                restTransferId, OrderActionService.PLATFORM_ACCOUNT_ID, AccountType.PLATFORM, 
+                order.getRestaurantId(), AccountType.RESTAURANT, restPayout
         );
         
         if (order.getDeliveryExecutiveId() != null) {
             UUID driverTransferId = UUID.nameUUIDFromBytes(("DRIVER_PAYOUT_" + order.getId()).getBytes());
             ctx.getActionService().recordLedgerTransaction(
-                    driverTransferId, OrderActionService.PLATFORM_ACCOUNT_ID, AppConstants.ACCOUNT_TYPE_PLATFORM, 
-                    order.getDeliveryExecutiveId(), AppConstants.ACCOUNT_TYPE_DRIVER, driverPayout
+                    driverTransferId, OrderActionService.PLATFORM_ACCOUNT_ID, AccountType.PLATFORM, 
+                    order.getDeliveryExecutiveId(), AccountType.DRIVER, driverPayout
             );
         }
         

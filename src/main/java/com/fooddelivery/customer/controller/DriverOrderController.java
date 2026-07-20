@@ -44,7 +44,7 @@ public class DriverOrderController {
                     try {
                         UUID orderId = UUID.fromString(orderIdStr);
                         orderRepository.findById(orderId).ifPresent(order -> {
-                            if (order.getDeliveryExecutiveId() == null && order.getStatus() != null && "DISPATCHED".equalsIgnoreCase(order.getStatus().name())) {
+                            if (order.getDeliveryExecutiveId() == null && order.getStatus() == com.fooddelivery.common.enums.OrderStatus.DISPATCHED) {
                                 availableOrders.add(order);
                             }
                         });
@@ -64,7 +64,7 @@ public class DriverOrderController {
     public ResponseEntity<ApiResponse<List<OrderResponse>>> getActiveOrders(java.security.Principal principal) {
         UUID driverId = UUID.fromString(principal.getName());
         List<Order> activeOrders = orderRepository.findByDeliveryExecutiveId(driverId).stream()
-                .filter(o -> o.getStatus() != null && (o.getStatus().name().equalsIgnoreCase("DISPATCHED") || o.getStatus().name().equalsIgnoreCase("READY_FOR_PICKUP") || o.getStatus().name().equalsIgnoreCase("OUT_FOR_DELIVERY")))
+                .filter(o -> o.getStatus() == com.fooddelivery.common.enums.OrderStatus.DISPATCHED || o.getStatus() == com.fooddelivery.common.enums.OrderStatus.READY_FOR_PICKUP || o.getStatus() == com.fooddelivery.common.enums.OrderStatus.OUT_FOR_DELIVERY)
                 .collect(Collectors.toList());
         
         List<OrderResponse> responses = activeOrders.stream().map(this::mapToResponse).collect(Collectors.toList());
@@ -77,7 +77,7 @@ public class DriverOrderController {
                                                                              @org.springframework.web.bind.annotation.RequestParam(required = false) String date) {
         UUID driverId = UUID.fromString(principal.getName());
         List<Order> terminalOrders = orderRepository.findByDeliveryExecutiveId(driverId).stream()
-                .filter(o -> o.getStatus() == null || (!o.getStatus().name().equalsIgnoreCase("DISPATCHED") && !o.getStatus().name().equalsIgnoreCase("READY_FOR_PICKUP") && !o.getStatus().name().equalsIgnoreCase("OUT_FOR_DELIVERY")))
+                .filter(o -> o.getStatus() == null || (o.getStatus() != com.fooddelivery.common.enums.OrderStatus.DISPATCHED && o.getStatus() != com.fooddelivery.common.enums.OrderStatus.READY_FOR_PICKUP && o.getStatus() != com.fooddelivery.common.enums.OrderStatus.OUT_FOR_DELIVERY))
                 .filter(o -> {
                     if (date == null || date.isEmpty()) return true;
                     if (o.getCreatedAt() == null) return true;
@@ -115,8 +115,6 @@ public class DriverOrderController {
                 .items(itemResponses)
                 .createdAt(order.getCreatedAt())
                 .riderId(order.getDeliveryExecutiveId())
-                .pickupOtp(order.getPickupOtp())
-                .otp(order.getOtp())
                 .build();
     }
 }

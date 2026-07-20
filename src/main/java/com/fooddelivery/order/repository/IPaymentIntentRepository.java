@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import com.fooddelivery.common.constants.PaymentIntentStatus;
 
 @Repository
 public interface IPaymentIntentRepository extends JpaRepository<PaymentIntent, UUID> {
@@ -17,5 +18,5 @@ public interface IPaymentIntentRepository extends JpaRepository<PaymentIntent, U
     Optional<PaymentIntent> findByGatewayOrderId(String gatewayOrderId);
     
     @Query("SELECT p FROM PaymentIntent p WHERE p.status = :status AND p.createdAt < :cutoffTime")
-    List<PaymentIntent> findByStatusAndCreatedAtBefore(@Param("status") String status, @Param("cutoffTime") LocalDateTime cutoffTime);
+    List<PaymentIntent> findByStatusAndCreatedAtBefore(@Param("status") PaymentIntentStatus status, @Param("cutoffTime") LocalDateTime cutoffTime);
 }

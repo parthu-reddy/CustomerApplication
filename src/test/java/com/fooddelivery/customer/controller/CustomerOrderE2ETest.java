@@ -137,14 +137,14 @@ class CustomerOrderE2ETest extends BaseIntegrationTest {
         given()
             .contentType(ContentType.JSON)
             .header("X-User-Id", customerId.toString())
-            .header("X-User-Role", "CUSTOMER")
+            .header("X-User-Role", com.fooddelivery.common.enums.RoleName.CUSTOMER.name())
             .body(request)
         .when()
             .post("/api/v1/orders")
         .then()
             .statusCode(200)
             .body("data.id", notNullValue())
-            .body("data.status", equalTo("CREATED"))
+            .body("data.status", equalTo(com.fooddelivery.common.enums.OrderStatus.CREATED.name()))
             .body("data.paymentIntent", equalTo("mocked_gateway_order_id_123"));
     }
 }

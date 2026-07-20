@@ -11,6 +11,7 @@ import com.fooddelivery.order.entity.Order;
 import com.fooddelivery.order.repository.IOrderRepository;
 import com.fooddelivery.order.repository.IPaymentIntentRepository;
 import com.fooddelivery.order.service.DoubleEntryLedgerService;
+import com.fooddelivery.common.enums.AccountType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -18,6 +19,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
+import com.fooddelivery.common.constants.PaymentIntentStatus;
 
 @Service
 @RequiredArgsConstructor
@@ -36,7 +38,7 @@ public class OrderActionService {
         orderRepository.save(order);
     }
 
-    public void updatePaymentIntentStatus(UUID internalOrderId, String status) {
+    public void updatePaymentIntentStatus(UUID internalOrderId, PaymentIntentStatus status) {
         paymentIntentRepository.findByInternalOrderId(internalOrderId).ifPresent(intent -> {
             if (!status.equals(intent.getStatus())) {
                 intent.setStatus(status);
@@ -46,7 +48,7 @@ public class OrderActionService {
         });
     }
 
-    public void recordLedgerTransaction(UUID transferId, UUID fromId, String fromType, UUID toId, String toType, BigDecimal amount) {
+    public void recordLedgerTransaction(UUID transferId, UUID fromId, AccountType fromType, UUID toId, AccountType toType, BigDecimal amount) {
         ledgerService.recordTransaction(transferId, fromId, fromType, toId, toType, amount);
     }
 
@@ -63,7 +65,7 @@ public class OrderActionService {
                     .eventType(EventType.ORDER_CANCELLED)
                     .payload(objectMapper.writeValueAsString(payloadNode))
                     .createdAt(LocalDateTime.now())
-                    .status(AppConstants.OUTBOX_STATUS_UNPROCESSED)
+                    .status(com.fooddelivery.common.enums.OutboxStatus.UNPROCESSED)
                     .build();
             outboxEventRepository.save(outboxEvent);
         } catch (Exception e) {
@@ -75,17 +77,17 @@ public class OrderActionService {
     public void emitOrderDeliveryFailedEvent(UUID orderId, String reason) {
         try {
             com.fasterxml.jackson.databind.node.ObjectNode payloadNode = objectMapper.createObjectNode();
-            payloadNode.put("eventType", "DELIVERY_FAILED");
+            payloadNode.put("eventType", com.fooddelivery.common.constants.EventType.DELIVERY_FAILED);
             payloadNode.put("orderId", orderId.toString());
             payloadNode.put("reason", reason);
             OutboxEventEntity outboxEvent = OutboxEventEntity.builder()
                     .id(UUID.randomUUID())
                     .aggregateType(AppConstants.AGGREGATE_ORDER)
                     .aggregateId(orderId.toString())
-                    .eventType("DELIVERY_FAILED")
+                    .eventType(com.fooddelivery.common.constants.EventType.DELIVERY_FAILED)
                     .payload(objectMapper.writeValueAsString(payloadNode))
                     .createdAt(LocalDateTime.now())
-                    .status(AppConstants.OUTBOX_STATUS_UNPROCESSED)
+                    .status(com.fooddelivery.common.enums.OutboxStatus.UNPROCESSED)
                     .build();
             outboxEventRepository.save(outboxEvent);
         } catch (Exception e) {
@@ -131,7 +133,7 @@ public class OrderActionService {
                     .eventType(EventType.ORDER_PAID)
                     .payload(objectMapper.writeValueAsString(paidEvent))
                     .createdAt(LocalDateTime.now())
-                    .status(AppConstants.OUTBOX_STATUS_UNPROCESSED)
+                    .status(com.fooddelivery.common.enums.OutboxStatus.UNPROCESSED)
                     .build();
             outboxEventRepository.save(outboxEvent);
         } catch (Exception e) {
@@ -156,6 +158,7 @@ public class OrderActionService {
                     .eventType(EventType.NOTIFICATION_REQUEST)
                     .payload(objectMapper.writeValueAsString(notificationEvent))
                     .createdAt(LocalDateTime.now())
+                    .status(com.fooddelivery.common.enums.OutboxStatus.UNPROCESSED)
                     .build();
             outboxEventRepository.save(outboxEvent);
             

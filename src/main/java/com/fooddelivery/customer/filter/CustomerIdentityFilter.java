@@ -31,24 +31,28 @@ public class CustomerIdentityFilter extends OncePerRequestFilter {
         
         if (phone != null && !phone.isEmpty() && userId != null && !userId.isEmpty()) {
             java.util.UUID jwtUserId = java.util.UUID.fromString(userId);
+            String roles = request.getHeader("X-User-Roles");
             
-            // First, try to find by the JWT user ID (the canonical identity)
-            Customer customer = customerRepository.findById(jwtUserId)
-                    .orElseGet(() -> {
-                        try {
-                            log.info("Creating new customer for userId {} phone {} based on IdentityService JWT", userId, phone);
-                            return customerRepository.save(Customer.builder()
-                                    .id(jwtUserId)
-                                    .phoneNumber(phone)
-                                    .build());
-                        } catch (org.springframework.dao.DataIntegrityViolationException e) {
-                            log.info("Customer already created concurrently for userId {}, fetching existing record", userId);
-                            return customerRepository.findById(jwtUserId).orElseThrow();
-                        }
-                    });
-            
-            // Allow downstream controllers to access the local Customer UUID
-            request.setAttribute("CUSTOMER_ID", customer.getId().toString());
+            // Only synchronize/create customer records if the user actually has the CUSTOMER role
+            if (roles != null && roles.contains("CUSTOMER")) {
+                // First, try to find by the JWT user ID (the canonical identity)
+                Customer customer = customerRepository.findById(jwtUserId)
+                        .orElseGet(() -> {
+                            try {
+                                log.info("Creating new customer for userId {} phone {} based on IdentityService JWT", userId, phone);
+                                return customerRepository.save(Customer.builder()
+                                        .id(jwtUserId)
+                                        .phoneNumber(phone)
+                                        .build());
+                            } catch (org.springframework.dao.DataIntegrityViolationException e) {
+                                log.info("Customer already created concurrently for userId {}, fetching existing record", userId);
+                                return customerRepository.findById(jwtUserId).orElseThrow();
+                            }
+                        });
+                
+                // Allow downstream controllers to access the local Customer UUID
+                request.setAttribute("CUSTOMER_ID", customer.getId().toString());
+            }
         }
 
         filterChain.doFilter(request, response);

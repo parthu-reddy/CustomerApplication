@@ -8,6 +8,7 @@ import com.fooddelivery.order.entity.Order;
 import com.fooddelivery.order.service.state.OrderActionService;
 import com.fooddelivery.order.service.state.OrderContext;
 import com.fooddelivery.order.service.state.OrderState;
+import com.fooddelivery.common.enums.AccountType;
 
 import java.util.UUID;
 
@@ -24,11 +25,11 @@ public class CreatedState implements OrderState {
         ctx.getActionService().recordLedgerTransaction(
                 paymentTransferId, 
                 order.getCustomerId(), 
-                AppConstants.ACCOUNT_TYPE_CUSTOMER, 
+                AccountType.CUSTOMER, 
                 OrderActionService.PLATFORM_ACCOUNT_ID, 
-                AppConstants.ACCOUNT_TYPE_PLATFORM, 
+                AccountType.PLATFORM, 
                 order.getTotalAmount()
-        );
+            );
 
         ctx.getActionService().emitOrderPaidEvent(order);
         ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_PAID);

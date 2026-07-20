@@ -5,6 +5,7 @@ import com.fooddelivery.common.enums.OrderStatus;
 import com.fooddelivery.order.entity.Order;
 import com.fooddelivery.order.service.state.OrderContext;
 import com.fooddelivery.order.service.state.OrderState;
+import com.fooddelivery.common.enums.AccountType;
 
 import com.fooddelivery.common.constants.AppConstants;
 import com.fooddelivery.order.service.state.OrderActionService;
@@ -31,7 +32,7 @@ public class ReadyForPickupState implements OrderState {
     @Override
     public void handleStatusUpdate(OrderContext ctx) {
         String updateStatus = ctx.getEventPayload().path("status").asText(null);
-        if (OrderStatus.OUT_FOR_DELIVERY.name().equals(updateStatus) || "PICKED_UP".equals(updateStatus)) {
+        if (OrderStatus.OUT_FOR_DELIVERY.name().equals(updateStatus) || OrderStatus.DISPATCHED.name().equals(updateStatus)) {
             Order order = ctx.getOrder();
             
             String providedOtp = ctx.getEventPayload().path("pickupOtp").asText(null);
@@ -41,7 +42,7 @@ public class ReadyForPickupState implements OrderState {
             
             order.setStatus(OrderStatus.OUT_FOR_DELIVERY);
             ctx.getActionService().saveOrder(order);
-            ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), "ORDER_STATUS_OUT_FOR_DELIVERY");
+            ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.NOTIFY_DRIVER_ON_THE_WAY);
         } else {
             OrderState.super.handleStatusUpdate(ctx);
         }
@@ -80,15 +81,15 @@ public class ReadyForPickupState implements OrderState {
         
         UUID restTransferId = UUID.nameUUIDFromBytes(("REST_PAYOUT_" + order.getId()).getBytes());
         ctx.getActionService().recordLedgerTransaction(
-                restTransferId, OrderActionService.PLATFORM_ACCOUNT_ID, AppConstants.ACCOUNT_TYPE_PLATFORM, 
-                order.getRestaurantId(), AppConstants.ACCOUNT_TYPE_RESTAURANT, restPayout
+                restTransferId, OrderActionService.PLATFORM_ACCOUNT_ID, AccountType.PLATFORM, 
+                order.getRestaurantId(), AccountType.RESTAURANT, restPayout
         );
         
         if (order.getDeliveryExecutiveId() != null) {
             UUID driverTransferId = UUID.nameUUIDFromBytes(("DRIVER_PAYOUT_" + order.getId()).getBytes());
             ctx.getActionService().recordLedgerTransaction(
-                    driverTransferId, OrderActionService.PLATFORM_ACCOUNT_ID, AppConstants.ACCOUNT_TYPE_PLATFORM, 
-                    order.getDeliveryExecutiveId(), AppConstants.ACCOUNT_TYPE_DRIVER, driverPayout
+                    driverTransferId, OrderActionService.PLATFORM_ACCOUNT_ID, AccountType.PLATFORM, 
+                    order.getDeliveryExecutiveId(), AccountType.DRIVER, driverPayout
             );
         }
         

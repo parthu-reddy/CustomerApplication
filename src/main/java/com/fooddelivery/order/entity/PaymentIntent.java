@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import com.fooddelivery.common.constants.PaymentIntentStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -30,7 +31,8 @@ public class PaymentIntent {
     private BigDecimal amount;
 
     @Column(nullable = false)
-    private String status;
+    @Enumerated(EnumType.STRING)
+    private PaymentIntentStatus status;
 
     @Column(name = "gateway_name")
     private String gatewayName;

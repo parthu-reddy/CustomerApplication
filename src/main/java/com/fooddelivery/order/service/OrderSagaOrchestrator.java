@@ -10,6 +10,7 @@ import com.fooddelivery.common.exception.OrderProcessingException;
 import com.fooddelivery.order.entity.Order;
 import com.fooddelivery.common.outbox.entity.OutboxEventEntity;
 import com.fooddelivery.common.enums.OrderStatus;
+import com.fooddelivery.common.enums.AccountType;
 import com.fooddelivery.order.repository.IOrderRepository;
 import com.fooddelivery.common.outbox.repository.OutboxEventRepository;
 import com.fooddelivery.order.repository.IPaymentIntentRepository;
@@ -345,7 +346,7 @@ public class OrderSagaOrchestrator {
     public void processRefund(Order order) {
         log.info("Processing refund for Order {}", order.getId());
         paymentIntentRepository.findByInternalOrderId(order.getId()).ifPresent(intent -> {
-            if (PaymentIntentStatus.SUCCESS.equals(intent.getStatus()) || PaymentIntentStatus.CAPTURED.equalsIgnoreCase(intent.getStatus())) {
+            if (intent.getStatus() == PaymentIntentStatus.SUCCESS || intent.getStatus() == PaymentIntentStatus.CAPTURED) {
                 try {
                     String refundUrl = paymentServiceBaseUrl + "/api/v1/payments/refund?gateway=" + intent.getGatewayName();
                     HttpHeaders headers = new HttpHeaders();
@@ -372,7 +373,7 @@ public class OrderSagaOrchestrator {
                                     paymentIntentRepository.save(latestIntent);
                                     
                                     UUID refundTransferId = UUID.nameUUIDFromBytes(("REFUND_" + order.getId()).getBytes());
-                                    ledgerService.recordTransaction(refundTransferId, PLATFORM_ACCOUNT_ID, AppConstants.ACCOUNT_TYPE_PLATFORM, order.getCustomerId(), AppConstants.ACCOUNT_TYPE_CUSTOMER, order.getTotalAmount());
+                                    ledgerService.recordTransaction(refundTransferId, PLATFORM_ACCOUNT_ID, AccountType.PLATFORM, order.getCustomerId(), AccountType.CUSTOMER, order.getTotalAmount());
                                 });
                                 success = true;
                                 log.info("PaymentIntent {} status updated to REFUNDED. Funds returned to Customer via Gateway.", intent.getId());

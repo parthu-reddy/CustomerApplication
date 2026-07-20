@@ -49,7 +49,7 @@ public class PaymentGatewayOrchestrator {
                         .internalOrderId(order.getId())
                         .gatewayOrderId(returnedGatewayOrderId)
                         .amount(order.getTotalAmount())
-                        .status("INITIATED")
+                        .status(com.fooddelivery.common.constants.PaymentIntentStatus.INITIATED)
                         .createdAt(LocalDateTime.now())
                         .build();
         
