@@ -23,7 +23,7 @@ public class ReadyForPickupState implements OrderState {
             order.setDeliveryExecutiveId(driverUUID);
             // Notice: We do NOT transition back to DISPATCHED if already READY_FOR_PICKUP
             ctx.getActionService().saveOrder(order);
-            ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.NOTIFY_DRIVER_ON_THE_WAY);
+            ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), com.fooddelivery.common.constants.NotificationTemplate.DRIVER_ON_THE_WAY.name());
         } catch (IllegalArgumentException e) {
             throw new RuntimeException("Invalid UUID format for driverId: " + driverIdStr, e);
         }
@@ -42,7 +42,7 @@ public class ReadyForPickupState implements OrderState {
             
             order.setStatus(OrderStatus.OUT_FOR_DELIVERY);
             ctx.getActionService().saveOrder(order);
-            ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.NOTIFY_DRIVER_ON_THE_WAY);
+            ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), com.fooddelivery.common.constants.NotificationTemplate.DRIVER_ON_THE_WAY.name());
         } else {
             OrderState.super.handleStatusUpdate(ctx);
         }
@@ -54,7 +54,7 @@ public class ReadyForPickupState implements OrderState {
         order.setStatus(OrderStatus.DELIVERY_FAILED);
         ctx.getActionService().saveOrder(order);
         
-        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.DISPATCH_FAILED);
+        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.DISPATCH_FAILED.name());
         ctx.setRequiresRefund(true);
     }
 
@@ -64,7 +64,7 @@ public class ReadyForPickupState implements OrderState {
         order.setStatus(OrderStatus.DELIVERY_FAILED);
         ctx.getActionService().saveOrder(order);
         
-        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.DELIVERY_FAILED);
+        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.DELIVERY_FAILED.name());
         ctx.setRequiresRefund(true);
     }
 
@@ -93,7 +93,7 @@ public class ReadyForPickupState implements OrderState {
             );
         }
         
-        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_DELIVERED);
+        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_DELIVERED.name());
     }
 
     @Override
@@ -103,7 +103,7 @@ public class ReadyForPickupState implements OrderState {
         order.setCancellationReason(ctx.getEventPayload().path("reason").asText("Restaurant could not fulfill the order"));
         ctx.getActionService().saveOrder(order);
         
-        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_CANCELLED_BY_RESTAURANT);
+        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_CANCELLED_BY_RESTAURANT.name());
         ctx.setRequiresRefund(true);
     }
 }

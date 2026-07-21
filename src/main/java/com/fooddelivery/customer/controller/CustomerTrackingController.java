@@ -42,6 +42,7 @@ public class CustomerTrackingController {
             @Override
             public void onMessage(Message message, byte[] pattern) {
                 try {
+                    log.info("Consumed location-update event from Redis for order: {}", orderId);
                     String body = new String(message.getBody());
                     emitter.send(SseEmitter.event().name("location-update").data(body));
                 } catch (IOException e) {

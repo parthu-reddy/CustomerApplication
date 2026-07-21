@@ -14,7 +14,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -41,15 +41,10 @@ public class CustomerOrderService {
     private final PaymentGatewayOrchestrator paymentGatewayOrchestrator;
     private final com.fooddelivery.customer.repository.CustomerAddressRepository addressRepository;
     
-    // Using a new RestTemplate for now
-    private final RestTemplate restTemplate;
-    
+    private final com.fooddelivery.customer.client.RestaurantClient restaurantClient;
+    private final com.fooddelivery.customer.client.MapsClient mapsClient;
     private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
     private final com.fooddelivery.common.outbox.repository.OutboxEventRepository outboxEventRepository;
-
-    private static final String RESTAURANT_SERVICE_URL = "http://restaurant-service";
-
-    private static final String MAPS_SERVICE_URL = "http://mapsintegration";
 
     public record OrderWithPayment(Order order, String paymentIntent) {}
 
@@ -112,12 +107,13 @@ public class CustomerOrderService {
                     // (restaurant, delivery) know this order is dead on arrival
                     com.fooddelivery.common.outbox.entity.OutboxEventEntity cancelEvent = com.fooddelivery.common.outbox.entity.OutboxEventEntity.builder()
                             .id(UUID.randomUUID())
-                            .aggregateType(com.fooddelivery.common.constants.AppConstants.AGGREGATE_ORDER)
+                            .aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER)
                             .aggregateId(freshOrder.getId().toString())
                             .eventType(com.fooddelivery.common.constants.EventType.ORDER_CANCELLED)
                             .payload(String.format("{\"eventType\":\"ORDER_CANCELLED\", \"orderId\":\"%s\", \"reason\":\"Payment intent generation failed\"}", freshOrder.getId()))
                             .createdAt(java.time.LocalDateTime.now())
                             .build();
+                    log.info("Triggering event: {} for order: {}", com.fooddelivery.common.constants.EventType.ORDER_CANCELLED.name(), freshOrder.getId());
                     outboxEventRepository.save(cancelEvent);
                     
                     log.info("COMPENSATION_COMPLETE: Order {} cancelled and ORDER_CANCELLED outbox event saved.", freshOrder.getId());
@@ -162,13 +158,11 @@ public class CustomerOrderService {
             org.springframework.security.core.context.SecurityContext securityContext = org.springframework.security.core.context.SecurityContextHolder.getContext();
 
             // 1. Launch Menu Fetch Async
-            java.util.concurrent.CompletableFuture<ResponseEntity<List<MenuItemDTO>>> menuFuture = java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+            java.util.concurrent.CompletableFuture<List<MenuItemDTO>> menuFuture = java.util.concurrent.CompletableFuture.supplyAsync(() -> {
                 org.springframework.web.context.request.RequestContextHolder.setRequestAttributes(requestAttributes);
                 org.springframework.security.core.context.SecurityContextHolder.setContext(securityContext);
                 try {
-                    return restTemplate.exchange(
-                        RESTAURANT_SERVICE_URL + "/api/v1/restaurants/" + restaurantId + "/menu/batch?ids=" + menuIds,
-                        HttpMethod.GET, null, new ParameterizedTypeReference<List<MenuItemDTO>>() {});
+                    return restaurantClient.getMenuItemsBatch(restaurantId, menuIds);
                 } finally {
                     org.springframework.web.context.request.RequestContextHolder.resetRequestAttributes();
                     org.springframework.security.core.context.SecurityContextHolder.clearContext();
@@ -181,14 +175,12 @@ public class CustomerOrderService {
                 org.springframework.web.context.request.RequestContextHolder.setRequestAttributes(requestAttributes);
                 org.springframework.security.core.context.SecurityContextHolder.setContext(securityContext);
                 try {
-                    ResponseEntity<java.util.Map> restaurantResponse = restTemplate.getForEntity(
-                        RESTAURANT_SERVICE_URL + "/api/v1/restaurants/" + restaurantId, java.util.Map.class);
+                    java.util.Map<String, Object> responseBody = restaurantClient.getRestaurantById(restaurantId);
                         
-                    if (!restaurantResponse.getStatusCode().is2xxSuccessful() || restaurantResponse.getBody() == null) {
+                    if (responseBody == null) {
                         throw new RuntimeException(new IllegalArgumentException(com.fooddelivery.common.constants.AppConstants.ERROR_MSG_RESTAURANT_NOT_FOUND + restaurantId));
                     }
                     
-                    java.util.Map<String, Object> responseBody = restaurantResponse.getBody();
                     java.util.Map<String, Object> restaurantData = (java.util.Map<String, Object>) responseBody.get("data");
                     
                     if (restaurantData == null) {
@@ -227,13 +219,13 @@ public class CustomerOrderService {
                     Double rLng = (Double) restaurantData.get("lng");
                     
                     try {
-                        ResponseEntity<java.util.Map> mapsResponse = restTemplate.getForEntity(
-                            MAPS_SERVICE_URL + "/api/fleet/availability/check?cityId=" + com.fooddelivery.common.constants.AppConstants.DEFAULT_CITY_ID + "&lat=" + rLat + "&lng=" + rLng + "&radius=" + com.fooddelivery.common.constants.AppConstants.MAX_DELIVERY_RADIUS_KM, java.util.Map.class);
+                        java.util.Map<String, Object> mapsResponse = mapsClient.checkFleetAvailability(
+                            com.fooddelivery.common.constants.AppConstants.DEFAULT_CITY_ID, rLat, rLng, com.fooddelivery.common.constants.AppConstants.MAX_DELIVERY_RADIUS_KM);
                             
-                        if (mapsResponse.getStatusCode().is2xxSuccessful() && mapsResponse.getBody() != null) {
-                            return Boolean.TRUE.equals(mapsResponse.getBody().get("available"));
+                        if (mapsResponse != null) {
+                            return Boolean.TRUE.equals(mapsResponse.get("available"));
                         }
-                    } catch (org.springframework.web.client.RestClientException e) {
+                    } catch (Exception e) {
                         log.warn("Failed to reach MapsIntegration for fleet check: {}", e.getMessage());
                     }
                     return false;
@@ -274,12 +266,11 @@ public class CustomerOrderService {
             BigDecimal totalAmount = BigDecimal.ZERO;
             List<OrderItem> orderItems = new ArrayList<>();
 
-            ResponseEntity<List<MenuItemDTO>> menuResponse = menuFuture.get();
-            if (!menuResponse.getStatusCode().is2xxSuccessful() || menuResponse.getBody() == null) {
+            List<MenuItemDTO> fetchedItems = menuFuture.get();
+            if (fetchedItems == null) {
                 throw new IllegalArgumentException("Failed to fetch menu items");
             }
             
-            List<MenuItemDTO> fetchedItems = menuResponse.getBody();
             Map<UUID, MenuItemDTO> menuItemMap = fetchedItems.stream()
                     .collect(Collectors.toMap(MenuItemDTO::id, item -> item));
 
@@ -372,6 +363,19 @@ public class CustomerOrderService {
                 orderSagaOrchestrator.publishDelayApprovalEvent(order, false, "Customer manually rejected additional prep time request");
             });
         }
+    }
+
+    public void cancelOrder(UUID customerId, UUID orderId) {
+        Order order = orderRepository.findById(orderId)
+            .orElseThrow(() -> new IllegalArgumentException("Order not found"));
+            
+        if (!order.getCustomerId().equals(customerId)) {
+            throw new org.springframework.security.access.AccessDeniedException("You are not authorized to perform this action on this order");
+        }
+            
+        transactionTemplate.executeWithoutResult(status -> {
+            orderSagaOrchestrator.cancelOrderLocally(order, "Cancelled by customer via UI");
+        });
     }
 
     private double calculateDistance(double lat1, double lon1, double lat2, double lon2) {

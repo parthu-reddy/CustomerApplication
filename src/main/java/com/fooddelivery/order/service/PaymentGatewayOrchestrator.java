@@ -8,7 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.RestTemplate;
+import com.fooddelivery.customer.client.PaymentClient;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -23,27 +23,21 @@ public class PaymentGatewayOrchestrator {
 
     private final IPaymentIntentRepository paymentIntentRepository;
     private final IOrderRepository orderRepository;
-    private final RestTemplate restTemplate;
-    private final com.fooddelivery.common.outbox.repository.OutboxEventRepository outboxEventRepository;
-    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
-
-    private static final String paymentServiceBaseUrl = "http://payment-service";
+    private final PaymentClient paymentClient;
 
     public String generateUpiIntent(Order order) {
         log.info("Requesting Payment Intent for Order: {} from PaymentGatewayIntegration service", order.getId());
 
         try {
             // Call PaymentGatewayIntegration service
-            String paymentServiceUrl = paymentServiceBaseUrl + "/api/v1/payments/create-order?gateway=VYAPAR";
             java.util.Map<String, Object> request = java.util.Map.of(
                 "internalOrderId", order.getId().toString(),
                 "amountInInr", order.getTotalAmount()
             );
             
-            org.springframework.http.ResponseEntity<String> response = restTemplate.postForEntity(paymentServiceUrl, request, String.class);
+            String returnedGatewayOrderId = paymentClient.createOrder("VYAPAR", request);
             
-            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                String returnedGatewayOrderId = response.getBody();
+            if (returnedGatewayOrderId != null && !returnedGatewayOrderId.isEmpty()) {
                 PaymentIntent intent = PaymentIntent.builder()
                         .id(UUID.randomUUID())
                         .internalOrderId(order.getId())
@@ -56,8 +50,8 @@ public class PaymentGatewayOrchestrator {
                 paymentIntentRepository.save(intent);
                 return returnedGatewayOrderId;
             } else {
-                log.error("Failed to generate payment intent. Status code: {}", response.getStatusCode());
-                throw new RuntimeException("Failed to generate payment intent. Status: " + response.getStatusCode());
+                log.error("Failed to generate payment intent.");
+                throw new RuntimeException("Failed to generate payment intent.");
             }
         } catch (Exception e) {
             log.error("Error communicating with PaymentGatewayIntegration service", e);

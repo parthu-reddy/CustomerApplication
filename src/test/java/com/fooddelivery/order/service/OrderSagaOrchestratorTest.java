@@ -44,7 +44,7 @@ class OrderSagaOrchestratorTest {
     private KafkaTemplate<String, String> kafkaTemplate;
 
     @Mock
-    private org.springframework.web.client.RestTemplate restTemplate;
+    private com.fooddelivery.order.client.PaymentClient paymentClient;
 
     @Mock
     private org.springframework.transaction.support.TransactionTemplate transactionTemplate;
@@ -84,7 +84,7 @@ class OrderSagaOrchestratorTest {
                 objectMapper,
                 kafkaTemplate,
                 ledgerService,
-                restTemplate,
+                paymentClient,
                 transactionTemplate,
                 orderActionService
         );
@@ -106,8 +106,8 @@ class OrderSagaOrchestratorTest {
         verify(outboxEventRepository).save(outboxCaptor.capture());
         
         OutboxEventEntity savedOutbox = outboxCaptor.getValue();
-        assertThat(savedOutbox.getEventType()).isEqualTo(com.fooddelivery.common.constants.EventType.ORDER_CREATED);
-        assertThat(savedOutbox.getAggregateType()).isEqualTo(com.fooddelivery.common.constants.AppConstants.AGGREGATE_ORDER);
+        assertThat(savedOutbox.getEventType()).isEqualTo(com.fooddelivery.common.constants.EventType.ORDER_CREATED.name());
+        assertThat(savedOutbox.getAggregateType()).isEqualTo(com.fooddelivery.common.constants.AggregateType.ORDER);
     }
 
     @Test
@@ -155,7 +155,7 @@ class OrderSagaOrchestratorTest {
 
         when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
         
-        orderSagaOrchestrator.handleOrderEvents(payload, com.fooddelivery.common.constants.EventType.ORDER_ACCEPTED);
+        orderSagaOrchestrator.handleOrderEvents(payload, com.fooddelivery.common.constants.EventType.ORDER_ACCEPTED.name());
 
         assertThat(order.getStatus()).isEqualTo(OrderStatus.ACCEPTED);
         verify(orderRepository).save(order);

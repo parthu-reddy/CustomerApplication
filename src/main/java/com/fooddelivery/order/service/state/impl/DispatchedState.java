@@ -19,7 +19,7 @@ public class DispatchedState implements OrderState {
         Order order = ctx.getOrder();
         order.setStatus(OrderStatus.READY_FOR_PICKUP);
         ctx.getActionService().saveOrder(order);
-        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.NOTIFY_ORDER_READY_FOR_PICKUP);
+        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), com.fooddelivery.common.constants.NotificationTemplate.ORDER_READY_FOR_PICKUP.name());
     }
 
     @Override
@@ -48,7 +48,7 @@ public class DispatchedState implements OrderState {
             
             order.setStatus(OrderStatus.OUT_FOR_DELIVERY);
             ctx.getActionService().saveOrder(order);
-            ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.NOTIFY_DRIVER_ON_THE_WAY);
+            ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), com.fooddelivery.common.constants.NotificationTemplate.DRIVER_ON_THE_WAY.name());
         } else {
             OrderState.super.handleStatusUpdate(ctx);
         }
@@ -79,7 +79,7 @@ public class DispatchedState implements OrderState {
                 );
         }
         
-        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_DELIVERED);
+        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_DELIVERED.name());
     }
 
     @Override
@@ -88,7 +88,7 @@ public class DispatchedState implements OrderState {
         order.setStatus(OrderStatus.DELIVERY_FAILED);
         ctx.getActionService().saveOrder(order);
         
-        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.DISPATCH_FAILED);
+        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.DISPATCH_FAILED.name());
         ctx.setRequiresRefund(true);
     }
 
@@ -98,7 +98,7 @@ public class DispatchedState implements OrderState {
         order.setStatus(OrderStatus.DELIVERY_FAILED);
         ctx.getActionService().saveOrder(order);
         
-        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.DELIVERY_FAILED);
+        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.DELIVERY_FAILED.name());
         ctx.setRequiresRefund(true);
     }
 
@@ -109,7 +109,7 @@ public class DispatchedState implements OrderState {
         order.setCancellationReason(ctx.getEventPayload().path("reason").asText("Restaurant could not fulfill the order"));
         ctx.getActionService().saveOrder(order);
         
-        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_CANCELLED_BY_RESTAURANT);
+        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_CANCELLED_BY_RESTAURANT.name());
         ctx.setRequiresRefund(true);
     }
 }

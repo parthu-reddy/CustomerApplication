@@ -8,14 +8,7 @@ import com.fooddelivery.order.service.state.OrderState;
 
 import java.util.UUID;
 
-public class AcceptedState implements OrderState {
-
-    @Override
-    public void handleOrderPreparing(OrderContext ctx) {
-        Order order = ctx.getOrder();
-        order.setStatus(OrderStatus.PREPARING);
-        ctx.getActionService().saveOrder(order);
-    }
+public class PreparingState implements OrderState {
 
     @Override
     public void handleOrderReady(OrderContext ctx) {

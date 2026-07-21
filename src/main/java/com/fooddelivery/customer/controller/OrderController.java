@@ -61,6 +61,17 @@ public class OrderController {
         return ResponseEntity.ok(ApiResponse.success(null, "Delay approval processed"));
     }
 
+    @PostMapping("/{orderId}/cancel")
+    public ResponseEntity<ApiResponse<Void>> cancelOrder(
+            java.security.Principal principal,
+            @org.springframework.web.bind.annotation.PathVariable java.util.UUID orderId) {
+        
+        java.util.UUID customerId = java.util.UUID.fromString(principal.getName());
+        
+        customerOrderService.cancelOrder(customerId, orderId);
+        return ResponseEntity.ok(ApiResponse.success(null, "Order cancelled successfully"));
+    }
+
     @org.springframework.web.bind.annotation.GetMapping("/active")
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<OrderResponse>>> getActiveOrders(

@@ -55,40 +55,88 @@ public class OrderActionService {
     public void emitOrderCancelledEvent(UUID orderId, String reason) {
         try {
             com.fasterxml.jackson.databind.node.ObjectNode payloadNode = objectMapper.createObjectNode();
-            payloadNode.put("eventType", EventType.ORDER_CANCELLED);
+            payloadNode.put("eventType", EventType.ORDER_CANCELLED.name());
             payloadNode.put("orderId", orderId.toString());
             payloadNode.put("reason", reason);
             OutboxEventEntity outboxEvent = OutboxEventEntity.builder()
                     .id(UUID.randomUUID())
-                    .aggregateType(AppConstants.AGGREGATE_ORDER)
+                    .aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER)
                     .aggregateId(orderId.toString())
                     .eventType(EventType.ORDER_CANCELLED)
                     .payload(objectMapper.writeValueAsString(payloadNode))
                     .createdAt(LocalDateTime.now())
                     .status(com.fooddelivery.common.enums.OutboxStatus.UNPROCESSED)
                     .build();
+            log.info("Triggering event: {} for order: {}", EventType.ORDER_CANCELLED.name(), orderId);
             outboxEventRepository.save(outboxEvent);
         } catch (Exception e) {
             log.error("Failed to publish ORDER_CANCELLED event", e);
             throw new OrderProcessingException("Failed to publish ORDER_CANCELLED event", e);
         }
     }
-    
-    public void emitOrderDeliveryFailedEvent(UUID orderId, String reason) {
+
+    public void emitOrderCancelledByCustomerEvent(UUID orderId) {
         try {
             com.fasterxml.jackson.databind.node.ObjectNode payloadNode = objectMapper.createObjectNode();
-            payloadNode.put("eventType", com.fooddelivery.common.constants.EventType.DELIVERY_FAILED);
+            payloadNode.put("eventType", EventType.ORDER_CANCELLED_BY_CUSTOMER.name());
+            payloadNode.put("orderId", orderId.toString());
+            payloadNode.put("reason", "Cancelled by customer");
+            OutboxEventEntity outboxEvent = OutboxEventEntity.builder()
+                    .id(UUID.randomUUID())
+                    .aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER)
+                    .aggregateId(orderId.toString())
+                    .eventType(EventType.ORDER_CANCELLED_BY_CUSTOMER)
+                    .payload(objectMapper.writeValueAsString(payloadNode))
+                    .createdAt(LocalDateTime.now())
+                    .status(com.fooddelivery.common.enums.OutboxStatus.UNPROCESSED)
+                    .build();
+            log.info("Triggering event: {} for order: {}", EventType.ORDER_CANCELLED_BY_CUSTOMER.name(), orderId);
+            outboxEventRepository.save(outboxEvent);
+        } catch (Exception e) {
+            log.error("Failed to publish ORDER_CANCELLED_BY_CUSTOMER event", e);
+            throw new OrderProcessingException("Failed to publish ORDER_CANCELLED_BY_CUSTOMER event", e);
+        }
+    }
+    
+    public void emitOrderCancelledByRestaurantEvent(UUID orderId, String reason) {
+        try {
+            com.fasterxml.jackson.databind.node.ObjectNode payloadNode = objectMapper.createObjectNode();
+            payloadNode.put("eventType", EventType.ORDER_CANCELLED_BY_RESTAURANT.name());
             payloadNode.put("orderId", orderId.toString());
             payloadNode.put("reason", reason);
             OutboxEventEntity outboxEvent = OutboxEventEntity.builder()
                     .id(UUID.randomUUID())
-                    .aggregateType(AppConstants.AGGREGATE_ORDER)
+                    .aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER)
+                    .aggregateId(orderId.toString())
+                    .eventType(EventType.ORDER_CANCELLED_BY_RESTAURANT)
+                    .payload(objectMapper.writeValueAsString(payloadNode))
+                    .createdAt(LocalDateTime.now())
+                    .status(com.fooddelivery.common.enums.OutboxStatus.UNPROCESSED)
+                    .build();
+            log.info("Triggering event: {} for order: {}", EventType.ORDER_CANCELLED_BY_RESTAURANT.name(), orderId);
+            outboxEventRepository.save(outboxEvent);
+        } catch (Exception e) {
+            log.error("Failed to publish ORDER_CANCELLED_BY_RESTAURANT event", e);
+            throw new OrderProcessingException("Failed to publish ORDER_CANCELLED_BY_RESTAURANT event", e);
+        }
+    }
+    
+    public void emitOrderDeliveryFailedEvent(UUID orderId, String reason) {
+        try {
+            com.fasterxml.jackson.databind.node.ObjectNode payloadNode = objectMapper.createObjectNode();
+            payloadNode.put("eventType", com.fooddelivery.common.constants.EventType.DELIVERY_FAILED.name());
+            payloadNode.put("orderId", orderId.toString());
+            payloadNode.put("reason", reason);
+            OutboxEventEntity outboxEvent = OutboxEventEntity.builder()
+                    .id(UUID.randomUUID())
+                    .aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER)
                     .aggregateId(orderId.toString())
                     .eventType(com.fooddelivery.common.constants.EventType.DELIVERY_FAILED)
                     .payload(objectMapper.writeValueAsString(payloadNode))
                     .createdAt(LocalDateTime.now())
                     .status(com.fooddelivery.common.enums.OutboxStatus.UNPROCESSED)
                     .build();
+            log.info("Triggering event: {} for order: {}", com.fooddelivery.common.constants.EventType.DELIVERY_FAILED.name(), orderId);
             outboxEventRepository.save(outboxEvent);
         } catch (Exception e) {
             log.error("Failed to publish DELIVERY_FAILED event", e);
@@ -128,13 +176,14 @@ public class OrderActionService {
 
             OutboxEventEntity outboxEvent = OutboxEventEntity.builder()
                     .id(UUID.randomUUID())
-                    .aggregateType(AppConstants.AGGREGATE_ORDER)
+                    .aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER)
                     .aggregateId(order.getId().toString())
                     .eventType(EventType.ORDER_PAID)
                     .payload(objectMapper.writeValueAsString(paidEvent))
                     .createdAt(LocalDateTime.now())
                     .status(com.fooddelivery.common.enums.OutboxStatus.UNPROCESSED)
                     .build();
+            log.info("Triggering event: {} for order: {}", EventType.ORDER_PAID.name(), order.getId());
             outboxEventRepository.save(outboxEvent);
         } catch (Exception e) {
             log.error("Failed to publish ORDER_PAID event", e);
@@ -153,19 +202,44 @@ public class OrderActionService {
             
             OutboxEventEntity outboxEvent = OutboxEventEntity.builder()
                     .id(UUID.randomUUID())
-                    .aggregateType(AppConstants.AGGREGATE_NOTIFICATION)
+                    .aggregateType(com.fooddelivery.common.constants.AggregateType.NOTIFICATION)
                     .aggregateId(customerId.toString())
                     .eventType(EventType.NOTIFICATION_REQUEST)
                     .payload(objectMapper.writeValueAsString(notificationEvent))
                     .createdAt(LocalDateTime.now())
                     .status(com.fooddelivery.common.enums.OutboxStatus.UNPROCESSED)
                     .build();
+            log.info("Triggering event: {} for customer: {}", EventType.NOTIFICATION_REQUEST.name(), customerId);
             outboxEventRepository.save(outboxEvent);
             
             log.info("Saved notification request to outbox for order {} to customer {}", orderId, customerId);
         } catch (Exception e) {
             log.error("Failed to save notification request to outbox", e);
             throw new RuntimeException("Failed to save notification", e);
+        }
+    }
+
+    public void emitOrderStatusSyncEvent(UUID orderId, OrderStatus currentStatus) {
+        try {
+            java.util.Map<String, Object> payload = new java.util.HashMap<>();
+            payload.put("orderId", orderId.toString());
+            payload.put("status", currentStatus.name());
+            payload.put("eventType", EventType.ORDER_STATUS_SYNC.name());
+            
+            OutboxEventEntity outboxEvent = OutboxEventEntity.builder()
+                    .id(UUID.randomUUID())
+                    .aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER)
+                    .aggregateId(orderId.toString())
+                    .eventType(EventType.ORDER_STATUS_SYNC)
+                    .payload(objectMapper.writeValueAsString(payload))
+                    .createdAt(LocalDateTime.now())
+                    .status(com.fooddelivery.common.enums.OutboxStatus.UNPROCESSED)
+                    .build();
+            outboxEventRepository.save(outboxEvent);
+            log.info("Saved ORDER_STATUS_SYNC event to outbox for order: {}", orderId);
+        } catch (Exception e) {
+            log.error("Failed to save ORDER_STATUS_SYNC outbox event for order: {}", orderId, e);
+            throw new OrderProcessingException("Failed to emit ORDER_STATUS_SYNC", e);
         }
     }
 }

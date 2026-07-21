@@ -45,7 +45,7 @@ public class OutForDeliveryState implements OrderState {
             );
         }
         
-        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_DELIVERED);
+        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_DELIVERED.name());
     }
 
     @Override
@@ -54,7 +54,7 @@ public class OutForDeliveryState implements OrderState {
         order.setStatus(OrderStatus.DELIVERY_FAILED);
         ctx.getActionService().saveOrder(order);
         
-        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.DELIVERY_FAILED);
+        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.DELIVERY_FAILED.name());
         ctx.setRequiresRefund(true);
     }
 }

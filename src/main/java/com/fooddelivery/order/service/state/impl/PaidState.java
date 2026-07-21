@@ -32,7 +32,7 @@ public class PaidState implements OrderState {
         Order order = ctx.getOrder();
         order.setStatus(OrderStatus.AWAITING_DELAY_APPROVAL);
         ctx.getActionService().saveOrder(order);
-        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.NOTIFY_DELAY_APPROVAL_REQUESTED);
+        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), com.fooddelivery.common.constants.NotificationTemplate.DELAY_APPROVAL_REQUESTED.name());
     }
 
     @Override
@@ -42,7 +42,19 @@ public class PaidState implements OrderState {
         order.setCancellationReason(ctx.getEventPayload().path("reason").asText("Restaurant could not fulfill the order"));
         ctx.getActionService().saveOrder(order);
         
-        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_CANCELLED_BY_RESTAURANT);
+        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_CANCELLED_BY_RESTAURANT.name());
         ctx.setRequiresRefund(true);
+    }
+
+    @Override
+    public void cancelByCustomer(OrderContext ctx, String reason) {
+        Order order = ctx.getOrder();
+        order.setStatus(OrderStatus.CANCELLED);
+        order.setCancellationReason(reason != null ? reason : "Cancelled by customer");
+        ctx.getActionService().saveOrder(order);
+
+        // Notify restaurant to cancel (since it was paid)
+        ctx.getActionService().emitOrderCancelledByCustomerEvent(order.getId());
+        ctx.setRequiresRefund(false); // No refund when customer cancels
     }
 }

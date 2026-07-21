@@ -46,25 +46,24 @@ public class OrderSagaOrchestrator {
     
     private static final java.util.Map<String, java.util.function.BiConsumer<com.fooddelivery.order.service.state.OrderState, com.fooddelivery.order.service.state.OrderContext>> EVENT_HANDLERS = new java.util.HashMap<>();
     static {
-        EVENT_HANDLERS.put(EventType.ORDER_DELIVERED, com.fooddelivery.order.service.state.OrderState::handleOrderDelivered);
-        EVENT_HANDLERS.put(EventType.ORDER_CANCELLED_BY_RESTAURANT, com.fooddelivery.order.service.state.OrderState::handleOrderCancelledByRestaurant);
-        EVENT_HANDLERS.put(EventType.ORDER_REJECTED, com.fooddelivery.order.service.state.OrderState::handleOrderCancelledByRestaurant);
-        EVENT_HANDLERS.put(EventType.DRIVER_ASSIGNED, com.fooddelivery.order.service.state.OrderState::handleDriverAssigned);
-        EVENT_HANDLERS.put(EventType.DISPATCH_FAILED, com.fooddelivery.order.service.state.OrderState::handleDispatchFailed);
-        EVENT_HANDLERS.put(EventType.DELIVERY_FAILED, com.fooddelivery.order.service.state.OrderState::handleDeliveryFailed);
-        EVENT_HANDLERS.put(EventType.ORDER_DELAY_APPROVAL_REQUESTED, com.fooddelivery.order.service.state.OrderState::handleDelayApprovalRequested);
-        EVENT_HANDLERS.put(EventType.ORDER_DELAY_REJECTED, com.fooddelivery.order.service.state.OrderState::handleDelayRejected);
-        EVENT_HANDLERS.put(EventType.ORDER_ACCEPTED, com.fooddelivery.order.service.state.OrderState::handleOrderAccepted);
-        EVENT_HANDLERS.put(EventType.ORDER_READY, com.fooddelivery.order.service.state.OrderState::handleOrderReady);
+        EVENT_HANDLERS.put(EventType.ORDER_DELIVERED.name(), com.fooddelivery.order.service.state.OrderState::handleOrderDelivered);
+        EVENT_HANDLERS.put(EventType.ORDER_CANCELLED_BY_RESTAURANT.name(), com.fooddelivery.order.service.state.OrderState::handleOrderCancelledByRestaurant);
+        EVENT_HANDLERS.put(EventType.ORDER_REJECTED.name(), com.fooddelivery.order.service.state.OrderState::handleOrderCancelledByRestaurant);
+        EVENT_HANDLERS.put(EventType.DRIVER_ASSIGNED.name(), com.fooddelivery.order.service.state.OrderState::handleDriverAssigned);
+        EVENT_HANDLERS.put(EventType.DISPATCH_FAILED.name(), com.fooddelivery.order.service.state.OrderState::handleDispatchFailed);
+        EVENT_HANDLERS.put(EventType.DELIVERY_FAILED.name(), com.fooddelivery.order.service.state.OrderState::handleDeliveryFailed);
+        EVENT_HANDLERS.put(EventType.ORDER_DELAY_APPROVAL_REQUESTED.name(), com.fooddelivery.order.service.state.OrderState::handleDelayApprovalRequested);
+        EVENT_HANDLERS.put(EventType.ORDER_DELAY_REJECTED.name(), com.fooddelivery.order.service.state.OrderState::handleDelayRejected);
+        EVENT_HANDLERS.put(EventType.ORDER_ACCEPTED.name(), com.fooddelivery.order.service.state.OrderState::handleOrderAccepted);
+        EVENT_HANDLERS.put(EventType.ORDER_PREPARING.name(), com.fooddelivery.order.service.state.OrderState::handleOrderPreparing);
+        EVENT_HANDLERS.put(EventType.ORDER_READY.name(), com.fooddelivery.order.service.state.OrderState::handleOrderReady);
     }
-    private final org.springframework.web.client.RestTemplate restTemplate;
+    private final com.fooddelivery.customer.client.PaymentClient paymentClient;
     private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
     private final com.fooddelivery.order.service.state.OrderActionService orderActionService;
 
     // We assume the system account ID for the platform is a fixed UUID for this prototype
     private static final UUID PLATFORM_ACCOUNT_ID = UUID.fromString("00000000-0000-0000-0000-000000000000");
-
-    private static final String paymentServiceBaseUrl = "http://payment-service";
 
     @Transactional
     public Order startOrderSaga(Order order) {
@@ -93,13 +92,14 @@ public class OrderSagaOrchestrator {
         try {
             OutboxEventEntity outboxEvent = OutboxEventEntity.builder()
                     .id(UUID.randomUUID())
-                    .aggregateType(AppConstants.AGGREGATE_ORDER)
+                    .aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER)
                     .aggregateId(savedOrder.getId().toString())
                     .eventType(EventType.ORDER_CREATED)
                     .payload(objectMapper.writeValueAsString(event))
                     .createdAt(LocalDateTime.now())
                     .build();
                     
+            log.info("Triggering event: {} for order: {}", EventType.ORDER_CREATED.name(), savedOrder.getId());
             outboxEventRepository.save(outboxEvent);
             log.info("Order created and outbox event saved for Order ID: {}", savedOrder.getId());
             
@@ -119,11 +119,12 @@ public class OrderSagaOrchestrator {
                 .id(UUID.randomUUID())
                 .aggregateType(event.getAggregateType())
                 .aggregateId(event.getAggregateId())
-                .eventType(event.getType())
+                .eventType(event.getEventType())
                 .payload(event.getPayload())
                 .createdAt(LocalDateTime.now())
                 .build();
                 
+        log.info("Triggering event: {} for aggregate: {}", event.getEventType(), event.getAggregateId());
         outboxEventRepository.save(outboxEvent);
         log.info("Order state and outbox event saved for Order ID: {}", order.getId());
     }
@@ -148,7 +149,14 @@ public class OrderSagaOrchestrator {
             
             String gatewayOrderId = rootNode.get("gatewayOrderId").asText();
             String internalOrderId = rootNode.get("orderId").asText();
-            boolean isFailure = rootNode.has("failureReason");
+            
+            if (rootNode.has("eventType") && com.fooddelivery.common.constants.EventType.PAYMENT_REFUNDED.name().equals(rootNode.get("eventType").asText())) {
+                log.info("Ignoring PAYMENT_REFUNDED event for order: {}", internalOrderId);
+                return null;
+            }
+            
+            boolean isFailure = rootNode.has("failureReason") || 
+                    (rootNode.has("eventType") && com.fooddelivery.common.constants.EventType.PAYMENT_FAILED.name().equals(rootNode.get("eventType").asText()));
             
             log.info("Payment event for gateway order {}. Finding internal order {}. IsFailure: {}", gatewayOrderId, internalOrderId, isFailure);
             
@@ -243,20 +251,22 @@ public class OrderSagaOrchestrator {
                 java.util.function.BiConsumer<com.fooddelivery.order.service.state.OrderState, com.fooddelivery.order.service.state.OrderContext> handler = EVENT_HANDLERS.get(eventType);
                 if (handler != null) {
                     handler.accept(state, context);
-                } else if (EventType.ORDER_STATUS_UPDATED.equals(eventType)) {
+                } else if (EventType.ORDER_STATUS_UPDATED.name().equals(eventType)) {
                     String updateStatus = rootNode.path("status").asText(null);
-                    if (EventType.DELIVERY_FAILED.equals(updateStatus)) {
+                    if (EventType.DELIVERY_FAILED.name().equals(updateStatus)) {
                         state.handleDeliveryFailed(context);
                     } else {
                         state.handleStatusUpdate(context);
                     }
-                } else if (EventType.ORDER_DRIVER_REJECTED.equals(eventType)) {
+                } else if (EventType.ORDER_DRIVER_REJECTED.name().equals(eventType)) {
                     log.info("Driver rejected/timed out ping for Order {}. Redispatching will be handled by DeliveryExecutiveApplication.", orderId);
                 } else {
                     log.warn("Unmapped event type {} for Order {}. Ignoring.", eventType, orderId);
                 }
             } catch (com.fooddelivery.order.service.state.IllegalStateTransitionException e) {
                 log.error("ILLEGAL_STATE_TRANSITION: {}", e.getMessage());
+                // Issue sync event to correct the offending participant
+                orderActionService.emitOrderStatusSyncEvent(order.getId(), order.getStatus());
             }
             
             if (context.isRequiresRefund()) {
@@ -291,7 +301,7 @@ public class OrderSagaOrchestrator {
     @Transactional
     public void publishDelayApprovalEvent(Order order, boolean approved, String reason) {
         try {
-            String eventType = approved ? EventType.ORDER_DELAY_APPROVED : EventType.ORDER_DELAY_REJECTED;
+            String eventType = approved ? EventType.ORDER_DELAY_APPROVED.name() : EventType.ORDER_DELAY_REJECTED.name();
             com.fasterxml.jackson.databind.node.ObjectNode payloadNode = objectMapper.createObjectNode();
             payloadNode.put("eventType", eventType);
             payloadNode.put("orderId", order.getId().toString());
@@ -301,17 +311,35 @@ public class OrderSagaOrchestrator {
             }
             OutboxEventEntity outboxEvent = OutboxEventEntity.builder()
                     .id(UUID.randomUUID())
-                    .aggregateType(AppConstants.AGGREGATE_ORDER)
+                    .aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER)
                     .aggregateId(order.getId().toString())
-                    .eventType(eventType)
+                    .eventType(com.fooddelivery.common.constants.EventType.valueOf(eventType))
                     .payload(objectMapper.writeValueAsString(payloadNode))
                     .createdAt(LocalDateTime.now())
                     .build();
+            log.info("Triggering event: {} for order: {}", eventType, order.getId());
             outboxEventRepository.save(outboxEvent);
             log.info("Saved outbox event {} for Order {}", eventType, order.getId());
         } catch (Exception e) {
             log.error("Failed to save delay approval event", e);
             throw new OrderProcessingException("Failed to process delay approval", e);
+        }
+    }
+
+    @Transactional
+    public void cancelOrderLocally(Order order, String reason) {
+        com.fooddelivery.order.service.state.OrderContext context = new com.fooddelivery.order.service.state.OrderContext(order, objectMapper.createObjectNode(), orderActionService);
+        com.fooddelivery.order.service.state.OrderState state = com.fooddelivery.order.service.state.OrderStateFactory.getState(order.getStatus());
+        
+        try {
+            state.cancelByCustomer(context, reason);
+        } catch (com.fooddelivery.order.service.state.IllegalStateTransitionException e) {
+            log.error("ILLEGAL_STATE_TRANSITION: {}", e.getMessage());
+            throw new IllegalStateException(e.getMessage());
+        }
+
+        if (context.isRequiresRefund()) {
+            processRefund(order);
         }
     }
 
@@ -346,21 +374,21 @@ public class OrderSagaOrchestrator {
     public void processRefund(Order order) {
         log.info("Processing refund for Order {}", order.getId());
         paymentIntentRepository.findByInternalOrderId(order.getId()).ifPresent(intent -> {
-            if (intent.getStatus() == PaymentIntentStatus.SUCCESS || intent.getStatus() == PaymentIntentStatus.CAPTURED) {
+            if (intent.getStatus() == PaymentIntentStatus.SUCCESS || intent.getStatus() == PaymentIntentStatus.CAPTURED || intent.getStatus() == PaymentIntentStatus.REFUND_FAILED) {
                 try {
-                    String refundUrl = paymentServiceBaseUrl + "/api/v1/payments/refund?gateway=" + intent.getGatewayName();
-                    HttpHeaders headers = new HttpHeaders();
-                    headers.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
-                    
                     Map<String, Object> request = new HashMap<>();
                     request.put("gatewayOrderId", intent.getGatewayOrderId());
                     request.put("amountInInr", order.getTotalAmount());
                     request.put("reason", "Order cancelled or rejected");
                     
-                    HttpEntity<Map<String, Object>> entity = new HttpEntity<>(request, headers);
-                    ResponseEntity<String> response = restTemplate.postForEntity(refundUrl, entity, String.class);
+                    String response = null;
+                    try {
+                        response = paymentClient.refundOrder(intent.getGatewayName(), request);
+                    } catch (Exception e) {
+                        log.error("Failed to initiate refund via PaymentGatewayIntegration", e);
+                    }
                     
-                    if (response.getStatusCode().is2xxSuccessful()) {
+                    if (response != null) {
                         int retries = 0;
                         boolean success = false;
                         while (!success && retries < AppConstants.MAX_OPTIMISTIC_LOCK_RETRIES) {
@@ -371,6 +399,13 @@ public class OrderSagaOrchestrator {
                                             .orElseThrow(() -> new RuntimeException("PaymentIntent not found during refund retry"));
                                     latestIntent.setStatus(PaymentIntentStatus.REFUNDED);
                                     paymentIntentRepository.save(latestIntent);
+                                    
+                                    Order latestOrder = orderRepository.findById(order.getId()).orElse(null);
+                                    if(latestOrder != null) {
+                                        latestOrder.setStatus(OrderStatus.CANCELLED_AND_REFUNDED);
+                                        orderRepository.save(latestOrder);
+                                        orderActionService.emitOrderStatusSyncEvent(latestOrder.getId(), OrderStatus.CANCELLED_AND_REFUNDED);
+                                    }
                                     
                                     UUID refundTransferId = UUID.nameUUIDFromBytes(("REFUND_" + order.getId()).getBytes());
                                     ledgerService.recordTransaction(refundTransferId, PLATFORM_ACCOUNT_ID, AccountType.PLATFORM, order.getCustomerId(), AccountType.CUSTOMER, order.getTotalAmount());
@@ -388,21 +423,43 @@ public class OrderSagaOrchestrator {
                             }
                         }
                     } else {
-                        log.error("Failed to initiate refund via PaymentGatewayIntegration. Status: {}, Body: {}", response.getStatusCode(), response.getBody());
-                        transactionTemplate.executeWithoutResult(status -> {
-                            intent.setStatus(PaymentIntentStatus.REFUND_FAILED);
-                            paymentIntentRepository.save(intent);
-                        });
+                        log.error("Failed to initiate refund via PaymentGatewayIntegration.");
+                        markRefundFailedWithRetry(intent);
                     }
                 } catch (Exception e) {
                     log.error("Exception calling PaymentGatewayIntegration for refund on order {}. Marking as REFUND_FAILED.", order.getId(), e);
-                    transactionTemplate.executeWithoutResult(status -> {
-                        intent.setStatus(PaymentIntentStatus.REFUND_FAILED);
-                        paymentIntentRepository.save(intent);
-                    });
+                    markRefundFailedWithRetry(intent);
                 }
+            } else {
+                log.info("PaymentIntent for Order {} is not in a refundable state: {}", order.getId(), intent.getStatus());
             }
         });
+    }
+
+    private void markRefundFailedWithRetry(com.fooddelivery.order.entity.PaymentIntent intent) {
+        int retries = 0;
+        boolean success = false;
+        while (!success && retries < AppConstants.MAX_OPTIMISTIC_LOCK_RETRIES) {
+            try {
+                transactionTemplate.executeWithoutResult(status -> {
+                    com.fooddelivery.order.entity.PaymentIntent latestIntent = paymentIntentRepository.findById(intent.getId()).orElse(intent);
+                    latestIntent.setStatus(PaymentIntentStatus.REFUND_FAILED);
+                    paymentIntentRepository.save(latestIntent);
+                });
+                success = true;
+            } catch (org.springframework.orm.ObjectOptimisticLockingFailureException e) {
+                retries++;
+                if (retries >= AppConstants.MAX_OPTIMISTIC_LOCK_RETRIES) {
+                    log.error("CRITICAL: Failed to mark PaymentIntent {} as REFUND_FAILED after {} retries", intent.getId(), AppConstants.MAX_OPTIMISTIC_LOCK_RETRIES, e);
+                    return; // Prevent bubbling up and failing the parent Kafka listener
+                }
+                log.warn("Optimistic locking failure while marking REFUND_FAILED for intent {}. Retrying {}/{}", intent.getId(), retries, AppConstants.MAX_OPTIMISTIC_LOCK_RETRIES);
+                try { Thread.sleep((long) (Math.pow(2, retries) * 100)); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+            } catch (Exception e) {
+                log.error("Failed to mark PaymentIntent {} as REFUND_FAILED", intent.getId(), e);
+                return; // Prevent bubbling up
+            }
+        }
     }
 
     @lombok.Data
@@ -440,12 +497,13 @@ public class OrderSagaOrchestrator {
             
             OutboxEventEntity outboxEvent = OutboxEventEntity.builder()
                     .id(UUID.randomUUID())
-                    .aggregateType(AppConstants.AGGREGATE_NOTIFICATION)
+                    .aggregateType(com.fooddelivery.common.constants.AggregateType.NOTIFICATION)
                     .aggregateId(customerId.toString())
                     .eventType(EventType.NOTIFICATION_REQUEST)
                     .payload(objectMapper.writeValueAsString(notificationEvent))
                     .createdAt(LocalDateTime.now())
                     .build();
+            log.info("Triggering event: {} for customer: {}", EventType.NOTIFICATION_REQUEST.name(), customerId);
             outboxEventRepository.save(outboxEvent);
             
             log.info("Saved notification request to outbox for order {} to customer {}", orderId, customerId);

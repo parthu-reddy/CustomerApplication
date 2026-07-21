@@ -1,6 +1,7 @@
 package com.fooddelivery.order.service.state;
 
 import com.fooddelivery.order.entity.Order;
+import com.fooddelivery.common.enums.OrderStatus;
 
 public interface OrderState {
 
@@ -14,6 +15,10 @@ public interface OrderState {
 
     default void handleOrderAccepted(OrderContext ctx) {
         throw new IllegalStateTransitionException("Cannot process ORDER_ACCEPTED. Current status: " + ctx.getOrder().getStatus());
+    }
+
+    default void handleOrderPreparing(OrderContext ctx) {
+        throw new IllegalStateTransitionException("Cannot process ORDER_PREPARING. Current status: " + ctx.getOrder().getStatus());
     }
 
     default void handleOrderReady(OrderContext ctx) {
@@ -40,6 +45,10 @@ public interface OrderState {
         throw new IllegalStateTransitionException("Cannot process ORDER_CANCELLED_BY_RESTAURANT. Current status: " + ctx.getOrder().getStatus());
     }
 
+    default void cancelByCustomer(OrderContext ctx, String reason) {
+        throw new IllegalStateTransitionException("Cannot cancel order. Current status: " + ctx.getOrder().getStatus());
+    }
+
     default void handleDispatchFailed(OrderContext ctx) {
         throw new IllegalStateTransitionException("Cannot process DISPATCH_FAILED. Current status: " + ctx.getOrder().getStatus());
     }
@@ -49,6 +58,21 @@ public interface OrderState {
     }
 
     default void handleStatusUpdate(OrderContext ctx) {
+        String updateStatusStr = ctx.getEventPayload().path("status").asText(null);
+        if (updateStatusStr != null) {
+            try {
+                OrderStatus newStatus = OrderStatus.valueOf(updateStatusStr);
+                OrderStatus currentStatus = ctx.getOrder().getStatus();
+                
+                if (newStatus.getSequence() > currentStatus.getSequence()) {
+                    ctx.getOrder().setStatus(newStatus);
+                    ctx.getActionService().saveOrder(ctx.getOrder());
+                    return; // Successfully fast-forwarded
+                }
+            } catch (IllegalArgumentException e) {
+                // Ignore invalid status mapping here
+            }
+        }
         throw new IllegalStateTransitionException("Cannot process arbitrary status update. Current status: " + ctx.getOrder().getStatus());
     }
 }

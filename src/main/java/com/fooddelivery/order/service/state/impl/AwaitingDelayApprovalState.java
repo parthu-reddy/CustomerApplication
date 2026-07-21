@@ -30,12 +30,11 @@ public class AwaitingDelayApprovalState implements OrderState {
     @Override
     public void handleDelayRejected(OrderContext ctx) {
         Order order = ctx.getOrder();
-        order.setStatus(OrderStatus.CANCELLED);
+        order.setStatus(OrderStatus.CANCELLED_BY_RESTAURANT);
+        order.setCancellationReason(ctx.getEventPayload().path("reason").asText("Customer rejected delay"));
         ctx.getActionService().saveOrder(order);
         
-        String reason = ctx.getEventPayload().path("reason").asText("Customer rejected delay");
-        ctx.getActionService().emitOrderCancelledEvent(order.getId(), reason);
-        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_DELAY_REJECTED);
+        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_DELAY_REJECTED.name());
         ctx.setRequiresRefund(true);
     }
     
@@ -46,7 +45,7 @@ public class AwaitingDelayApprovalState implements OrderState {
         order.setCancellationReason(ctx.getEventPayload().path("reason").asText("Restaurant could not fulfill the order"));
         ctx.getActionService().saveOrder(order);
         
-        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_CANCELLED_BY_RESTAURANT);
+        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_CANCELLED_BY_RESTAURANT.name());
         ctx.setRequiresRefund(true);
     }
 }

@@ -24,12 +24,15 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import jakarta.persistence.Column;
 
+import lombok.extern.slf4j.Slf4j;
+
 @Entity
 @Table(name = "orders")
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Slf4j
 public class Order {
     @Id
     private UUID id;
@@ -40,6 +43,19 @@ public class Order {
     
     @Enumerated(EnumType.STRING)
     private OrderStatus status;
+
+    public void setStatus(OrderStatus status) {
+        if (this.status != null && status != null) {
+            if (status.getSequence() < this.status.getSequence()) {
+                log.error("Invalid state transition: Attempted to move order {} backward from {} to {}", this.id, this.status, status);
+                throw new IllegalStateException("Cannot move order status backward from " + this.status + " to " + status);
+            }
+        }
+        if (this.status != status) {
+            log.info("Customer order {} status changing from {} to {}", this.id, this.status, status);
+        }
+        this.status = status;
+    }
     
     @Column(name = "total_amount")
     private BigDecimal totalAmount;

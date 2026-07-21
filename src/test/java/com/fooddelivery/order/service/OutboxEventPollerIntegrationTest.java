@@ -50,10 +50,10 @@ class OutboxEventPollerIntegrationTest extends BaseIntegrationTest {
         UUID eventId = UUID.randomUUID();
         OutboxEventEntity entity = OutboxEventEntity.builder()
                 .id(eventId)
-                .aggregateType(com.fooddelivery.common.constants.AppConstants.AGGREGATE_ORDER)
+                .aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER)
                 .aggregateId("11111111-1111-1111-1111-111111111111")
-                .eventType("TEST_EVENT")
-                .payload("{\"orderId\":\"11111111-1111-1111-1111-111111111111\", \"eventType\":\"TEST_EVENT\"}")
+                .eventType(com.fooddelivery.common.constants.EventType.ORDER_CREATED)
+                .payload("{\"orderId\":\"11111111-1111-1111-1111-111111111111\", \"eventType\":\"ORDER_CREATED\"}")
                 .status(OutboxStatus.UNPROCESSED)
                 .createdAt(LocalDateTime.now().minusSeconds(10))
                 .build();

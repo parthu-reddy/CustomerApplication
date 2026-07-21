@@ -32,7 +32,7 @@ public class CreatedState implements OrderState {
             );
 
         ctx.getActionService().emitOrderPaidEvent(order);
-        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_PAID);
+        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_PAID.name());
         ctx.getActionService().updatePaymentIntentStatus(order.getId(), PaymentIntentStatus.SUCCESS);
     }
 
@@ -44,5 +44,16 @@ public class CreatedState implements OrderState {
 
         ctx.getActionService().emitOrderCancelledEvent(order.getId(), "Payment failed");
         ctx.getActionService().updatePaymentIntentStatus(order.getId(), PaymentIntentStatus.FAILED);
+    }
+
+    @Override
+    public void cancelByCustomer(OrderContext ctx, String reason) {
+        Order order = ctx.getOrder();
+        order.setStatus(OrderStatus.CANCELLED);
+        order.setCancellationReason(reason != null ? reason : "Cancelled by customer");
+        ctx.getActionService().saveOrder(order);
+
+        // Emit the event to notify other services if needed
+        ctx.getActionService().emitOrderCancelledByCustomerEvent(order.getId());
     }
 }
