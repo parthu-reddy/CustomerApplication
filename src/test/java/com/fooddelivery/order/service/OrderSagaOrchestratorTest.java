@@ -44,7 +44,7 @@ class OrderSagaOrchestratorTest {
     private KafkaTemplate<String, String> kafkaTemplate;
 
     @Mock
-    private com.fooddelivery.order.client.PaymentClient paymentClient;
+    private com.fooddelivery.customer.client.PaymentClient paymentClient;
 
     @Mock
     private org.springframework.transaction.support.TransactionTemplate transactionTemplate;
@@ -155,7 +155,9 @@ class OrderSagaOrchestratorTest {
 
         when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
         
-        orderSagaOrchestrator.handleOrderEvents(payload, com.fooddelivery.common.constants.EventType.ORDER_ACCEPTED.name());
+        java.util.Map<String, Object> headers = new java.util.HashMap<>();
+        headers.put("eventType", com.fooddelivery.common.constants.EventType.ORDER_ACCEPTED.name());
+        orderSagaOrchestrator.handleOrderEvents(payload, headers);
 
         assertThat(order.getStatus()).isEqualTo(OrderStatus.ACCEPTED);
         verify(orderRepository).save(order);

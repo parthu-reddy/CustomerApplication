@@ -217,8 +217,8 @@ public class OrderSagaOrchestrator {
 
     // Listens to Kafka 'order-events' topic for ORDER_ACCEPTED
     @KafkaListener(topics = KafkaConstants.TOPIC_ORDER_EVENTS, groupId = KafkaConstants.GROUP_FOOD_DELIVERY)
-    public void handleOrderEvents(String payload, @org.springframework.messaging.handler.annotation.Header(value = "eventType", required = false) String headerEventType) {
-        log.info("Received Order Event: {} with header type: {}", payload, headerEventType);
+    public void handleOrderEvents(String payload, @org.springframework.messaging.handler.annotation.Headers java.util.Map<String, Object> headers) {
+        log.info("OrderSagaOrchestrator received event: {}", payload);
         
         int retries = 0;
         boolean success = false;
@@ -226,10 +226,36 @@ public class OrderSagaOrchestrator {
             try {
                 Order orderToRefund = transactionTemplate.execute(status -> {
                     try {
-            com.fasterxml.jackson.databind.JsonNode rootNode = objectMapper.readTree(payload);
-            String orderIdStr = rootNode.path("orderId").asText(null);
-            String jsonEventType = rootNode.path("eventType").asText(null);
-            String eventType = headerEventType != null ? headerEventType : jsonEventType;
+                        com.fasterxml.jackson.databind.JsonNode rootNode = objectMapper.readTree(payload);
+                        String jsonEventType = rootNode.path("eventType").asText(null);
+                        
+                        String headerEventType = null;
+                        Object eventTypeObj = headers.get("eventType");
+                        if (eventTypeObj != null) {
+                            if (eventTypeObj instanceof byte[]) {
+                                headerEventType = new String((byte[]) eventTypeObj, java.nio.charset.StandardCharsets.UTF_8);
+                            } else if (eventTypeObj.getClass().getName().contains("NonTrustedHeaderType")) {
+                                try {
+                                    java.lang.reflect.Method getValueMethod = eventTypeObj.getClass().getMethod("getValue");
+                                    Object val = getValueMethod.invoke(eventTypeObj);
+                                    if (val instanceof byte[]) {
+                                        headerEventType = new String((byte[]) val, java.nio.charset.StandardCharsets.UTF_8);
+                                    } else if (val != null) {
+                                        headerEventType = val.toString();
+                                    }
+                                } catch (Exception e) {
+                                    headerEventType = eventTypeObj.toString();
+                                }
+                            } else {
+                                headerEventType = eventTypeObj.toString();
+                            }
+                        }
+                        
+                        String eventType = headerEventType != null ? headerEventType : jsonEventType;
+                        String orderIdStr = rootNode.path("orderId").asText(null);
+                        if (orderIdStr == null && rootNode.has("id")) {
+                            orderIdStr = rootNode.get("id").asText();
+                        }
             
             if (orderIdStr == null || eventType == null) {
                 log.warn("Missing orderId or eventType. Ignored.");
