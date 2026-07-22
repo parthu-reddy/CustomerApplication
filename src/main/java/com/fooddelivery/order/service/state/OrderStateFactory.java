@@ -18,9 +18,7 @@ public class OrderStateFactory {
         stateMap.put(OrderStatus.ACCEPTED, new AcceptedState());
         stateMap.put(OrderStatus.PREPARING, new PreparingState());
         stateMap.put(OrderStatus.READY_FOR_PICKUP, new ReadyForPickupState());
-        stateMap.put(OrderStatus.DISPATCHED, new DispatchedState());
-        stateMap.put(OrderStatus.AT_RESTAURANT, new AtRestaurantState());
-        stateMap.put(OrderStatus.OUT_FOR_DELIVERY, new OutForDeliveryState());
+        stateMap.put(OrderStatus.PICKED_UP, new PickedUpState());
         
         // Terminal states
         stateMap.put(OrderStatus.DELIVERED, terminalState);

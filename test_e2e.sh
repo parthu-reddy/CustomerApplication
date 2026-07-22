@@ -101,18 +101,18 @@ echo "10. Waiting for Saga to dispatch driver..."
 for (( i=1; i<=MAX_RETRIES; i++ ))
 do
   ORDER_STATUS=$(docker exec -u postgres -i shared_postgres psql -U postgres -d food_delivery -t -c "SELECT status FROM orders WHERE id = '$ORDER_ID';" | xargs)
-  if [ "$ORDER_STATUS" == "DISPATCHED" ]; then
-    echo "Order successfully transitioned to DISPATCHED."
+  if [ "$ORDER_STATUS" == "PICKED_UP" ]; then
+    echo "Order successfully transitioned to PICKED_UP."
     break
   fi
   echo "Order status is '$ORDER_STATUS' (attempt $i/$MAX_RETRIES). Waiting 2 seconds..."
   sleep 2
 done
 
-if [ "$ORDER_STATUS" != "DISPATCHED" ]; then
-  echo "Order failed to transition to DISPATCHED within time limit."
+if [ "$ORDER_STATUS" != "PICKED_UP" ]; then
+  echo "Order failed to transition to PICKED_UP within time limit."
 fi
 
-echo "11. Checking Order Status (Should be DISPATCHED with Driver ID)..."
+echo "11. Checking Order Status (Should be PICKED_UP with Driver ID)..."
 docker exec -u postgres -i shared_postgres psql -U postgres -d food_delivery -c "SELECT id, status, delivery_executive_id FROM orders WHERE id = '$ORDER_ID';"
 

@@ -29,7 +29,7 @@ public class AdminOrderController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<Order>> getActiveOrdersForUser(@org.springframework.web.bind.annotation.PathVariable java.util.UUID userId) {
         List<Order> activeOrders = orderRepository.findByCustomerId(userId).stream()
-                .filter(order -> List.of(OrderStatus.CREATED, OrderStatus.ACCEPTED, OrderStatus.READY_FOR_PICKUP, OrderStatus.OUT_FOR_DELIVERY).contains(order.getStatus()))
+                .filter(order -> List.of(OrderStatus.CREATED, OrderStatus.ACCEPTED, OrderStatus.READY_FOR_PICKUP, OrderStatus.PICKED_UP).contains(order.getStatus()))
                 .sorted((o1, o2) -> o2.getCreatedAt().compareTo(o1.getCreatedAt()))
                 .toList();
         return ResponseEntity.ok(activeOrders);
@@ -48,7 +48,7 @@ public class AdminOrderController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<Order>> getAllActiveOrders() {
         List<Order> activeOrders = orderRepository.findByStatusIn(
-            List.of(OrderStatus.CREATED, OrderStatus.ACCEPTED, OrderStatus.READY_FOR_PICKUP, OrderStatus.OUT_FOR_DELIVERY)
+            List.of(OrderStatus.CREATED, OrderStatus.ACCEPTED, OrderStatus.READY_FOR_PICKUP, OrderStatus.PICKED_UP)
         );
         // Sort by created at descending
         activeOrders.sort((o1, o2) -> o2.getCreatedAt().compareTo(o1.getCreatedAt()));

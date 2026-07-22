@@ -71,10 +71,8 @@ public class DriverOrderController {
         List<Order> activeOrders = orderRepository.findByDeliveryExecutiveId(driverId).stream()
                 .filter(o -> o.getStatus() == com.fooddelivery.common.enums.OrderStatus.ACCEPTED || 
                              o.getStatus() == com.fooddelivery.common.enums.OrderStatus.PREPARING || 
-                             o.getStatus() == com.fooddelivery.common.enums.OrderStatus.DISPATCHED || 
-                             o.getStatus() == com.fooddelivery.common.enums.OrderStatus.AT_RESTAURANT ||
                              o.getStatus() == com.fooddelivery.common.enums.OrderStatus.READY_FOR_PICKUP || 
-                             o.getStatus() == com.fooddelivery.common.enums.OrderStatus.OUT_FOR_DELIVERY)
+                             o.getStatus() == com.fooddelivery.common.enums.OrderStatus.PICKED_UP)
                 .collect(Collectors.toList());
         
         List<OrderResponse> responses = activeOrders.stream().map(this::mapToResponse).collect(Collectors.toList());
@@ -128,6 +126,7 @@ public class DriverOrderController {
                 .deliveryAddress(order.getDeliveryAddress())
                 .deliveryLat(order.getDeliveryLat())
                 .deliveryLng(order.getDeliveryLng())
+                .deliveryStatus(order.getDeliveryStatus())
                 .items(itemResponses)
                 .createdAt(order.getCreatedAt())
                 .riderId(order.getDeliveryExecutiveId())

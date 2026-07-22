@@ -26,8 +26,7 @@ public class AbandonedDeliverySweeper {
     public void sweepAbandonedDeliveries() {
         LocalDateTime threshold = LocalDateTime.now().minusHours(2);
         
-        sweepByStatus(OrderStatus.DISPATCHED, threshold);
-        sweepByStatus(OrderStatus.OUT_FOR_DELIVERY, threshold);
+        sweepByStatus(OrderStatus.PICKED_UP, threshold);
     }
     
     private void sweepByStatus(OrderStatus status, LocalDateTime threshold) {
@@ -45,7 +44,7 @@ public class AbandonedDeliverySweeper {
         try {
             transactionTemplate.execute(status -> {
                 Order currentOrder = orderRepository.findById(order.getId()).orElse(null);
-                if (currentOrder != null && (currentOrder.getStatus() == OrderStatus.DISPATCHED || currentOrder.getStatus() == OrderStatus.OUT_FOR_DELIVERY)) {
+                if (currentOrder != null && currentOrder.getStatus() == OrderStatus.PICKED_UP) {
                     currentOrder.setStatus(OrderStatus.DELIVERY_FAILED);
                     orderRepository.save(currentOrder);
                     

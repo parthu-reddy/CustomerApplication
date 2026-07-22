@@ -12,7 +12,7 @@ import com.fooddelivery.common.enums.AccountType;
 import java.math.BigDecimal;
 import java.util.UUID;
 
-public class OutForDeliveryState implements OrderState {
+public class PickedUpState implements OrderState {
 
     @Override
     public void handleOrderDelivered(OrderContext ctx) {
