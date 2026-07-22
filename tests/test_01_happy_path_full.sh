@@ -70,16 +70,16 @@ for (( i=1; i<=MAX_RETRIES; i++ )); do
 done
 if [ "$ORDER_STATUS" != "READY_FOR_PICKUP" ]; then echo "FAIL: Expected READY_FOR_PICKUP, got $ORDER_STATUS"; exit 1; fi
 
-echo "12. Driver accepts ping (OUT_FOR_DELIVERY)..."
+echo "12. Driver accepts ping (PICKED_UP)..."
 curl -s -X POST "http://localhost:8092/api/delivery/drivers/$DEL_EXEC_ID/orders/$ORDER_ID/accept" > /dev/null
 
-echo "13. Polling for OUT_FOR_DELIVERY Status..."
+echo "13. Polling for PICKED_UP Status..."
 for (( i=1; i<=MAX_RETRIES; i++ )); do
   ORDER_STATUS=$(docker exec -i food_delivery_db psql -U postgres -d food_delivery -t -c "SELECT status FROM orders WHERE id = '$ORDER_ID';" | xargs)
-  if [ "$ORDER_STATUS" == "OUT_FOR_DELIVERY" ]; then break; fi
+  if [ "$ORDER_STATUS" == "PICKED_UP" ]; then break; fi
   sleep 2
 done
-if [ "$ORDER_STATUS" != "OUT_FOR_DELIVERY" ]; then echo "FAIL: Expected OUT_FOR_DELIVERY, got $ORDER_STATUS"; exit 1; fi
+if [ "$ORDER_STATUS" != "PICKED_UP" ]; then echo "FAIL: Expected PICKED_UP, got $ORDER_STATUS"; exit 1; fi
 
 echo "14. Driver marks DELIVERED..."
 curl -s -X POST -H "Content-Type: application/json" -d "{\"status\": \"DELIVERED\"}" "http://localhost:8092/api/delivery/drivers/$DEL_EXEC_ID/orders/$ORDER_ID/status" > /dev/null
