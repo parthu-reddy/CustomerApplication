@@ -45,8 +45,8 @@ public class CustomerIdentityFilter extends OncePerRequestFilter {
                                         .phoneNumber(phone)
                                         .build());
                             } catch (org.springframework.dao.DataIntegrityViolationException e) {
-                                log.info("Customer already created concurrently for userId {}, fetching existing record", userId);
-                                return customerRepository.findById(jwtUserId).orElseThrow();
+                                log.info("Customer already created concurrently for phone {}, fetching existing record", phone);
+                                return customerRepository.findByPhoneNumber(phone).orElseThrow();
                             }
                         });
                 

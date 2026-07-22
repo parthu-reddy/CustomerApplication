@@ -32,33 +32,35 @@ public class DriverOrderController {
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public ResponseEntity<ApiResponse<List<OrderResponse>>> getAvailableOrders(java.security.Principal principal) {
         UUID driverId = UUID.fromString(principal.getName());
-        List<Order> availableOrders = new ArrayList<>();
+        List<OrderResponse> responses = new ArrayList<>();
         
-        // Find pings for this driver
-        Set<String> keys = redisTemplate.keys("order:ping:pending:*");
-        if (keys != null) {
-            for (String key : keys) {
-                String pingedDriver = redisTemplate.opsForValue().get(key);
-                if (driverId.toString().equals(pingedDriver)) {
-                    String orderIdStr = key.replace("order:ping:pending:", "");
-                    try {
-                        UUID orderId = UUID.fromString(orderIdStr);
-                        orderRepository.findById(orderId).ifPresent(order -> {
-                            if (order.getDeliveryExecutiveId() == null && 
-                                (order.getStatus() == com.fooddelivery.common.enums.OrderStatus.ACCEPTED || 
-                                 order.getStatus() == com.fooddelivery.common.enums.OrderStatus.PREPARING || 
-                                 order.getStatus() == com.fooddelivery.common.enums.OrderStatus.READY_FOR_PICKUP)) {
-                                availableOrders.add(order);
-                            }
-                        });
-                    } catch (Exception e) {
-                        // ignore invalid uuid
+        // Fast lookup for this driver's ping
+        String orderIdStr = redisTemplate.opsForValue().get("driver:pending_ping:" + driverId.toString());
+        if (orderIdStr != null) {
+            try {
+                UUID orderId = UUID.fromString(orderIdStr);
+                orderRepository.findById(orderId).ifPresent(order -> {
+                    if (order.getDeliveryExecutiveId() == null && 
+                        (order.getStatus() == com.fooddelivery.common.enums.OrderStatus.ACCEPTED || 
+                         order.getStatus() == com.fooddelivery.common.enums.OrderStatus.PREPARING || 
+                         order.getStatus() == com.fooddelivery.common.enums.OrderStatus.READY_FOR_PICKUP)) {
+                        
+                        OrderResponse response = mapToResponse(order);
+                        
+                        // Set expiration time
+                        Double score = redisTemplate.opsForZSet().score("order:ping:timeouts", orderIdStr);
+                        if (score != null) {
+                            response.setExpiresAt(score.longValue());
+                        }
+                        
+                        responses.add(response);
                     }
-                }
+                });
+            } catch (Exception e) {
+                // ignore invalid uuid
             }
         }
         
-        List<OrderResponse> responses = availableOrders.stream().map(this::mapToResponse).collect(Collectors.toList());
         return ResponseEntity.ok(ApiResponse.success(responses, "Available orders retrieved"));
     }
 
@@ -70,6 +72,7 @@ public class DriverOrderController {
                 .filter(o -> o.getStatus() == com.fooddelivery.common.enums.OrderStatus.ACCEPTED || 
                              o.getStatus() == com.fooddelivery.common.enums.OrderStatus.PREPARING || 
                              o.getStatus() == com.fooddelivery.common.enums.OrderStatus.DISPATCHED || 
+                             o.getStatus() == com.fooddelivery.common.enums.OrderStatus.AT_RESTAURANT ||
                              o.getStatus() == com.fooddelivery.common.enums.OrderStatus.READY_FOR_PICKUP || 
                              o.getStatus() == com.fooddelivery.common.enums.OrderStatus.OUT_FOR_DELIVERY)
                 .collect(Collectors.toList());

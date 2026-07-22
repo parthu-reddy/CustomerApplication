@@ -32,4 +32,5 @@ public class OrderResponse {
     private String pickupOtp;
     private String otp;
     private Long estimatedCompletionTime;
+    private Long expiresAt;
 }

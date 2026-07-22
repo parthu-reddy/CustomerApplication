@@ -64,8 +64,13 @@ public class CustomerOrderService {
         com.fooddelivery.common.enums.OrderStatus.CANCELLED_AND_REFUNDED
     );
 
+    private static final List<com.fooddelivery.common.enums.OrderStatus> INACTIVE_STATUSES = java.util.stream.Stream.concat(
+        REFUND_STATUSES.stream(),
+        java.util.stream.Stream.of(com.fooddelivery.common.enums.OrderStatus.DELIVERED)
+    ).collect(java.util.stream.Collectors.toList());
+
     public org.springframework.data.domain.Page<Order> getActiveOrdersPaginated(UUID customerId, org.springframework.data.domain.Pageable pageable) {
-        return orderRepository.findByCustomerIdAndStatusNotInOrderByCreatedAtDesc(customerId, REFUND_STATUSES, pageable);
+        return orderRepository.findByCustomerIdAndStatusNotInOrderByCreatedAtDesc(customerId, INACTIVE_STATUSES, pageable);
     }
 
     public org.springframework.data.domain.Page<Order> getRefundOrdersPaginated(UUID customerId, org.springframework.data.domain.Pageable pageable) {
@@ -73,7 +78,7 @@ public class CustomerOrderService {
     }
 
     public org.springframework.data.domain.Page<Order> getOrderHistoryPaginated(UUID customerId, org.springframework.data.domain.Pageable pageable) {
-        return orderRepository.findByCustomerIdOrderByCreatedAtDesc(customerId, pageable);
+        return orderRepository.findByCustomerIdAndStatusInOrderByCreatedAtDesc(customerId, INACTIVE_STATUSES, pageable);
     }
 
     public Order getOrderByIdAndCustomer(UUID orderId, UUID customerId) {
@@ -189,12 +194,12 @@ public class CustomerOrderService {
                     
                     Boolean isActive = (Boolean) restaurantData.get("isActive");
                     if (isActive == null || !isActive) {
-                        throw new RuntimeException(new IllegalArgumentException("Restaurant is not currently active: " + restaurantData.get("name")));
+                        throw new IllegalArgumentException("Restaurant is not currently active: " + restaurantData.get("name"));
                     }
                     
                     Boolean isOpen = (Boolean) restaurantData.get("isOpen");
                     if (isOpen != null && !isOpen) {
-                        throw new RuntimeException(new IllegalArgumentException("Restaurant is currently closed for the day or shift: " + restaurantData.get("name")));
+                        throw new IllegalArgumentException("Restaurant is currently closed for the day or shift: " + restaurantData.get("name"));
                     }
                     
                     Double rLat = (Double) restaurantData.get("lat");
@@ -274,19 +279,21 @@ public class CustomerOrderService {
             Map<UUID, MenuItemDTO> menuItemMap = fetchedItems.stream()
                     .collect(Collectors.toMap(MenuItemDTO::id, item -> item));
 
+            List<UUID> unavailableItemIds = new ArrayList<>();
+            for (OrderItemRequest req : requestedItems) {
+                MenuItemDTO menuItem = menuItemMap.get(req.getMenuItemId());
+                if (menuItem == null || !menuItem.restaurantId().equals(restaurantId) || !menuItem.isAvailable()) {
+                    unavailableItemIds.add(req.getMenuItemId());
+                }
+            }
+
+            if (!unavailableItemIds.isEmpty()) {
+                throw new com.fooddelivery.customer.exception.MenuItemsUnavailableException("Some menu items are currently unavailable or not found.", unavailableItemIds);
+            }
+
             int maxPrepTime = 15; // default minimum
             for (OrderItemRequest req : requestedItems) {
                 MenuItemDTO menuItem = menuItemMap.get(req.getMenuItemId());
-                if (menuItem == null) {
-                    throw new IllegalArgumentException("Menu item not found: " + req.getMenuItemId());
-                }
-                
-                if (!menuItem.restaurantId().equals(restaurantId)) {
-                    throw new IllegalArgumentException("Menu item does not belong to the selected restaurant.");
-                }
-                if (!menuItem.isAvailable()) {
-                    throw new IllegalArgumentException("Menu item is currently unavailable: " + menuItem.name());
-                }
 
                 if (menuItem.prepTimeMinutes() != null && menuItem.prepTimeMinutes() > maxPrepTime) {
                     maxPrepTime = menuItem.prepTimeMinutes();
@@ -332,6 +339,8 @@ public class CustomerOrderService {
             log.info("Created order {} for customer {} with total amount {}", order.getId(), customerId, totalAmount);
             return order;
         } catch (com.fooddelivery.customer.exception.DeliveryPartnerUnavailableException e) {
+            throw e;
+        } catch (com.fooddelivery.customer.exception.MenuItemsUnavailableException e) {
             throw e;
         } catch (IllegalArgumentException e) {
             throw e;

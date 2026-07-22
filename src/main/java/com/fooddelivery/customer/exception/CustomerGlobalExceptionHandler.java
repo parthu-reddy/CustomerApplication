@@ -19,6 +19,17 @@ public class CustomerGlobalExceptionHandler {
                 .body(ApiResponse.error(ex.getErrorCode() + ": " + ex.getMessage()));
     }
 
+    @ExceptionHandler(MenuItemsUnavailableException.class)
+    public ResponseEntity<ApiResponse<Object>> handleMenuItemsUnavailableException(MenuItemsUnavailableException ex) {
+        log.warn("MenuItemsUnavailableException: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.<Object>builder()
+                        .success(false)
+                        .message(ex.getMessage())
+                        .data(ex.getUnavailableItemIds())
+                        .build());
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiResponse<Void>> handleIllegalArgumentException(IllegalArgumentException ex) {
         log.warn("IllegalArgumentException: {}", ex.getMessage());
