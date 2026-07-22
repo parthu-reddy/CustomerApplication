@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import com.fooddelivery.common.enums.OrderStatus;
-import com.fooddelivery.common.enums.DeliveryStatus;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -44,9 +44,6 @@ public class Order {
     
     @Enumerated(EnumType.STRING)
     private OrderStatus status;
-
-    @Enumerated(EnumType.STRING)
-    private DeliveryStatus deliveryStatus = DeliveryStatus.PENDING;
 
     public void setStatus(OrderStatus status) {
         if (this.status != null && status != null) {

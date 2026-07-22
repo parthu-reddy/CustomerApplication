@@ -138,7 +138,7 @@ public class OrderController {
                 .restaurantId(order.getRestaurantId())
                 .restaurantName(order.getRestaurantName())
                 .status(order.getStatus())
-                .deliveryStatus(order.getDeliveryStatus())
+
                 .totalAmount(order.getTotalAmount())
                 .deliveryAddress(order.getDeliveryAddress())
                 .deliveryLat(order.getDeliveryLat())

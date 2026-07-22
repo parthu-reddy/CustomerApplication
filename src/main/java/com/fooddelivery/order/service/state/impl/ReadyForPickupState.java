@@ -32,7 +32,7 @@ public class ReadyForPickupState implements OrderState {
     @Override
     public void handleStatusUpdate(OrderContext ctx) {
         String updateStatus = ctx.getEventPayload().path("status").asText(null);
-        if (com.fooddelivery.common.enums.DeliveryStatus.OUT_FOR_DELIVERY.name().equals(updateStatus)) {
+        if ("OUT_FOR_DELIVERY".equals(updateStatus)) {
             Order order = ctx.getOrder();
             
             String providedOtp = ctx.getEventPayload().path("pickupOtp").asText(null);

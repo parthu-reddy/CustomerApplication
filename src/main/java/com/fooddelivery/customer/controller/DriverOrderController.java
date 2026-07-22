@@ -126,7 +126,7 @@ public class DriverOrderController {
                 .deliveryAddress(order.getDeliveryAddress())
                 .deliveryLat(order.getDeliveryLat())
                 .deliveryLng(order.getDeliveryLng())
-                .deliveryStatus(order.getDeliveryStatus())
+
                 .items(itemResponses)
                 .createdAt(order.getCreatedAt())
                 .riderId(order.getDeliveryExecutiveId())

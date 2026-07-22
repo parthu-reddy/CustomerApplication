@@ -1,7 +1,7 @@
 package com.fooddelivery.customer.dto;
 
 import com.fooddelivery.common.enums.OrderStatus;
-import com.fooddelivery.common.enums.DeliveryStatus;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -22,7 +22,7 @@ public class OrderResponse {
     private UUID restaurantId;
     private String restaurantName;
     private OrderStatus status;
-    private DeliveryStatus deliveryStatus;
+
     private BigDecimal totalAmount;
     private String deliveryAddress;
     private Double deliveryLat;

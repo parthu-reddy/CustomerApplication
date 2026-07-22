@@ -54,7 +54,7 @@ public interface OrderState {
     }
 
     default void handleDeliveryFailed(OrderContext ctx) {
-        throw new IllegalStateTransitionException("Cannot process DELIVERY_FAILED. Current status: " + ctx.getOrder().getStatus());
+        throw new IllegalStateTransitionException("Cannot process DELIVERY_FAILED. C`urrent status: " + ctx.getOrder().getStatus());
     }
 
     default void handleStatusUpdate(OrderContext ctx) {
