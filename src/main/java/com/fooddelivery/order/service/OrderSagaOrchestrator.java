@@ -57,7 +57,8 @@ public class OrderSagaOrchestrator {
         EVENT_HANDLERS.put(EventType.ORDER_ACCEPTED.name(), com.fooddelivery.order.service.state.OrderState::handleOrderAccepted);
         EVENT_HANDLERS.put(EventType.ORDER_PREPARING.name(), com.fooddelivery.order.service.state.OrderState::handleOrderPreparing);
         EVENT_HANDLERS.put(EventType.ORDER_READY.name(), com.fooddelivery.order.service.state.OrderState::handleOrderReady);
-        EVENT_HANDLERS.put(EventType.ORDER_AT_RESTAURANT.name(), com.fooddelivery.order.service.state.OrderState::handleStatusUpdate);
+        EVENT_HANDLERS.put(EventType.ORDER_AT_RESTAURANT.name(), com.fooddelivery.order.service.state.OrderState::handleDriverAtRestaurant);
+
     }
     private final com.fooddelivery.customer.client.PaymentClient paymentClient;
     private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
@@ -183,7 +184,7 @@ public class OrderSagaOrchestrator {
                 } else {
                     state.handlePaymentSuccess(context);
                 }
-            } catch (com.fooddelivery.order.service.state.IllegalStateTransitionException e) {
+            } catch (com.fooddelivery.common.exception.IllegalStateTransitionException e) {
                 log.error("ILLEGAL_STATE_TRANSITION: {}", e.getMessage());
             }
 
@@ -295,7 +296,7 @@ public class OrderSagaOrchestrator {
                 } else {
                     log.warn("Unmapped event type {} for Order {}. Ignoring.", eventType, orderId);
                 }
-            } catch (com.fooddelivery.order.service.state.IllegalStateTransitionException e) {
+            } catch (com.fooddelivery.common.exception.IllegalStateTransitionException e) {
                 log.error("ILLEGAL_STATE_TRANSITION: {}", e.getMessage());
                 // Issue sync event to correct the offending participant
                 orderActionService.emitOrderStatusSyncEvent(order.getId(), order.getStatus());
@@ -365,7 +366,7 @@ public class OrderSagaOrchestrator {
         
         try {
             state.cancelByCustomer(context, reason);
-        } catch (com.fooddelivery.order.service.state.IllegalStateTransitionException e) {
+        } catch (com.fooddelivery.common.exception.IllegalStateTransitionException e) {
             log.error("ILLEGAL_STATE_TRANSITION: {}", e.getMessage());
             throw new IllegalStateException(e.getMessage());
         }
@@ -434,9 +435,8 @@ public class OrderSagaOrchestrator {
                                     
                                     Order latestOrder = orderRepository.findById(order.getId()).orElse(null);
                                     if(latestOrder != null) {
-                                        latestOrder.setStatus(OrderStatus.CANCELLED_AND_REFUNDED);
+                                        latestOrder.setPaymentStatus(PaymentIntentStatus.REFUNDED);
                                         orderRepository.save(latestOrder);
-                                        orderActionService.emitOrderStatusSyncEvent(latestOrder.getId(), OrderStatus.CANCELLED_AND_REFUNDED);
                                     }
                                     
                                     UUID refundTransferId = UUID.nameUUIDFromBytes(("REFUND_" + order.getId()).getBytes());
@@ -549,8 +549,6 @@ public class OrderSagaOrchestrator {
         return status == OrderStatus.DELIVERED || 
                status == OrderStatus.CANCELLED ||
                status == OrderStatus.CANCELLED_BY_RESTAURANT ||
-               status == OrderStatus.DELIVERY_FAILED ||
-               status == OrderStatus.PARTIALLY_REFUNDED ||
-               status == OrderStatus.CANCELLED_AND_REFUNDED;
+               status == OrderStatus.DELIVERY_FAILED;
     }
 }

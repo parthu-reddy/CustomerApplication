@@ -59,9 +59,7 @@ public class CustomerOrderService {
     private static final List<com.fooddelivery.common.enums.OrderStatus> REFUND_STATUSES = List.of(
         com.fooddelivery.common.enums.OrderStatus.CANCELLED,
         com.fooddelivery.common.enums.OrderStatus.CANCELLED_BY_RESTAURANT,
-        com.fooddelivery.common.enums.OrderStatus.DELIVERY_FAILED,
-        com.fooddelivery.common.enums.OrderStatus.PARTIALLY_REFUNDED,
-        com.fooddelivery.common.enums.OrderStatus.CANCELLED_AND_REFUNDED
+        com.fooddelivery.common.enums.OrderStatus.DELIVERY_FAILED
     );
 
     private static final List<com.fooddelivery.common.enums.OrderStatus> INACTIVE_STATUSES = java.util.stream.Stream.concat(
@@ -332,6 +330,13 @@ public class CustomerOrderService {
                 item.setOrder(order);
             }
             order.setOrderItems(orderItems);
+            
+            // Add delivery fee to the total amount
+            Object deliveryFeeObj = restaurantData.get("deliveryFee");
+            if (deliveryFeeObj instanceof Number) {
+                totalAmount = totalAmount.add(BigDecimal.valueOf(((Number) deliveryFeeObj).doubleValue()));
+            }
+            
             order.setTotalAmount(totalAmount);
                     
             orderSagaOrchestrator.startOrderSaga(order);

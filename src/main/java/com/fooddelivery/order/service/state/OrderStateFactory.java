@@ -9,11 +9,10 @@ import java.util.Map;
 public class OrderStateFactory {
 
     private static final Map<OrderStatus, OrderState> stateMap = new EnumMap<>(OrderStatus.class);
-    private static final TerminalState terminalState = new TerminalState();
 
     static {
         stateMap.put(OrderStatus.CREATED, new CreatedState());
-        stateMap.put(OrderStatus.PAID, new PaidState());
+        stateMap.put(OrderStatus.PENDING_ACCEPTANCE, new PendingAcceptanceState());
         stateMap.put(OrderStatus.AWAITING_DELAY_APPROVAL, new AwaitingDelayApprovalState());
         stateMap.put(OrderStatus.ACCEPTED, new AcceptedState());
         stateMap.put(OrderStatus.PREPARING, new PreparingState());
@@ -21,12 +20,11 @@ public class OrderStateFactory {
         stateMap.put(OrderStatus.PICKED_UP, new PickedUpState());
         
         // Terminal states
+        TerminalState terminalState = new TerminalState();
         stateMap.put(OrderStatus.DELIVERED, terminalState);
         stateMap.put(OrderStatus.CANCELLED, terminalState);
         stateMap.put(OrderStatus.CANCELLED_BY_RESTAURANT, terminalState);
         stateMap.put(OrderStatus.DELIVERY_FAILED, terminalState);
-        stateMap.put(OrderStatus.PARTIALLY_REFUNDED, terminalState);
-        stateMap.put(OrderStatus.CANCELLED_AND_REFUNDED, terminalState);
     }
 
     public static OrderState getState(OrderStatus status) {

@@ -22,6 +22,7 @@ public class OrderResponse {
     private UUID restaurantId;
     private String restaurantName;
     private OrderStatus status;
+    private com.fooddelivery.common.enums.DeliveryStatus deliveryStatus;
 
     private BigDecimal totalAmount;
     private String deliveryAddress;

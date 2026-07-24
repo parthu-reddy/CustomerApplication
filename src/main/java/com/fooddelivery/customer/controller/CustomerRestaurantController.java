@@ -36,6 +36,15 @@ public class CustomerRestaurantController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/brands/{brandId}/outlets")
+    public ResponseEntity<ApiResponse<List<Object>>> getBrandOutlets(
+            @org.springframework.web.bind.annotation.PathVariable java.util.UUID brandId,
+            @RequestParam double lat,
+            @RequestParam double lng,
+            @RequestParam(defaultValue = "5.0") double radius) {
+        return ResponseEntity.ok(restaurantClient.getBrandOutlets(brandId, lat, lng, radius));
+    }
+
     @GetMapping("/{id}/delivery-availability")
     public ResponseEntity<ApiResponse<Boolean>> checkDeliveryAvailability(
             @org.springframework.web.bind.annotation.PathVariable java.util.UUID id) {

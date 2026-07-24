@@ -21,9 +21,15 @@ public class StaleOrderSweeper {
     private final IOrderRepository orderRepository;
     private final OrderActionService orderActionService;
     private final TransactionTemplate transactionTemplate;
+    private final org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
 
     @Scheduled(fixedDelay = 60000)
     public void sweepStaleCreatedOrders() {
+        Boolean locked = redisTemplate.opsForValue().setIfAbsent("lock:sweepStaleCreatedOrders", "1", java.time.Duration.ofSeconds(50));
+        if (!Boolean.TRUE.equals(locked)) {
+            return;
+        }
+        
         LocalDateTime threshold = LocalDateTime.now().minusMinutes(15);
         List<Order> staleOrders = orderRepository.findByStatusAndUpdatedAtBefore(OrderStatus.CREATED, threshold);
         

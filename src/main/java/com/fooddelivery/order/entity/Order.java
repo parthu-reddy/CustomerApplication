@@ -10,6 +10,7 @@ import lombok.NoArgsConstructor;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import com.fooddelivery.common.enums.OrderStatus;
+import com.fooddelivery.common.constants.PaymentIntentStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -44,6 +45,14 @@ public class Order {
     
     @Enumerated(EnumType.STRING)
     private OrderStatus status;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "delivery_status")
+    private com.fooddelivery.common.enums.DeliveryStatus deliveryStatus;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_status")
+    private PaymentIntentStatus paymentStatus;
 
     public void setStatus(OrderStatus status) {
         if (this.status != null && status != null) {

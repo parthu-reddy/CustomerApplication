@@ -19,6 +19,12 @@ public interface RestaurantClient {
                                                    @RequestParam("lng") double lng, 
                                                    @RequestParam("radius") double radius);
 
+    @GetMapping("/api/v1/restaurants/brands/{brandId}/outlets")
+    ApiResponse<List<Object>> getBrandOutlets(@PathVariable("brandId") UUID brandId, 
+                                              @RequestParam("lat") double lat, 
+                                              @RequestParam("lng") double lng, 
+                                              @RequestParam("radius") double radius);
+
     @GetMapping("/api/v1/restaurants/{id}")
     Map<String, Object> getRestaurantById(@PathVariable("id") UUID id);
 

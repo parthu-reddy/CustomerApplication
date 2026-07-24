@@ -90,8 +90,8 @@ public class DriverOrderController {
                              o.getStatus() == com.fooddelivery.common.enums.OrderStatus.CANCELLED ||
                              o.getStatus() == com.fooddelivery.common.enums.OrderStatus.CANCELLED_BY_RESTAURANT ||
                              o.getStatus() == com.fooddelivery.common.enums.OrderStatus.DELIVERY_FAILED ||
-                             o.getStatus() == com.fooddelivery.common.enums.OrderStatus.PARTIALLY_REFUNDED ||
-                             o.getStatus() == com.fooddelivery.common.enums.OrderStatus.CANCELLED_AND_REFUNDED)
+                             o.getStatus() == com.fooddelivery.common.enums.OrderStatus.CANCELLED_BY_RESTAURANT ||
+                             o.getStatus() == com.fooddelivery.common.enums.OrderStatus.DELIVERY_FAILED)
                 .filter(o -> {
                     if (date == null || date.isEmpty()) return true;
                     if (o.getCreatedAt() == null) return true;
@@ -122,14 +122,17 @@ public class DriverOrderController {
                 .restaurantId(order.getRestaurantId())
                 .restaurantName(order.getRestaurantName())
                 .status(order.getStatus())
+                .deliveryStatus(order.getDeliveryStatus())
                 .totalAmount(order.getTotalAmount())
                 .deliveryAddress(order.getDeliveryAddress())
                 .deliveryLat(order.getDeliveryLat())
                 .deliveryLng(order.getDeliveryLng())
-
                 .items(itemResponses)
                 .createdAt(order.getCreatedAt())
                 .riderId(order.getDeliveryExecutiveId())
+                .otp(order.getOtp())
+                .pickupOtp(order.getPickupOtp())
+                .estimatedCompletionTime(order.getEstimatedCompletionTime())
                 .build();
     }
 }

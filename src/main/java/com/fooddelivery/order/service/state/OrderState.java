@@ -2,6 +2,7 @@ package com.fooddelivery.order.service.state;
 
 import com.fooddelivery.order.entity.Order;
 import com.fooddelivery.common.enums.OrderStatus;
+import com.fooddelivery.common.exception.IllegalStateTransitionException;
 
 public interface OrderState {
 
@@ -27,6 +28,10 @@ public interface OrderState {
 
     default void handleDriverAssigned(OrderContext ctx) {
         throw new IllegalStateTransitionException("Cannot process DRIVER_ASSIGNED. Current status: " + ctx.getOrder().getStatus());
+    }
+
+    default void handleDriverAtRestaurant(OrderContext ctx) {
+        throw new IllegalStateTransitionException("Cannot process DRIVER_AT_RESTAURANT. Current status: " + ctx.getOrder().getStatus());
     }
 
     default void handleOrderDelivered(OrderContext ctx) {
@@ -66,6 +71,13 @@ public interface OrderState {
                 
                 if (newStatus.getSequence() > currentStatus.getSequence()) {
                     ctx.getOrder().setStatus(newStatus);
+                    if (newStatus == OrderStatus.PICKED_UP) {
+                        ctx.getOrder().setDeliveryStatus(com.fooddelivery.common.enums.DeliveryStatus.OUT_FOR_DELIVERY);
+                    } else if (newStatus == OrderStatus.DELIVERED) {
+                        ctx.getOrder().setDeliveryStatus(com.fooddelivery.common.enums.DeliveryStatus.DELIVERED);
+                    } else if (newStatus == OrderStatus.DELIVERY_FAILED) {
+                        ctx.getOrder().setDeliveryStatus(com.fooddelivery.common.enums.DeliveryStatus.FAILED);
+                    }
                     ctx.getActionService().saveOrder(ctx.getOrder());
                     return; // Successfully fast-forwarded
                 }

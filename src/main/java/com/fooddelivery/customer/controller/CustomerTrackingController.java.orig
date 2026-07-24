@@ -27,7 +27,6 @@ public class CustomerTrackingController {
 
     private final StringRedisTemplate redisTemplate;
     private final com.fooddelivery.order.repository.IOrderRepository orderRepository;
-    private final org.springframework.data.redis.listener.RedisMessageListenerContainer redisMessageListenerContainer;
 
     @GetMapping(produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter trackOrder(@PathVariable UUID orderId) {
@@ -36,23 +35,36 @@ public class CustomerTrackingController {
         
         String trackingChannel = "tracking:order:" + orderId;
         
-        MessageListener listener = (message, pattern) -> {
-            try {
-                log.info("Consumed location-update event from Redis for order: {}", orderId);
-                String body = new String(message.getBody());
-                emitter.send(SseEmitter.event().name("location-update").data(body));
-            } catch (IOException e) {
-                emitter.completeWithError(e);
+        // Acquire a dedicated Redis connection for Pub/Sub
+        RedisConnection connection = redisTemplate.getConnectionFactory().getConnection();
+        
+        MessageListener listener = new MessageListener() {
+            @Override
+            public void onMessage(Message message, byte[] pattern) {
+                try {
+                    log.info("Consumed location-update event from Redis for order: {}", orderId);
+                    String body = new String(message.getBody());
+                    emitter.send(SseEmitter.event().name("location-update").data(body));
+                } catch (IOException e) {
+                    emitter.completeWithError(e);
+                }
             }
         };
         
-        org.springframework.data.redis.listener.ChannelTopic topic = new org.springframework.data.redis.listener.ChannelTopic(trackingChannel);
-        redisMessageListenerContainer.addMessageListener(listener, topic);
+        // Run subscribe in a separate thread because connection.subscribe() is a BLOCKING call
+        // If run on the main request thread, it prevents the controller from returning,
+        // which causes the Open-Session-In-View filter to hold the JDBC connection forever!
+        new Thread(() -> {
+            connection.subscribe(listener, trackingChannel.getBytes());
+        }).start();
         
-        // Cleanup: remove the listener when the SSE ends
+        // Cleanup: unsubscribe and close the Redis connection when the SSE ends
         Runnable cleanup = () -> {
             try {
-                redisMessageListenerContainer.removeMessageListener(listener, topic);
+                if (connection.isSubscribed()) {
+                    connection.getSubscription().unsubscribe();
+                }
+                connection.close();
                 log.info("Cleaned up Redis subscription for order: {}", orderId);
             } catch (Exception e) {
                 log.warn("Error during Redis subscription cleanup for order: {}", orderId, e);
@@ -72,7 +84,7 @@ public class CustomerTrackingController {
         
         // Send initial connection event
         try {
-            emitter.send(SseEmitter.event().name("connected").data("{\"type\":\"connected\",\"message\":\"Tracking started\"}"));
+            emitter.send(SseEmitter.event().name("connected").data("Tracking started for order: " + orderId));
         } catch (IOException e) {
             cleanup.run();
             emitter.completeWithError(e);

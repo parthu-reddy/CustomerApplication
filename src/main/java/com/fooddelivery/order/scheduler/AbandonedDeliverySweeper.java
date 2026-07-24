@@ -21,9 +21,15 @@ public class AbandonedDeliverySweeper {
     private final IOrderRepository orderRepository;
     private final OrderActionService orderActionService;
     private final TransactionTemplate transactionTemplate;
+    private final org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
 
     @Scheduled(fixedDelay = 300000)
     public void sweepAbandonedDeliveries() {
+        Boolean locked = redisTemplate.opsForValue().setIfAbsent("lock:sweepAbandonedDeliveries", "1", java.time.Duration.ofSeconds(200));
+        if (!Boolean.TRUE.equals(locked)) {
+            return;
+        }
+        
         LocalDateTime threshold = LocalDateTime.now().minusHours(2);
         
         sweepByStatus(OrderStatus.PICKED_UP, threshold);

@@ -138,7 +138,7 @@ class OrderSagaOrchestratorTest {
         orderSagaOrchestrator.handlePaymentEvents(payload);
 
         verify(orderRepository).save(order);
-        assertThat(order.getStatus()).isEqualTo(OrderStatus.PAID);
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.PENDING_ACCEPTANCE);
         
         verify(paymentIntentRepository).save(intent);
         assertThat(intent.getStatus()).isEqualTo(com.fooddelivery.common.constants.PaymentIntentStatus.SUCCESS);
@@ -149,7 +149,7 @@ class OrderSagaOrchestratorTest {
     @Test
     void handleOrderEvents_ShouldUpdateOrder_WhenOrderAccepted() throws Exception {
         UUID orderId = UUID.randomUUID();
-        Order order = Order.builder().id(orderId).status(OrderStatus.PAID).build();
+        Order order = Order.builder().id(orderId).status(OrderStatus.PENDING_ACCEPTANCE).build();
 
         String payload = String.format("{\"orderId\": \"%s\"}", orderId.toString());
 

@@ -9,6 +9,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import java.time.Duration;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
@@ -23,11 +25,17 @@ public class RestaurantTimeoutSweeper {
     private final OrderActionService orderActionService;
     private final OrderSagaOrchestrator orderSagaOrchestrator;
     private final TransactionTemplate transactionTemplate;
+    private final StringRedisTemplate redisTemplate;
 
     @Scheduled(fixedDelay = 60000)
     public void sweepStalePaidOrders() {
+        Boolean locked = redisTemplate.opsForValue().setIfAbsent("lock:sweepRestaurantTimeouts", "1", Duration.ofSeconds(50));
+        if (!Boolean.TRUE.equals(locked)) {
+            return;
+        }
+
         LocalDateTime threshold = LocalDateTime.now().minusMinutes(10);
-        List<Order> staleOrders = orderRepository.findByStatusAndUpdatedAtBefore(OrderStatus.PAID, threshold);
+        List<Order> staleOrders = orderRepository.findByStatusAndUpdatedAtBefore(OrderStatus.PENDING_ACCEPTANCE, threshold);
         
         if (!staleOrders.isEmpty()) {
             log.info("Found {} stale PAID orders (Restaurant Timeout). Cancelling them...", staleOrders.size());
@@ -50,7 +58,7 @@ public class RestaurantTimeoutSweeper {
             boolean refundNeeded = Boolean.TRUE.equals(transactionTemplate.execute(status -> {
                 // Re-fetch with lock
                 Order currentOrder = orderRepository.findById(order.getId()).orElse(null);
-                if (currentOrder != null && (currentOrder.getStatus() == OrderStatus.PAID || currentOrder.getStatus() == OrderStatus.AWAITING_DELAY_APPROVAL)) {
+                if (currentOrder != null && (currentOrder.getStatus() == OrderStatus.PENDING_ACCEPTANCE || currentOrder.getStatus() == OrderStatus.AWAITING_DELAY_APPROVAL)) {
                     currentOrder.setStatus(OrderStatus.CANCELLED_BY_RESTAURANT); // Use restaurant cancellation so refund triggers
                     currentOrder.setCancellationReason(reason);
                     orderRepository.save(currentOrder);

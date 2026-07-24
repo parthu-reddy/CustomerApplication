@@ -48,4 +48,16 @@ public class AwaitingDelayApprovalState implements OrderState {
         ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_CANCELLED_BY_RESTAURANT.name());
         ctx.setRequiresRefund(true);
     }
+
+    @Override
+    public void cancelByCustomer(OrderContext ctx, String reason) {
+        Order order = ctx.getOrder();
+        order.setStatus(OrderStatus.CANCELLED);
+        order.setCancellationReason(reason != null ? reason : "Cancelled by customer");
+        ctx.getActionService().saveOrder(order);
+
+        // Notify restaurant to cancel (since it was paid)
+        ctx.getActionService().emitOrderCancelledByCustomerEvent(order.getId());
+        ctx.setRequiresRefund(true);
+    }
 }

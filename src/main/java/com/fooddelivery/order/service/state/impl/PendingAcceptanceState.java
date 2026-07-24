@@ -6,11 +6,14 @@ import com.fooddelivery.common.enums.OrderStatus;
 import com.fooddelivery.order.entity.Order;
 import com.fooddelivery.order.service.state.OrderContext;
 import com.fooddelivery.order.service.state.OrderState;
+import lombok.extern.slf4j.Slf4j;
 
-public class PaidState implements OrderState {
+@Slf4j
+public class PendingAcceptanceState implements OrderState {
 
     @Override
     public void handleOrderAccepted(OrderContext ctx) {
+        log.info("Order {} accepted by restaurant", ctx.getOrder().getId());
         Order order = ctx.getOrder();
         order.setStatus(OrderStatus.ACCEPTED);
 
@@ -55,6 +58,6 @@ public class PaidState implements OrderState {
 
         // Notify restaurant to cancel (since it was paid)
         ctx.getActionService().emitOrderCancelledByCustomerEvent(order.getId());
-        ctx.setRequiresRefund(false); // No refund when customer cancels
+        ctx.setRequiresRefund(true); // Full refund when customer cancels before restaurant accepts
     }
 }

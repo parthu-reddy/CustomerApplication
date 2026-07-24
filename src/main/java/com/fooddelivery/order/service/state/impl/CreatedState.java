@@ -17,7 +17,8 @@ public class CreatedState implements OrderState {
     @Override
     public void handlePaymentSuccess(OrderContext ctx) {
         Order order = ctx.getOrder();
-        order.setStatus(OrderStatus.PAID);
+        order.setStatus(OrderStatus.PENDING_ACCEPTANCE);
+        order.setPaymentStatus(PaymentIntentStatus.SUCCESS);
         ctx.getActionService().saveOrder(order);
 
         // Record initial payment from customer to platform
@@ -40,6 +41,7 @@ public class CreatedState implements OrderState {
     public void handlePaymentFailure(OrderContext ctx) {
         Order order = ctx.getOrder();
         order.setStatus(OrderStatus.CANCELLED);
+        order.setPaymentStatus(PaymentIntentStatus.FAILED);
         ctx.getActionService().saveOrder(order);
 
         ctx.getActionService().emitOrderCancelledEvent(order.getId(), "Payment failed");

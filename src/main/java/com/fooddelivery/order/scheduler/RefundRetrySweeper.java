@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.data.redis.core.StringRedisTemplate;
 
 import java.util.List;
 
@@ -21,9 +22,15 @@ public class RefundRetrySweeper {
     private final IPaymentIntentRepository paymentIntentRepository;
     private final IOrderRepository orderRepository;
     private final OrderSagaOrchestrator orderSagaOrchestrator;
+    private final StringRedisTemplate redisTemplate;
 
     @Scheduled(fixedDelay = 300000) // Runs every 5 minutes
     public void retryFailedRefunds() {
+        Boolean locked = redisTemplate.opsForValue().setIfAbsent("lock:sweepRefundRetries", "1", java.time.Duration.ofSeconds(200));
+        if (!Boolean.TRUE.equals(locked)) {
+            return;
+        }
+
         List<PaymentIntent> failedIntents = paymentIntentRepository.findByStatusAndCreatedAtBefore(
             PaymentIntentStatus.REFUND_FAILED, 
             java.time.LocalDateTime.now()

@@ -18,12 +18,8 @@ public class PickedUpState implements OrderState {
     public void handleOrderDelivered(OrderContext ctx) {
         Order order = ctx.getOrder();
         
-        String providedOtp = ctx.getEventPayload().path("deliveryOtp").asText(null);
-        if (providedOtp == null || !providedOtp.equals(order.getOtp())) {
-            throw new com.fooddelivery.order.service.state.IllegalStateTransitionException("Invalid or missing delivery OTP. Cannot transition to DELIVERED.");
-        }
-        
         order.setStatus(OrderStatus.DELIVERED);
+        order.setDeliveryStatus(com.fooddelivery.common.enums.DeliveryStatus.DELIVERED);
         ctx.getActionService().saveOrder(order);
         
         // Ledger accounting
@@ -52,6 +48,7 @@ public class PickedUpState implements OrderState {
     public void handleDeliveryFailed(OrderContext ctx) {
         Order order = ctx.getOrder();
         order.setStatus(OrderStatus.DELIVERY_FAILED);
+        order.setDeliveryStatus(com.fooddelivery.common.enums.DeliveryStatus.FAILED);
         ctx.getActionService().saveOrder(order);
         
         ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.DELIVERY_FAILED.name());

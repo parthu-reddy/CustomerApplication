@@ -30,17 +30,20 @@ public class ReadyForPickupState implements OrderState {
     }
 
     @Override
+    public void handleDriverAtRestaurant(OrderContext ctx) {
+        Order order = ctx.getOrder();
+        order.setDeliveryStatus(com.fooddelivery.common.enums.DeliveryStatus.AT_RESTAURANT);
+        ctx.getActionService().saveOrder(order);
+    }
+
+    @Override
     public void handleStatusUpdate(OrderContext ctx) {
         String updateStatus = ctx.getEventPayload().path("status").asText(null);
         if ("OUT_FOR_DELIVERY".equals(updateStatus)) {
             Order order = ctx.getOrder();
             
-            String providedOtp = ctx.getEventPayload().path("pickupOtp").asText(null);
-            if (providedOtp == null || !providedOtp.equals(order.getPickupOtp())) {
-                throw new com.fooddelivery.order.service.state.IllegalStateTransitionException("Invalid or missing pickup OTP. Cannot transition to PICKED_UP.");
-            }
-            
             order.setStatus(OrderStatus.PICKED_UP);
+            order.setDeliveryStatus(com.fooddelivery.common.enums.DeliveryStatus.OUT_FOR_DELIVERY);
             ctx.getActionService().saveOrder(order);
             ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), com.fooddelivery.common.constants.NotificationTemplate.DRIVER_ON_THE_WAY.name());
         } else {

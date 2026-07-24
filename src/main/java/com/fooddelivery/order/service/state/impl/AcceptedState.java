@@ -40,6 +40,13 @@ public class AcceptedState implements OrderState {
     }
 
     @Override
+    public void handleDriverAtRestaurant(OrderContext ctx) {
+        Order order = ctx.getOrder();
+        order.setDeliveryStatus(com.fooddelivery.common.enums.DeliveryStatus.AT_RESTAURANT);
+        ctx.getActionService().saveOrder(order);
+    }
+
+    @Override
     public void handleOrderCancelledByRestaurant(OrderContext ctx) {
         Order order = ctx.getOrder();
         order.setStatus(OrderStatus.CANCELLED_BY_RESTAURANT);

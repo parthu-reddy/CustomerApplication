@@ -19,6 +19,13 @@ public class PreparingState implements OrderState {
     }
 
     @Override
+    public void handleDriverAtRestaurant(OrderContext ctx) {
+        Order order = ctx.getOrder();
+        order.setDeliveryStatus(com.fooddelivery.common.enums.DeliveryStatus.AT_RESTAURANT);
+        ctx.getActionService().saveOrder(order);
+    }
+
+    @Override
     public void handleDriverAssigned(OrderContext ctx) {
         Order order = ctx.getOrder();
         String driverIdStr = ctx.getEventPayload().path("driverId").asText(null);
