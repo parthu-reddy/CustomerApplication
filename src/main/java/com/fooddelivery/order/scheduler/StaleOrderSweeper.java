@@ -25,7 +25,7 @@ public class StaleOrderSweeper {
 
     @Scheduled(fixedDelay = 60000)
     public void sweepStaleCreatedOrders() {
-        Boolean locked = redisTemplate.opsForValue().setIfAbsent("lock:sweepStaleCreatedOrders", "1", java.time.Duration.ofSeconds(50));
+        Boolean locked = redisTemplate.opsForValue().setIfAbsent(com.fooddelivery.common.constants.RedisKeyConstants.LOCK_SWEEP_STALE_CREATED_ORDERS, "1", java.time.Duration.ofSeconds(50));
         if (!Boolean.TRUE.equals(locked)) {
             return;
         }

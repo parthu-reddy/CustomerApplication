@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import java.util.List;
 import java.util.Map;
 
-@FeignClient(name = "mapsintegration")
+@FeignClient(name = "mapsintegration", fallback = MapsClientFallback.class)
 public interface MapsClient {
 
     @GetMapping("/api/fleet/availability/check")

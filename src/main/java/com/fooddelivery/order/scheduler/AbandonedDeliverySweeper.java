@@ -25,7 +25,7 @@ public class AbandonedDeliverySweeper {
 
     @Scheduled(fixedDelay = 300000)
     public void sweepAbandonedDeliveries() {
-        Boolean locked = redisTemplate.opsForValue().setIfAbsent("lock:sweepAbandonedDeliveries", "1", java.time.Duration.ofSeconds(200));
+        Boolean locked = redisTemplate.opsForValue().setIfAbsent(com.fooddelivery.common.constants.RedisKeyConstants.LOCK_SWEEP_ABANDONED_DELIVERIES, "1", java.time.Duration.ofSeconds(200));
         if (!Boolean.TRUE.equals(locked)) {
             return;
         }

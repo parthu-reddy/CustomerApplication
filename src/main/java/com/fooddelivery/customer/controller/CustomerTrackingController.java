@@ -28,6 +28,8 @@ public class CustomerTrackingController {
     private final StringRedisTemplate redisTemplate;
     private final com.fooddelivery.order.repository.IOrderRepository orderRepository;
     private final org.springframework.data.redis.listener.RedisMessageListenerContainer redisMessageListenerContainer;
+    
+    private final java.util.concurrent.ScheduledExecutorService scheduler = java.util.concurrent.Executors.newScheduledThreadPool(4);
 
     @GetMapping(produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter trackOrder(@PathVariable UUID orderId) {
@@ -49,9 +51,19 @@ public class CustomerTrackingController {
         org.springframework.data.redis.listener.ChannelTopic topic = new org.springframework.data.redis.listener.ChannelTopic(trackingChannel);
         redisMessageListenerContainer.addMessageListener(listener, topic);
         
+        java.util.concurrent.ScheduledFuture<?> heartbeatTask = scheduler.scheduleAtFixedRate(() -> {
+            try {
+                emitter.send(SseEmitter.event().comment("ping"));
+            } catch (Exception e) {
+                log.warn("Failed to send heartbeat ping for order {}, terminating connection", orderId);
+                emitter.completeWithError(e);
+            }
+        }, 15, 15, java.util.concurrent.TimeUnit.SECONDS);
+        
         // Cleanup: remove the listener when the SSE ends
         Runnable cleanup = () -> {
             try {
+                heartbeatTask.cancel(false);
                 redisMessageListenerContainer.removeMessageListener(listener, topic);
                 log.info("Cleaned up Redis subscription for order: {}", orderId);
             } catch (Exception e) {
@@ -79,5 +91,10 @@ public class CustomerTrackingController {
         }
         
         return emitter;
+    }
+
+    @jakarta.annotation.PreDestroy
+    public void onDestroy() {
+        scheduler.shutdown();
     }
 }

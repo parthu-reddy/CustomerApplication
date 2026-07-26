@@ -29,7 +29,11 @@ import jakarta.persistence.Column;
 import lombok.extern.slf4j.Slf4j;
 
 @Entity
-@Table(name = "orders")
+@Table(name = "orders", indexes = {
+    @jakarta.persistence.Index(name = "idx_order_customer", columnList = "customerId"),
+    @jakarta.persistence.Index(name = "idx_order_delivery_exec", columnList = "deliveryExecutiveId"),
+    @jakarta.persistence.Index(name = "idx_order_status", columnList = "status")
+})
 @Data
 @Builder
 @NoArgsConstructor

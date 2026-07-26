@@ -84,13 +84,12 @@ public class CustomerOrderService {
             .orElseThrow(() -> new RuntimeException("Order not found or access denied"));
     }
 
-    public OrderWithPayment createOrderWithPayment(UUID customerId, UUID restaurantId, UUID deliveryAddressId, List<OrderItemRequest> requestedItems) {
-        Order order = createOrder(customerId, restaurantId, deliveryAddressId, requestedItems);
-        
-        try {
-            String intent = paymentGatewayOrchestrator.generateUpiIntent(order);
-            return new OrderWithPayment(order, intent);
-        } catch (Exception e) {
+    public java.util.concurrent.CompletableFuture<OrderWithPayment> createOrderWithPayment(UUID customerId, UUID restaurantId, UUID deliveryAddressId, List<OrderItemRequest> requestedItems) {
+        return createOrder(customerId, restaurantId, deliveryAddressId, requestedItems).thenApply(order -> {
+            try {
+                String intent = paymentGatewayOrchestrator.generateUpiIntent(order);
+                return new OrderWithPayment(order, intent);
+            } catch (Exception e) {
             // COMPENSATION: The order was already committed to DB via startOrderSaga().
             // The Outbox already has an ORDER_CREATED event queued. We must explicitly
             // cancel the order and publish an ORDER_CANCELLED event to prevent a phantom
@@ -126,11 +125,12 @@ public class CustomerOrderService {
                 }
             });
             
-            throw new RuntimeException("Payment intent generation failed for order " + order.getId(), e);
+            throw new java.util.concurrent.CompletionException(new RuntimeException("Payment intent generation failed for order " + order.getId(), e));
         }
+        });
     }
 
-    protected Order createOrder(UUID customerId, UUID restaurantId, UUID deliveryAddressId, List<OrderItemRequest> requestedItems) {
+    protected java.util.concurrent.CompletableFuture<Order> createOrder(UUID customerId, UUID restaurantId, UUID deliveryAddressId, List<OrderItemRequest> requestedItems) {
         if (requestedItems == null || requestedItems.isEmpty()) {
             throw new IllegalArgumentException("Order must contain at least one item.");
         }
@@ -238,27 +238,22 @@ public class CustomerOrderService {
                 }
             }, executorService);
 
-            // Wait for all async calls to complete
-            try {
-                java.util.concurrent.CompletableFuture.allOf(menuFuture, restaurantDataFuture, mapsFuture).join();
-            } catch (java.util.concurrent.CompletionException ce) {
-                if (ce.getCause() instanceof RuntimeException) {
-                    throw (RuntimeException) ce.getCause();
-                }
-                throw new RuntimeException(ce.getCause());
-            }
-
-            java.util.Map<String, Object> restaurantData = restaurantDataFuture.get();
-            Double rLat = (Double) restaurantData.get("lat");
-            Double rLng = (Double) restaurantData.get("lng");
-            
-            boolean hasDrivers = mapsFuture.get();
-            if (!hasDrivers) {
-                throw new com.fooddelivery.customer.exception.DeliveryPartnerUnavailableException(
-                    com.fooddelivery.common.constants.AppConstants.ERROR_MSG_NO_DELIVERY_PARTNER_NEARBY, 
-                    com.fooddelivery.common.constants.AppConstants.ERROR_NO_DELIVERY_PARTNER_NEARBY
-                );
-            }
+            // Wait for all async calls to complete non-blockingly
+            return java.util.concurrent.CompletableFuture.allOf(menuFuture, restaurantDataFuture, mapsFuture)
+                .orTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+                .thenApplyAsync(v -> {
+                    try {
+                        java.util.Map<String, Object> restaurantData = restaurantDataFuture.join();
+                        Double rLat = (Double) restaurantData.get("lat");
+                        Double rLng = (Double) restaurantData.get("lng");
+                        
+                        boolean hasDrivers = mapsFuture.join();
+                        if (!hasDrivers) {
+                            throw new com.fooddelivery.customer.exception.DeliveryPartnerUnavailableException(
+                                com.fooddelivery.common.constants.AppConstants.ERROR_MSG_NO_DELIVERY_PARTNER_NEARBY, 
+                                com.fooddelivery.common.constants.AppConstants.ERROR_NO_DELIVERY_PARTNER_NEARBY
+                            );
+                        }
 
             // Distance check (Haversine)
             double distance = calculateDistance(rLat, rLng, address.getLatitude(), address.getLongitude());
@@ -320,7 +315,7 @@ public class CustomerOrderService {
                     .deliveryAddress(formatAddress(address))
                     .deliveryLat(address.getLatitude())
                     .deliveryLng(address.getLongitude())
-                    .otp(String.format("%06d", new java.util.Random().nextInt(1000000)))
+                    .otp(String.format("%06d", new java.security.SecureRandom().nextInt(1000000)))
                     .status(OrderStatus.CREATED)
                     .orderItems(new ArrayList<>())
                     .estimatedPrepTimeMinutes(maxPrepTime)
@@ -343,15 +338,18 @@ public class CustomerOrderService {
             
             log.info("Created order {} for customer {} with total amount {}", order.getId(), customerId, totalAmount);
             return order;
-        } catch (com.fooddelivery.customer.exception.DeliveryPartnerUnavailableException e) {
-            throw e;
-        } catch (com.fooddelivery.customer.exception.MenuItemsUnavailableException e) {
-            throw e;
-        } catch (IllegalArgumentException e) {
-            throw e;
+                    } catch (java.util.concurrent.CompletionException ce) {
+                        if (ce.getCause() instanceof RuntimeException) {
+                            throw (RuntimeException) ce.getCause();
+                        }
+                        throw ce;
+                    } catch (Exception e) {
+                        throw new java.util.concurrent.CompletionException(e);
+                    }
+                }, executorService);
         } catch (Exception e) {
             log.error("Failed to create order", e);
-            throw new RuntimeException("Failed to create order", e);
+            return java.util.concurrent.CompletableFuture.failedFuture(e);
         }
     }
 

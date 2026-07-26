@@ -35,7 +35,7 @@ public class DriverOrderController {
         List<OrderResponse> responses = new ArrayList<>();
         
         // Fast lookup for this driver's ping
-        String orderIdStr = redisTemplate.opsForValue().get("driver:pending_ping:" + driverId.toString());
+        String orderIdStr = redisTemplate.opsForValue().get(com.fooddelivery.common.constants.RedisKeyConstants.PREFIX_DRIVER_PENDING_PING + driverId.toString());
         if (orderIdStr != null) {
             try {
                 UUID orderId = UUID.fromString(orderIdStr);

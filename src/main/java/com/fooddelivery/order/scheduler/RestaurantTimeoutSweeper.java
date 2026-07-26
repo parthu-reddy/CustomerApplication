@@ -29,7 +29,7 @@ public class RestaurantTimeoutSweeper {
 
     @Scheduled(fixedDelay = 60000)
     public void sweepStalePaidOrders() {
-        Boolean locked = redisTemplate.opsForValue().setIfAbsent("lock:sweepRestaurantTimeouts", "1", Duration.ofSeconds(50));
+        Boolean locked = redisTemplate.opsForValue().setIfAbsent(com.fooddelivery.common.constants.RedisKeyConstants.LOCK_SWEEP_RESTAURANT_TIMEOUTS, "1", Duration.ofSeconds(50));
         if (!Boolean.TRUE.equals(locked)) {
             return;
         }

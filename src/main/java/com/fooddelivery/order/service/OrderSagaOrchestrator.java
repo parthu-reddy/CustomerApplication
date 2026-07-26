@@ -16,6 +16,7 @@ import com.fooddelivery.common.outbox.repository.OutboxEventRepository;
 import com.fooddelivery.order.repository.IPaymentIntentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -24,6 +25,10 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.kafka.annotation.RetryableTopic;
+import org.springframework.kafka.annotation.DltHandler;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.messaging.handler.annotation.Payload;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
@@ -35,6 +40,12 @@ import java.util.concurrent.ScheduledExecutorService;
 @RequiredArgsConstructor
 @Slf4j
 public class OrderSagaOrchestrator {
+    
+    private static final String REFUND_TX_PREFIX = "REFUND_";
+    private static final String FIELD_ORDER_ID = "orderId";
+    private static final String FIELD_GATEWAY_ORDER_ID = "gatewayOrderId";
+    private static final String FIELD_EVENT_TYPE = "eventType";
+    private static final String FIELD_FAILURE_REASON = "failureReason";
     
     private final IOrderRepository orderRepository;
     private final OutboxEventRepository outboxEventRepository;
@@ -63,18 +74,19 @@ public class OrderSagaOrchestrator {
     private final com.fooddelivery.customer.client.PaymentClient paymentClient;
     private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
     private final com.fooddelivery.order.service.state.OrderActionService orderActionService;
+    private final StringRedisTemplate redisTemplate;
 
     // We assume the system account ID for the platform is a fixed UUID for this prototype
     private static final UUID PLATFORM_ACCOUNT_ID = UUID.fromString("00000000-0000-0000-0000-000000000000");
 
     @Transactional
     public Order startOrderSaga(Order order) {
-        // Generate 6-digit pickup OTP
-        String otp = String.format("%06d", new java.util.Random().nextInt(1000000));
+        java.security.SecureRandom secureRandom = new java.security.SecureRandom();
+        String otp = String.format("%06d", secureRandom.nextInt(1000000));
         order.setPickupOtp(otp);
         
-        // Generate 6-digit delivery OTP
-        String deliveryOtp = String.format("%06d", new java.util.Random().nextInt(1000000));
+        // Generate delivery OTP
+        String deliveryOtp = String.format("%06d", secureRandom.nextInt(1000000));
         order.setOtp(deliveryOtp);
         
         Order savedOrder = orderRepository.save(order);
@@ -132,9 +144,23 @@ public class OrderSagaOrchestrator {
     }
 
     // Listens to Kafka 'payment-events' topic for events published by external Payment Service
+    @RetryableTopic(
+            attempts = "4", 
+            backoff = @Backoff(delay = 2000, multiplier = 2.0, maxDelay = 10000)
+    )
     @KafkaListener(topics = KafkaConstants.TOPIC_PAYMENT_EVENTS, groupId = KafkaConstants.GROUP_FOOD_DELIVERY)
-    public void handlePaymentEvents(String payload) {
+    public void handlePaymentEvents(String payload, @org.springframework.messaging.handler.annotation.Headers java.util.Map<String, Object> headers) {
         log.info("Received Payment Event: {}", payload);
+        
+        String eventId = com.fooddelivery.common.util.KafkaHeaderUtils.extractHeaderValue(headers, "eventId");
+        if (eventId != null) {
+            Boolean isNew = redisTemplate.opsForValue().setIfAbsent("processed_event:" + eventId, "1", java.time.Duration.ofDays(7));
+            if (Boolean.FALSE.equals(isNew)) {
+                log.info("Duplicate event ignored: {}", eventId);
+                return;
+            }
+        }
+
         
         int retries = 0;
         boolean success = false;
@@ -144,21 +170,33 @@ public class OrderSagaOrchestrator {
                     try {
             com.fasterxml.jackson.databind.JsonNode rootNode = objectMapper.readTree(payload);
             
-            if (!rootNode.has("orderId") || !rootNode.has("gatewayOrderId")) {
+            if (!rootNode.has(FIELD_ORDER_ID) || !rootNode.has(FIELD_GATEWAY_ORDER_ID)) {
                 log.info("Ignoring unrecognized event payload: {}", payload);
                 return null;
             }
             
-            String gatewayOrderId = rootNode.get("gatewayOrderId").asText();
-            String internalOrderId = rootNode.get("orderId").asText();
+            String gatewayOrderId = rootNode.get(FIELD_GATEWAY_ORDER_ID).asText();
+            String internalOrderId = rootNode.get(FIELD_ORDER_ID).asText();
             
-            if (rootNode.has("eventType") && com.fooddelivery.common.constants.EventType.PAYMENT_REFUNDED.name().equals(rootNode.get("eventType").asText())) {
-                log.info("Ignoring PAYMENT_REFUNDED event for order: {}", internalOrderId);
+            if (rootNode.has(FIELD_EVENT_TYPE) && com.fooddelivery.common.constants.EventType.PAYMENT_REFUNDED.name().equals(rootNode.get(FIELD_EVENT_TYPE).asText())) {
+                log.info("Processing PAYMENT_REFUNDED event for order: {}", internalOrderId);
+                com.fooddelivery.order.entity.PaymentIntent intent = paymentIntentRepository.findByGatewayOrderId(gatewayOrderId).orElse(null);
+                if (intent != null) {
+                    intent.setStatus(PaymentIntentStatus.REFUNDED);
+                    paymentIntentRepository.save(intent);
+                    Order order = orderRepository.findById(intent.getInternalOrderId()).orElse(null);
+                    if(order != null) {
+                        order.setPaymentStatus(PaymentIntentStatus.REFUNDED);
+                        orderRepository.save(order);
+                        UUID refundTransferId = UUID.nameUUIDFromBytes((REFUND_TX_PREFIX + order.getId()).getBytes());
+                        ledgerService.recordTransaction(refundTransferId, PLATFORM_ACCOUNT_ID, AccountType.PLATFORM, order.getCustomerId(), AccountType.CUSTOMER, order.getTotalAmount());
+                    }
+                }
                 return null;
             }
             
-            boolean isFailure = rootNode.has("failureReason") || 
-                    (rootNode.has("eventType") && com.fooddelivery.common.constants.EventType.PAYMENT_FAILED.name().equals(rootNode.get("eventType").asText()));
+            boolean isFailure = rootNode.has(FIELD_FAILURE_REASON) || 
+                    (rootNode.has(FIELD_EVENT_TYPE) && com.fooddelivery.common.constants.EventType.PAYMENT_FAILED.name().equals(rootNode.get(FIELD_EVENT_TYPE).asText()));
             
             log.info("Payment event for gateway order {}. Finding internal order {}. IsFailure: {}", gatewayOrderId, internalOrderId, isFailure);
             
@@ -218,9 +256,22 @@ public class OrderSagaOrchestrator {
     }
 
     // Listens to Kafka 'order-events' topic for ORDER_ACCEPTED
+    @RetryableTopic(
+            attempts = "4", 
+            backoff = @Backoff(delay = 2000, multiplier = 2.0, maxDelay = 10000)
+    )
     @KafkaListener(topics = KafkaConstants.TOPIC_ORDER_EVENTS, groupId = KafkaConstants.GROUP_FOOD_DELIVERY)
     public void handleOrderEvents(String payload, @org.springframework.messaging.handler.annotation.Headers java.util.Map<String, Object> headers) {
         log.info("OrderSagaOrchestrator received event: {}", payload);
+        
+        String eventId = com.fooddelivery.common.util.KafkaHeaderUtils.extractHeaderValue(headers, "eventId");
+        if (eventId != null) {
+            Boolean isNew = redisTemplate.opsForValue().setIfAbsent("processed_event:" + eventId, "1", java.time.Duration.ofDays(7));
+            if (Boolean.FALSE.equals(isNew)) {
+                log.info("Duplicate event ignored: {}", eventId);
+                return;
+            }
+        }
         
         int retries = 0;
         boolean success = false;
@@ -229,36 +280,8 @@ public class OrderSagaOrchestrator {
                 Order orderToRefund = transactionTemplate.execute(status -> {
                     try {
                         com.fasterxml.jackson.databind.JsonNode rootNode = objectMapper.readTree(payload);
-                        String jsonEventType = rootNode.path("eventType").asText(null);
                         
-                        String headerEventType = null;
-                        Object eventTypeObj = headers.get("eventType");
-                        if (eventTypeObj != null) {
-                            if (eventTypeObj instanceof byte[]) {
-                                headerEventType = new String((byte[]) eventTypeObj, java.nio.charset.StandardCharsets.UTF_8);
-                            } else if (eventTypeObj.getClass().getName().contains("NonTrustedHeaderType")) {
-                                String str = eventTypeObj.toString();
-                                if (str.contains("headerValue=")) {
-                                    int start = str.indexOf("\"") + 1;
-                                    if (start > 0) {
-                                        int end = str.indexOf("\"", start);
-                                        if (end > start) {
-                                            headerEventType = str.substring(start, end);
-                                        } else {
-                                            headerEventType = str;
-                                        }
-                                    } else {
-                                        headerEventType = str;
-                                    }
-                                } else {
-                                    headerEventType = str;
-                                }
-                            } else {
-                                headerEventType = eventTypeObj.toString();
-                            }
-                        }
-                        
-                        String eventType = headerEventType != null ? headerEventType : jsonEventType;
+                        String eventType = com.fooddelivery.common.util.KafkaHeaderUtils.extractEventType(headers, rootNode);
                         String orderIdStr = rootNode.path("orderId").asText(null);
                         if (orderIdStr == null && rootNode.has("id")) {
                             orderIdStr = rootNode.get("id").asText();
@@ -359,20 +382,27 @@ public class OrderSagaOrchestrator {
         }
     }
 
-    @Transactional
     public void cancelOrderLocally(Order order, String reason) {
-        com.fooddelivery.order.service.state.OrderContext context = new com.fooddelivery.order.service.state.OrderContext(order, objectMapper.createObjectNode(), orderActionService);
-        com.fooddelivery.order.service.state.OrderState state = com.fooddelivery.order.service.state.OrderStateFactory.getState(order.getStatus());
-        
-        try {
-            state.cancelByCustomer(context, reason);
-        } catch (com.fooddelivery.common.exception.IllegalStateTransitionException e) {
-            log.error("ILLEGAL_STATE_TRANSITION: {}", e.getMessage());
-            throw new IllegalStateException(e.getMessage());
-        }
+        Order orderToRefund = transactionTemplate.execute(status -> {
+            Order dbOrder = orderRepository.findById(order.getId()).orElse(order);
+            com.fooddelivery.order.service.state.OrderContext context = new com.fooddelivery.order.service.state.OrderContext(dbOrder, objectMapper.createObjectNode(), orderActionService);
+            com.fooddelivery.order.service.state.OrderState state = com.fooddelivery.order.service.state.OrderStateFactory.getState(dbOrder.getStatus());
+            
+            try {
+                state.cancelByCustomer(context, reason);
+            } catch (com.fooddelivery.common.exception.IllegalStateTransitionException e) {
+                log.error("ILLEGAL_STATE_TRANSITION: {}", e.getMessage());
+                throw new IllegalStateException(e.getMessage());
+            }
 
-        if (context.isRequiresRefund()) {
-            processRefund(order);
+            if (context.isRequiresRefund()) {
+                return dbOrder;
+            }
+            return null;
+        });
+
+        if (orderToRefund != null) {
+            processRefund(orderToRefund);
         }
     }
 
@@ -409,57 +439,36 @@ public class OrderSagaOrchestrator {
         paymentIntentRepository.findByInternalOrderId(order.getId()).ifPresent(intent -> {
             if (intent.getStatus() == PaymentIntentStatus.SUCCESS || intent.getStatus() == PaymentIntentStatus.CAPTURED || intent.getStatus() == PaymentIntentStatus.REFUND_FAILED) {
                 try {
-                    Map<String, Object> request = new HashMap<>();
-                    request.put("gatewayOrderId", intent.getGatewayOrderId());
-                    request.put("amountInInr", order.getTotalAmount());
-                    request.put("reason", "Order cancelled or rejected");
+                    Map<String, Object> payloadMap = new HashMap<>();
+                    payloadMap.put("intentId", intent.getId().toString());
+                    payloadMap.put("gatewayOrderId", intent.getGatewayOrderId());
+                    payloadMap.put("amountInInr", order.getTotalAmount());
+                    payloadMap.put("gatewayName", intent.getGatewayName());
+                    payloadMap.put("orderId", order.getId().toString());
                     
-                    String response = null;
-                    try {
-                        response = paymentClient.refundOrder(intent.getGatewayName(), request);
-                    } catch (Exception e) {
-                        log.error("Failed to initiate refund via PaymentGatewayIntegration", e);
-                    }
+                    String payloadStr = objectMapper.writeValueAsString(payloadMap);
                     
-                    if (response != null) {
-                        int retries = 0;
-                        boolean success = false;
-                        while (!success && retries < AppConstants.MAX_OPTIMISTIC_LOCK_RETRIES) {
-                            try {
-                                transactionTemplate.executeWithoutResult(status -> {
-                                    // RE-FETCH inside transaction to get latest version for optimistic locking retry
-                                    com.fooddelivery.order.entity.PaymentIntent latestIntent = paymentIntentRepository.findById(intent.getId())
-                                            .orElseThrow(() -> new RuntimeException("PaymentIntent not found during refund retry"));
-                                    latestIntent.setStatus(PaymentIntentStatus.REFUNDED);
-                                    paymentIntentRepository.save(latestIntent);
-                                    
-                                    Order latestOrder = orderRepository.findById(order.getId()).orElse(null);
-                                    if(latestOrder != null) {
-                                        latestOrder.setPaymentStatus(PaymentIntentStatus.REFUNDED);
-                                        orderRepository.save(latestOrder);
-                                    }
-                                    
-                                    UUID refundTransferId = UUID.nameUUIDFromBytes(("REFUND_" + order.getId()).getBytes());
-                                    ledgerService.recordTransaction(refundTransferId, PLATFORM_ACCOUNT_ID, AccountType.PLATFORM, order.getCustomerId(), AccountType.CUSTOMER, order.getTotalAmount());
-                                });
-                                success = true;
-                                log.info("PaymentIntent {} status updated to REFUNDED. Funds returned to Customer via Gateway.", intent.getId());
-                            } catch (org.springframework.orm.ObjectOptimisticLockingFailureException e) {
-                                retries++;
-                                if (retries >= AppConstants.MAX_OPTIMISTIC_LOCK_RETRIES) {
-                                    log.error("CRITICAL: Refund successful in gateway but failed in DB after {} retries due to optimistic locking for order {}", AppConstants.MAX_OPTIMISTIC_LOCK_RETRIES, order.getId(), e);
-                                    throw e;
-                                }
-                                log.warn("Optimistic locking failure in processRefund for order {}. Retrying {}/{}", order.getId(), retries, AppConstants.MAX_OPTIMISTIC_LOCK_RETRIES);
-                                try { Thread.sleep((long) (Math.pow(2, retries) * 100)); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
-                            }
+                    OutboxEventEntity outboxEvent = OutboxEventEntity.builder()
+                            .id(UUID.randomUUID())
+                            .aggregateType(com.fooddelivery.common.constants.AggregateType.PAYMENT)
+                            .aggregateId(order.getId().toString())
+                            .eventType(com.fooddelivery.common.constants.EventType.PAYMENT_REFUND_REQUESTED)
+                            .payload(payloadStr)
+                            .createdAt(LocalDateTime.now())
+                            .build();
+                    
+                    transactionTemplate.executeWithoutResult(status -> {
+                        Order latestOrder = orderRepository.findById(order.getId()).orElse(null);
+                        if(latestOrder != null) {
+                            latestOrder.setPaymentStatus(PaymentIntentStatus.REFUND_PENDING);
+                            orderRepository.save(latestOrder);
                         }
-                    } else {
-                        log.error("Failed to initiate refund via PaymentGatewayIntegration.");
-                        markRefundFailedWithRetry(intent);
-                    }
+                        outboxEventRepository.save(outboxEvent);
+                    });
+                    
+                    log.info("Refund requested event saved to outbox for intent: {}", intent.getId());
                 } catch (Exception e) {
-                    log.error("Exception calling PaymentGatewayIntegration for refund on order {}. Marking as REFUND_FAILED.", order.getId(), e);
+                    log.error("Failed to publish refund event for order {}", order.getId(), e);
                     markRefundFailedWithRetry(intent);
                 }
             } else {
@@ -550,5 +559,10 @@ public class OrderSagaOrchestrator {
                status == OrderStatus.CANCELLED ||
                status == OrderStatus.CANCELLED_BY_RESTAURANT ||
                status == OrderStatus.DELIVERY_FAILED;
+    }
+
+    @DltHandler
+    public void processDeadLetterTopic(@Payload(required = false) String payload, @org.springframework.messaging.handler.annotation.Header(name = org.springframework.kafka.support.KafkaHeaders.EXCEPTION_MESSAGE, required = false) String exceptionMessage) {
+        log.error("Terminal failure for event in Saga. Payload: {}. Moving to manual intervention queue. Exception: {}", payload, exceptionMessage);
     }
 }

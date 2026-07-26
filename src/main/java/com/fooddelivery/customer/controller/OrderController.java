@@ -30,23 +30,30 @@ public class OrderController {
     private final CustomerOrderService customerOrderService;
 
     @PostMapping
-    public ResponseEntity<ApiResponse<OrderResponse>> createOrder(
+    public java.util.concurrent.CompletableFuture<ResponseEntity<ApiResponse<OrderResponse>>> createOrder(
             java.security.Principal principal,
             @Valid @RequestBody OrderRequest request) {
             
         java.util.UUID customerId = java.util.UUID.fromString(principal.getName());
         
-        CustomerOrderService.OrderWithPayment result = customerOrderService.createOrderWithPayment(
+        return customerOrderService.createOrderWithPayment(
                 customerId,
                 request.getRestaurantId(),
                 request.getDeliveryAddressId(),
                 request.getItems()
-        );
-        
-        OrderResponse response = mapToResponse(result.order());
-        response.setPaymentIntent(result.paymentIntent());
-        
-        return ResponseEntity.ok(ApiResponse.success(response, "Order created successfully"));
+        ).thenApply(result -> {
+            OrderResponse response = mapToResponse(result.order());
+            response.setPaymentIntent(result.paymentIntent());
+            return ResponseEntity.ok(ApiResponse.success(response, "Order created successfully"));
+        }).exceptionally(ex -> {
+            Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
+            if (cause instanceof com.fooddelivery.customer.exception.DeliveryPartnerUnavailableException || 
+                cause instanceof com.fooddelivery.customer.exception.MenuItemsUnavailableException || 
+                cause instanceof IllegalArgumentException) {
+                throw (RuntimeException) cause;
+            }
+            throw new RuntimeException("Failed to create order", cause);
+        });
     }
 
     @PostMapping("/{orderId}/delay-approval")

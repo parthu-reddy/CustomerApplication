@@ -24,14 +24,14 @@ public class CustomerIdentityFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         
-        String phone = request.getHeader("X-User-Phone");
-        String userId = request.getHeader("X-User-Id");
+        String phone = request.getHeader(com.fooddelivery.common.constants.HeaderConstants.HEADER_USER_PHONE);
+        String userId = request.getHeader(com.fooddelivery.common.constants.HeaderConstants.HEADER_USER_ID);
         
         log.info("CustomerIdentityFilter executed for URI: {}, phone: {}, userId: {}", request.getRequestURI(), phone, userId);
         
         if (phone != null && !phone.isEmpty() && userId != null && !userId.isEmpty()) {
             java.util.UUID jwtUserId = java.util.UUID.fromString(userId);
-            String roles = request.getHeader("X-User-Roles");
+            String roles = request.getHeader(com.fooddelivery.common.constants.HeaderConstants.HEADER_USER_ROLES);
             
             // Only synchronize/create customer records if the user actually has the CUSTOMER role
             if (roles != null && roles.contains("CUSTOMER")) {

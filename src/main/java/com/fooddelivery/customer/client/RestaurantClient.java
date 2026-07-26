@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-@FeignClient(name = "restaurant-service")
+@FeignClient(name = "restaurant-service", fallback = RestaurantClientFallback.class)
 public interface RestaurantClient {
 
     @GetMapping("/api/v1/restaurants/nearby")

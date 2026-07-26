@@ -26,7 +26,7 @@ public class RefundRetrySweeper {
 
     @Scheduled(fixedDelay = 300000) // Runs every 5 minutes
     public void retryFailedRefunds() {
-        Boolean locked = redisTemplate.opsForValue().setIfAbsent("lock:sweepRefundRetries", "1", java.time.Duration.ofSeconds(200));
+        Boolean locked = redisTemplate.opsForValue().setIfAbsent(com.fooddelivery.common.constants.RedisKeyConstants.LOCK_SWEEP_REFUND_RETRIES, "1", java.time.Duration.ofSeconds(200));
         if (!Boolean.TRUE.equals(locked)) {
             return;
         }

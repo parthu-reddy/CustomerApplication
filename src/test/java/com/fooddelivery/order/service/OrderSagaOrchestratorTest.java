@@ -49,6 +49,9 @@ class OrderSagaOrchestratorTest {
     @Mock
     private org.springframework.transaction.support.TransactionTemplate transactionTemplate;
 
+    @Mock
+    private org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
+
     private ObjectMapper objectMapper = new ObjectMapper();
 
     private OrderSagaOrchestrator orderSagaOrchestrator;
@@ -86,7 +89,8 @@ class OrderSagaOrchestratorTest {
                 ledgerService,
                 paymentClient,
                 transactionTemplate,
-                orderActionService
+                orderActionService,
+                redisTemplate
         );
     }
 
@@ -106,7 +110,7 @@ class OrderSagaOrchestratorTest {
         verify(outboxEventRepository).save(outboxCaptor.capture());
         
         OutboxEventEntity savedOutbox = outboxCaptor.getValue();
-        assertThat(savedOutbox.getEventType()).isEqualTo(com.fooddelivery.common.constants.EventType.ORDER_CREATED.name());
+        assertThat(savedOutbox.getEventType()).isEqualTo(com.fooddelivery.common.constants.EventType.ORDER_CREATED);
         assertThat(savedOutbox.getAggregateType()).isEqualTo(com.fooddelivery.common.constants.AggregateType.ORDER);
     }
 
@@ -134,8 +138,16 @@ class OrderSagaOrchestratorTest {
         when(paymentIntentRepository.findByGatewayOrderId(gatewayOrderId)).thenReturn(Optional.of(intent));
         when(paymentIntentRepository.findByInternalOrderId(internalOrderId)).thenReturn(Optional.of(intent));
         when(orderRepository.findById(internalOrderId)).thenReturn(Optional.of(order));
+        
+        // Mock redis ops for idempotency
+        org.springframework.data.redis.core.ValueOperations valueOps = mock(org.springframework.data.redis.core.ValueOperations.class);
+        when(redisTemplate.opsForValue()).thenReturn(valueOps);
+        when(valueOps.setIfAbsent(anyString(), anyString(), any(java.time.Duration.class))).thenReturn(true);
+        
         // Act
-        orderSagaOrchestrator.handlePaymentEvents(payload);
+        java.util.Map<String, Object> headers = new java.util.HashMap<>();
+        headers.put("eventId", UUID.randomUUID().toString());
+        orderSagaOrchestrator.handlePaymentEvents(payload, headers);
 
         verify(orderRepository).save(order);
         assertThat(order.getStatus()).isEqualTo(OrderStatus.PENDING_ACCEPTANCE);
@@ -155,8 +167,14 @@ class OrderSagaOrchestratorTest {
 
         when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
         
+        // Mock redis ops for idempotency
+        org.springframework.data.redis.core.ValueOperations valueOps = mock(org.springframework.data.redis.core.ValueOperations.class);
+        when(redisTemplate.opsForValue()).thenReturn(valueOps);
+        when(valueOps.setIfAbsent(anyString(), anyString(), any(java.time.Duration.class))).thenReturn(true);
+        
         java.util.Map<String, Object> headers = new java.util.HashMap<>();
         headers.put("eventType", com.fooddelivery.common.constants.EventType.ORDER_ACCEPTED.name());
+        headers.put("eventId", UUID.randomUUID().toString());
         orderSagaOrchestrator.handleOrderEvents(payload, headers);
 
         assertThat(order.getStatus()).isEqualTo(OrderStatus.ACCEPTED);
