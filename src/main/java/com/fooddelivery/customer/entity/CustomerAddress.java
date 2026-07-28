@@ -24,11 +24,13 @@ import java.util.UUID;
 public class CustomerAddress {
 
     @Id
+    @Column(name = "id")
     private UUID id;
 
     @Column(name = "customer_id", nullable = false)
     private UUID customerId;
 
+    @Column(name = "label")
     private String label;
 
     @Column(name = "address_line1", nullable = false)
@@ -37,19 +39,19 @@ public class CustomerAddress {
     @Column(name = "address_line2")
     private String addressLine2;
 
-    @Column(nullable = false)
+    @Column(name = "city", nullable = false)
     private String city;
 
-    @Column(nullable = false)
+    @Column(name = "state", nullable = false)
     private String state;
 
     @Column(name = "zip_code", nullable = false)
     private String zipCode;
 
-    @Column(nullable = false)
+    @Column(name = "latitude", nullable = false)
     private Double latitude;
 
-    @Column(nullable = false)
+    @Column(name = "longitude", nullable = false)
     private Double longitude;
 
     @Column(name = "is_default")

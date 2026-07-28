@@ -25,6 +25,10 @@ public class OrderResponse {
     private com.fooddelivery.common.enums.DeliveryStatus deliveryStatus;
 
     private BigDecimal totalAmount;
+    private BigDecimal itemTotal;
+    private BigDecimal sgst;
+    private BigDecimal cgst;
+    private BigDecimal deliveryFee;
     private String deliveryAddress;
     private Double deliveryLat;
     private Double deliveryLng;

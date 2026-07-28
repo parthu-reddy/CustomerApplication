@@ -41,13 +41,18 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class Order {
     @Id
+    @Column(name = "id")
     private UUID id;
     
+    @Column(name = "customer_id")
     private UUID customerId;
+    @Column(name = "restaurant_id")
     private UUID restaurantId;
+    @Column(name = "restaurant_name")
     private String restaurantName;
     
     @Enumerated(EnumType.STRING)
+    @Column(name = "status")
     private OrderStatus status;
 
     @Enumerated(EnumType.STRING)
@@ -74,6 +79,16 @@ public class Order {
     @Column(name = "total_amount")
     private BigDecimal totalAmount;
     
+    @Column(name = "refunded_amount")
+    private BigDecimal refundedAmount;
+    
+    @Column(name = "distance_km")
+    private BigDecimal distanceKm;
+    
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<OrderCharge> charges;
+    
+    @Column(name = "delivery_executive_id")
     private UUID deliveryExecutiveId;
     
     @Column(name = "delivery_address_id")
@@ -105,6 +120,7 @@ public class Order {
     private String cancellationReason;
     
     @Version
+    @Column(name = "version")
     private Integer version;
     
     @JsonIgnore
@@ -113,8 +129,10 @@ public class Order {
     private List<OrderItem> orderItems = new ArrayList<>();
     
     @CreationTimestamp
+    @Column(name = "created_at")
     private LocalDateTime createdAt;
     
     @UpdateTimestamp
+    @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 }

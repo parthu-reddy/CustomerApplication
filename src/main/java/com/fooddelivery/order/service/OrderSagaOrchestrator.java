@@ -52,7 +52,6 @@ public class OrderSagaOrchestrator {
     private final IPaymentIntentRepository paymentIntentRepository;
     private final ObjectMapper objectMapper;
     private final KafkaTemplate<String, String> kafkaTemplate;
-    private final DoubleEntryLedgerService ledgerService;
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     
     private static final java.util.Map<String, java.util.function.BiConsumer<com.fooddelivery.order.service.state.OrderState, com.fooddelivery.order.service.state.OrderContext>> EVENT_HANDLERS = new java.util.HashMap<>();
@@ -189,7 +188,26 @@ public class OrderSagaOrchestrator {
                         order.setPaymentStatus(PaymentIntentStatus.REFUNDED);
                         orderRepository.save(order);
                         UUID refundTransferId = UUID.nameUUIDFromBytes((REFUND_TX_PREFIX + order.getId()).getBytes());
-                        ledgerService.recordTransaction(refundTransferId, PLATFORM_ACCOUNT_ID, AccountType.PLATFORM, order.getCustomerId(), AccountType.CUSTOMER, order.getTotalAmount());
+                        orderActionService.recordLedgerTransaction(refundTransferId, PLATFORM_ACCOUNT_ID, AccountType.PLATFORM, order.getCustomerId(), AccountType.CUSTOMER, order.getTotalAmount(), com.fooddelivery.common.enums.ChargeCategory.REFUND);
+                    }
+                }
+                return null;
+            }
+            
+            if (rootNode.has(FIELD_EVENT_TYPE) && com.fooddelivery.common.constants.EventType.PAYMENT_PARTIALLY_REFUNDED.name().equals(rootNode.get(FIELD_EVENT_TYPE).asText())) {
+                log.info("Processing PAYMENT_PARTIALLY_REFUNDED event for order: {}", internalOrderId);
+                com.fooddelivery.order.entity.PaymentIntent intent = paymentIntentRepository.findByGatewayOrderId(gatewayOrderId).orElse(null);
+                if (intent != null) {
+                    intent.setStatus(PaymentIntentStatus.PARTIALLY_REFUNDED);
+                    paymentIntentRepository.save(intent);
+                    Order order = orderRepository.findById(intent.getInternalOrderId()).orElse(null);
+                    if(order != null) {
+                        order.setPaymentStatus(PaymentIntentStatus.PARTIALLY_REFUNDED);
+                        orderRepository.save(order);
+                        java.math.BigDecimal partialAmount = rootNode.has("amountRefunded") ? new java.math.BigDecimal(rootNode.get("amountRefunded").asText()) : order.getTotalAmount();
+                        String uniqueSuffix = eventId != null ? eventId : String.valueOf(System.currentTimeMillis());
+                        UUID refundTransferId = UUID.nameUUIDFromBytes((REFUND_TX_PREFIX + "PARTIAL_" + order.getId() + "_" + uniqueSuffix).getBytes());
+                        orderActionService.recordLedgerTransaction(refundTransferId, PLATFORM_ACCOUNT_ID, AccountType.PLATFORM, order.getCustomerId(), AccountType.CUSTOMER, partialAmount, com.fooddelivery.common.enums.ChargeCategory.REFUND);
                     }
                 }
                 return null;
@@ -458,12 +476,53 @@ public class OrderSagaOrchestrator {
                             .build();
                     
                     transactionTemplate.executeWithoutResult(status -> {
+                        outboxEventRepository.save(outboxEvent);
                         Order latestOrder = orderRepository.findById(order.getId()).orElse(null);
                         if(latestOrder != null) {
                             latestOrder.setPaymentStatus(PaymentIntentStatus.REFUND_PENDING);
                             orderRepository.save(latestOrder);
                         }
+                    });
+                } catch (Exception e) {
+                    log.error("Failed to enqueue payment refund event for order {}", order.getId(), e);
+                }
+            } else {
+                log.warn("Cannot refund PaymentIntent {} in status {}", intent.getId(), intent.getStatus());
+            }
+        });
+    }
+
+    public void processPartialRefund(Order order, java.math.BigDecimal partialAmount) {
+        log.info("Processing partial refund for Order {}", order.getId());
+        paymentIntentRepository.findByInternalOrderId(order.getId()).ifPresent(intent -> {
+            if (intent.getStatus() == PaymentIntentStatus.SUCCESS || intent.getStatus() == PaymentIntentStatus.CAPTURED || intent.getStatus() == PaymentIntentStatus.PARTIALLY_REFUNDED || intent.getStatus() == PaymentIntentStatus.REFUND_FAILED) {
+                try {
+                    Map<String, Object> payloadMap = new HashMap<>();
+                    payloadMap.put("intentId", intent.getId().toString());
+                    payloadMap.put("gatewayOrderId", intent.getGatewayOrderId());
+                    payloadMap.put("amountInInr", partialAmount);
+                    payloadMap.put("gatewayName", intent.getGatewayName());
+                    payloadMap.put("orderId", order.getId().toString());
+                    
+                    String payloadStr = objectMapper.writeValueAsString(payloadMap);
+                    
+                    OutboxEventEntity outboxEvent = OutboxEventEntity.builder()
+                            .id(UUID.randomUUID())
+                            .aggregateType(com.fooddelivery.common.constants.AggregateType.PAYMENT)
+                            .aggregateId(order.getId().toString())
+                            .eventType(com.fooddelivery.common.constants.EventType.PAYMENT_REFUND_REQUESTED)
+                            .payload(payloadStr)
+                            .createdAt(LocalDateTime.now())
+                            .build();
+                    
+                    transactionTemplate.executeWithoutResult(status -> {
                         outboxEventRepository.save(outboxEvent);
+                        Order latestOrder = orderRepository.findById(order.getId()).orElse(null);
+                        if(latestOrder != null) {
+                            latestOrder.setPaymentStatus(PaymentIntentStatus.REFUND_PENDING);
+
+                            orderRepository.save(latestOrder);
+                        }
                     });
                     
                     log.info("Refund requested event saved to outbox for intent: {}", intent.getId());

@@ -25,15 +25,16 @@ import java.util.UUID;
 public class Refund {
 
     @Id
+    @Column(name = "id")
     private UUID id;
 
     @Column(name = "payment_intent_id", nullable = false)
     private UUID paymentIntentId;
 
-    @Column(nullable = false, precision = 15, scale = 2)
+    @Column(name = "amount", nullable = false, precision = 15, scale = 2)
     private BigDecimal amount;
 
-    @Column(nullable = false, length = 50)
+    @Column(name = "status", nullable = false, length = 50)
     @Enumerated(EnumType.STRING)
     private RefundStatus status;
 

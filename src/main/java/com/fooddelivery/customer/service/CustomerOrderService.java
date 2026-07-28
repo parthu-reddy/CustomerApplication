@@ -45,6 +45,7 @@ public class CustomerOrderService {
     private final com.fooddelivery.customer.client.MapsClient mapsClient;
     private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
     private final com.fooddelivery.common.outbox.repository.OutboxEventRepository outboxEventRepository;
+    private final DynamicPricingService dynamicPricingService;
 
     public record OrderWithPayment(Order order, String paymentIntent) {}
 
@@ -326,13 +327,25 @@ public class CustomerOrderService {
             }
             order.setOrderItems(orderItems);
             
-            // Add delivery fee to the total amount
-            Object deliveryFeeObj = restaurantData.get("deliveryFee");
-            if (deliveryFeeObj instanceof Number) {
-                totalAmount = totalAmount.add(BigDecimal.valueOf(((Number) deliveryFeeObj).doubleValue()));
-            }
+            // We no longer add the restaurant's fixed delivery fee. We use dynamic pricing below.
             
+            // Call the dynamic pricing service
+            com.fooddelivery.customer.model.PricingBreakdown pricing = dynamicPricingService.calculatePricing(
+                totalAmount, // Treat the whole subtotal + existing delivery fee as the base cost
+                new BigDecimal(String.valueOf(distance))
+            );
+            
+            // totalAmount sent to payment gateway now explicitly includes the calculated customerDeliveryFee, SGST, and CGST instead of the old fixed fee
+            // We should overwrite totalAmount here so the customer pays exactly Food Cost + Customer Delivery Fee + Taxes
+            totalAmount = totalAmount.add(pricing.getTotalCustomerDeliveryFee()).add(pricing.getSgst()).add(pricing.getCgst());
+
             order.setTotalAmount(totalAmount);
+            order.setDistanceKm(new BigDecimal(String.valueOf(distance)));
+            
+            for (com.fooddelivery.order.entity.OrderCharge charge : pricing.getCharges()) {
+                charge.setOrder(order);
+            }
+            order.setCharges(pricing.getCharges());
                     
             orderSagaOrchestrator.startOrderSaga(order);
             

@@ -29,7 +29,8 @@ public class CreatedState implements OrderState {
                 AccountType.CUSTOMER, 
                 OrderActionService.PLATFORM_ACCOUNT_ID, 
                 AccountType.PLATFORM, 
-                order.getTotalAmount()
+                order.getTotalAmount(),
+                com.fooddelivery.common.enums.ChargeCategory.ORDER_TOTAL
             );
 
         ctx.getActionService().emitOrderPaidEvent(order);

@@ -38,9 +38,6 @@ class OrderSagaOrchestratorTest {
     private IPaymentIntentRepository paymentIntentRepository;
 
     @Mock
-    private DoubleEntryLedgerService ledgerService;
-
-    @Mock
     private KafkaTemplate<String, String> kafkaTemplate;
 
     @Mock
@@ -71,13 +68,11 @@ class OrderSagaOrchestratorTest {
             org.springframework.transaction.support.TransactionCallback<?> callback = invocation.getArgument(0);
             return callback.doInTransaction(null);
         }).when(transactionTemplate).execute(org.mockito.ArgumentMatchers.any());
-        
         orderActionService = new com.fooddelivery.order.service.state.OrderActionService(
                 orderRepository,
                 outboxEventRepository,
                 paymentIntentRepository,
-                objectMapper,
-                ledgerService
+                objectMapper
         );
 
         orderSagaOrchestrator = new OrderSagaOrchestrator(
@@ -86,7 +81,6 @@ class OrderSagaOrchestratorTest {
                 paymentIntentRepository,
                 objectMapper,
                 kafkaTemplate,
-                ledgerService,
                 paymentClient,
                 transactionTemplate,
                 orderActionService,

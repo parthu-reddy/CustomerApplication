@@ -27,7 +27,8 @@ public class TerminalState implements OrderState {
                 AccountType.CUSTOMER, 
                 OrderActionService.PLATFORM_ACCOUNT_ID, 
                 AccountType.PLATFORM, 
-                order.getTotalAmount()
+                order.getTotalAmount(),
+                com.fooddelivery.common.enums.ChargeCategory.ORDER_TOTAL
         );
         
         if (order.getStatus() != com.fooddelivery.common.enums.OrderStatus.DELIVERED) {

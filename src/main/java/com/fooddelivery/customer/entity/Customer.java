@@ -1,5 +1,6 @@
 package com.fooddelivery.customer.entity;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -25,13 +26,17 @@ import java.util.UUID;
 public class Customer {
 
     @Id
+    @Column(name = "id")
     private UUID id;
 
+    @Column(name = "phone_number")
     private String phoneNumber;
 
     @CreationTimestamp
+    @Column(name = "created_at")
     private LocalDateTime createdAt;
 
     @UpdateTimestamp
+    @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 }

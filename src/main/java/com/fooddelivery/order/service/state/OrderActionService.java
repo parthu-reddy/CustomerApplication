@@ -10,7 +10,6 @@ import com.fooddelivery.common.outbox.repository.OutboxEventRepository;
 import com.fooddelivery.order.entity.Order;
 import com.fooddelivery.order.repository.IOrderRepository;
 import com.fooddelivery.order.repository.IPaymentIntentRepository;
-import com.fooddelivery.order.service.DoubleEntryLedgerService;
 import com.fooddelivery.common.enums.AccountType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,9 +29,9 @@ public class OrderActionService {
     private final OutboxEventRepository outboxEventRepository;
     private final IPaymentIntentRepository paymentIntentRepository;
     private final ObjectMapper objectMapper;
-    private final DoubleEntryLedgerService ledgerService;
 
     public static final UUID PLATFORM_ACCOUNT_ID = UUID.fromString("00000000-0000-0000-0000-000000000000");
+    public static final UUID PLATFORM_PROFIT_ACCOUNT_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
 
     public void saveOrder(Order order) {
         orderRepository.save(order);
@@ -48,8 +47,39 @@ public class OrderActionService {
         });
     }
 
-    public void recordLedgerTransaction(UUID transferId, UUID fromId, AccountType fromType, UUID toId, AccountType toType, BigDecimal amount) {
-        ledgerService.recordTransaction(transferId, fromId, fromType, toId, toType, amount);
+    public void recordLedgerTransaction(UUID transferId, UUID fromId, AccountType fromType, UUID toId, AccountType toType, BigDecimal amount, com.fooddelivery.common.enums.ChargeCategory category) {
+        if (amount == null) {
+            log.error("Failed to save LEDGER_TRANSACTION_REQUEST: amount is null for transfer {}", transferId);
+            throw new IllegalArgumentException("Ledger transaction amount cannot be null. Strict policy requires valid amounts.");
+        }
+        
+        try {
+            com.fasterxml.jackson.databind.node.ObjectNode payloadNode = objectMapper.createObjectNode();
+            payloadNode.put("transferId", transferId.toString());
+            payloadNode.put("fromId", fromId.toString());
+            payloadNode.put("fromType", fromType.name());
+            payloadNode.put("toId", toId.toString());
+            payloadNode.put("toType", toType.name());
+            payloadNode.put("amount", amount.toString());
+            if (category != null) {
+                payloadNode.put("chargeCategory", category.name());
+            }
+            
+            OutboxEventEntity outboxEvent = OutboxEventEntity.builder()
+                    .id(UUID.randomUUID())
+                    .aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER) // We can keep ORDER aggregate for ledger
+                    .aggregateId(transferId.toString())
+                    .eventType(com.fooddelivery.common.constants.EventType.valueOf("LEDGER_TRANSACTION_REQUEST"))
+                    .payload(objectMapper.writeValueAsString(payloadNode))
+                    .createdAt(LocalDateTime.now())
+                    .status(com.fooddelivery.common.enums.OutboxStatus.UNPROCESSED)
+                    .build();
+            outboxEventRepository.save(outboxEvent);
+            log.info("Saved LEDGER_TRANSACTION_REQUEST to outbox for transfer: {}", transferId);
+        } catch (Exception e) {
+            log.error("Failed to save LEDGER_TRANSACTION_REQUEST event", e);
+            throw new OrderProcessingException("Failed to save LEDGER_TRANSACTION_REQUEST event", e);
+        }
     }
 
     public void emitOrderCancelledEvent(UUID orderId, String reason) {
@@ -72,6 +102,30 @@ public class OrderActionService {
         } catch (Exception e) {
             log.error("Failed to publish ORDER_CANCELLED event", e);
             throw new OrderProcessingException("Failed to publish ORDER_CANCELLED event", e);
+        }
+    }
+
+    public void emitOrderPartiallyRefundedEvent(UUID orderId, BigDecimal amount, String reason) {
+        try {
+            com.fasterxml.jackson.databind.node.ObjectNode payloadNode = objectMapper.createObjectNode();
+            payloadNode.put("eventType", "ORDER_PARTIALLY_REFUNDED");
+            payloadNode.put("orderId", orderId.toString());
+            payloadNode.put("amount", amount.toString());
+            payloadNode.put("reason", reason);
+            OutboxEventEntity outboxEvent = OutboxEventEntity.builder()
+                    .id(UUID.randomUUID())
+                    .aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER)
+                    .aggregateId(orderId.toString())
+                    .eventType(EventType.valueOf("ORDER_PARTIALLY_REFUNDED")) // We'll assume the enum exists, or we use string representation in payload
+                    .payload(objectMapper.writeValueAsString(payloadNode))
+                    .createdAt(LocalDateTime.now())
+                    .status(com.fooddelivery.common.enums.OutboxStatus.UNPROCESSED)
+                    .build();
+            log.info("Triggering event: ORDER_PARTIALLY_REFUNDED for order: {} amount: {}", orderId, amount);
+            outboxEventRepository.save(outboxEvent);
+        } catch (Exception e) {
+            log.error("Failed to publish ORDER_PARTIALLY_REFUNDED event", e);
+            throw new OrderProcessingException("Failed to publish ORDER_PARTIALLY_REFUNDED event", e);
         }
     }
 

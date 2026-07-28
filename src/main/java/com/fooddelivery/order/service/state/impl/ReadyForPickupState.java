@@ -11,7 +11,9 @@ import com.fooddelivery.common.constants.AppConstants;
 import com.fooddelivery.order.service.state.OrderActionService;
 import java.math.BigDecimal;
 import java.util.UUID;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class ReadyForPickupState implements OrderState {
 
     @Override
@@ -78,25 +80,38 @@ public class ReadyForPickupState implements OrderState {
         ctx.getActionService().saveOrder(order);
         
         // Ledger accounting
-        BigDecimal total = order.getTotalAmount();
-        BigDecimal restPayout = total.multiply(new BigDecimal("0.80"));
-        BigDecimal driverPayout = new BigDecimal("50.00");
-        
-        UUID restTransferId = UUID.nameUUIDFromBytes(("REST_PAYOUT_" + order.getId()).getBytes());
-        ctx.getActionService().recordLedgerTransaction(
-                restTransferId, OrderActionService.PLATFORM_ACCOUNT_ID, AccountType.PLATFORM, 
-                order.getRestaurantId(), AccountType.RESTAURANT, restPayout
-        );
-        
-        if (order.getDeliveryExecutiveId() != null) {
-            UUID driverTransferId = UUID.nameUUIDFromBytes(("DRIVER_PAYOUT_" + order.getId()).getBytes());
-            ctx.getActionService().recordLedgerTransaction(
-                    driverTransferId, OrderActionService.PLATFORM_ACCOUNT_ID, AccountType.PLATFORM, 
-                    order.getDeliveryExecutiveId(), AccountType.DRIVER, driverPayout
-            );
+        if (order.getCharges() != null) {
+            for (com.fooddelivery.order.entity.OrderCharge charge : order.getCharges()) {
+                UUID fromId = getAccountId(charge.getPayerType(), order, false);
+                AccountType fromType = getAccountType(charge.getPayerType());
+                
+                UUID toId = getAccountId(charge.getPayeeType(), order, true);
+                AccountType toType = getAccountType(charge.getPayeeType());
+                
+                if (fromId != null && toId != null) {
+                    UUID transferId = UUID.nameUUIDFromBytes(("CHARGE_" + charge.getId()).getBytes());
+                    ctx.getActionService().recordLedgerTransaction(transferId, fromId, fromType, toId, toType, charge.getAmount(), charge.getCategory());
+                }
+            }
         }
         
         ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_DELIVERED.name());
+    }
+    
+    private UUID getAccountId(com.fooddelivery.order.enums.ChargeEntityType type, Order order, boolean isPayee) {
+        if (type == com.fooddelivery.order.enums.ChargeEntityType.CUSTOMER) return OrderActionService.PLATFORM_ACCOUNT_ID;
+        if (type == com.fooddelivery.order.enums.ChargeEntityType.PLATFORM) return isPayee ? OrderActionService.PLATFORM_PROFIT_ACCOUNT_ID : OrderActionService.PLATFORM_ACCOUNT_ID;
+        if (type == com.fooddelivery.order.enums.ChargeEntityType.RESTAURANT) return order.getRestaurantId();
+        if (type == com.fooddelivery.order.enums.ChargeEntityType.DRIVER) return order.getDeliveryExecutiveId();
+        return null;
+    }
+    
+    private AccountType getAccountType(com.fooddelivery.order.enums.ChargeEntityType type) {
+        if (type == com.fooddelivery.order.enums.ChargeEntityType.CUSTOMER) return AccountType.PLATFORM;
+        if (type == com.fooddelivery.order.enums.ChargeEntityType.PLATFORM) return AccountType.PLATFORM;
+        if (type == com.fooddelivery.order.enums.ChargeEntityType.RESTAURANT) return AccountType.RESTAURANT;
+        if (type == com.fooddelivery.order.enums.ChargeEntityType.DRIVER) return AccountType.DRIVER;
+        return AccountType.PLATFORM;
     }
 
     @Override

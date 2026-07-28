@@ -19,6 +19,7 @@ import java.util.UUID;
 @AllArgsConstructor
 public class PaymentIntent {
     @Id
+    @Column(name = "id")
     private UUID id;
 
     @Column(name = "internal_order_id", nullable = false)
@@ -27,10 +28,10 @@ public class PaymentIntent {
     @Column(name = "gateway_order_id")
     private String gatewayOrderId;
 
-    @Column(nullable = false)
+    @Column(name = "amount", nullable = false)
     private BigDecimal amount;
 
-    @Column(nullable = false)
+    @Column(name = "status", nullable = false)
     @Enumerated(EnumType.STRING)
     private PaymentIntentStatus status;
 

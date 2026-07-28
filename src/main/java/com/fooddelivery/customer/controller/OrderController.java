@@ -17,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 
 import java.util.List;
 import java.util.stream.Collectors;
+import java.math.BigDecimal;
 
 import org.springframework.security.access.prepost.PreAuthorize;
 import jakarta.validation.Valid;
@@ -139,6 +140,37 @@ public class OrderController {
                         .build())
                 .collect(Collectors.toList());
 
+        BigDecimal itemTotal = BigDecimal.ZERO;
+        BigDecimal sgst = BigDecimal.ZERO;
+        BigDecimal cgst = BigDecimal.ZERO;
+        BigDecimal deliveryFee = BigDecimal.ZERO;
+
+        if (order.getCharges() != null) {
+            for (com.fooddelivery.order.entity.OrderCharge charge : order.getCharges()) {
+                if (com.fooddelivery.order.enums.ChargeEntityType.CUSTOMER.equals(charge.getPayerType())) {
+                    if (com.fooddelivery.common.enums.ChargeCategory.FOOD_COST.name().equals(charge.getCategory().name())) {
+                        itemTotal = itemTotal.add(charge.getAmount());
+                    } else if (com.fooddelivery.common.enums.ChargeCategory.SGST.name().equals(charge.getCategory().name())) {
+                        sgst = sgst.add(charge.getAmount());
+                    } else if (com.fooddelivery.common.enums.ChargeCategory.CGST.name().equals(charge.getCategory().name())) {
+                        cgst = cgst.add(charge.getAmount());
+                    } else if (com.fooddelivery.common.enums.ChargeCategory.DELIVERY_FEE.name().equals(charge.getCategory().name()) ||
+                               com.fooddelivery.common.enums.ChargeCategory.PLATFORM_FIXED_FEE.name().equals(charge.getCategory().name())) {
+                        deliveryFee = deliveryFee.add(charge.getAmount());
+                    }
+                }
+            }
+        }
+        
+        // If items exist, use item array to sum up food cost as a fallback or primary
+        BigDecimal calculatedItemTotal = itemResponses.stream()
+            .map(item -> item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        
+        if (itemTotal.compareTo(BigDecimal.ZERO) == 0) {
+            itemTotal = calculatedItemTotal;
+        }
+
         return OrderResponse.builder()
                 .id(order.getId())
                 .customerId(order.getCustomerId())
@@ -148,6 +180,10 @@ public class OrderController {
                 .deliveryStatus(order.getDeliveryStatus())
 
                 .totalAmount(order.getTotalAmount())
+                .itemTotal(itemTotal)
+                .sgst(sgst)
+                .cgst(cgst)
+                .deliveryFee(deliveryFee)
                 .deliveryAddress(order.getDeliveryAddress())
                 .deliveryLat(order.getDeliveryLat())
                 .deliveryLng(order.getDeliveryLng())
