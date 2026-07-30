@@ -58,9 +58,10 @@ public class OrderSagaOrchestrator {
     static {
         EVENT_HANDLERS.put(EventType.ORDER_DELIVERED.name(), com.fooddelivery.order.service.state.OrderState::handleOrderDelivered);
         EVENT_HANDLERS.put(EventType.ORDER_CANCELLED_BY_RESTAURANT.name(), com.fooddelivery.order.service.state.OrderState::handleOrderCancelledByRestaurant);
+        EVENT_HANDLERS.put(EventType.ORDER_CANCELLED_BY_ADMIN.name(), com.fooddelivery.order.service.state.OrderState::handleOrderCancelledByAdmin);
         EVENT_HANDLERS.put(EventType.ORDER_REJECTED.name(), com.fooddelivery.order.service.state.OrderState::handleOrderCancelledByRestaurant);
         EVENT_HANDLERS.put(EventType.DRIVER_ASSIGNED.name(), com.fooddelivery.order.service.state.OrderState::handleDriverAssigned);
-        EVENT_HANDLERS.put(EventType.DISPATCH_FAILED.name(), com.fooddelivery.order.service.state.OrderState::handleDispatchFailed);
+        EVENT_HANDLERS.put(EventType.PRIORITY_DISPATCH_FAILED.name(), com.fooddelivery.order.service.state.OrderState::handlePriorityDispatchFailed);
         EVENT_HANDLERS.put(EventType.DELIVERY_FAILED.name(), com.fooddelivery.order.service.state.OrderState::handleDeliveryFailed);
         EVENT_HANDLERS.put(EventType.ORDER_DELAY_APPROVAL_REQUESTED.name(), com.fooddelivery.order.service.state.OrderState::handleDelayApprovalRequested);
         EVENT_HANDLERS.put(EventType.ORDER_DELAY_REJECTED.name(), com.fooddelivery.order.service.state.OrderState::handleDelayRejected);
@@ -334,6 +335,9 @@ public class OrderSagaOrchestrator {
                     }
                 } else if (EventType.ORDER_DRIVER_REJECTED.name().equals(eventType)) {
                     log.info("Driver rejected/timed out ping for Order {}. Redispatching will be handled by DeliveryExecutiveApplication.", orderId);
+                    order.setDeliveryExecutiveId(null);
+                    orderRepository.save(order);
+                    orderActionService.emitOrderStatusSyncEvent(order.getId(), order.getStatus());
                 } else {
                     log.warn("Unmapped event type {} for Order {}. Ignoring.", eventType, orderId);
                 }

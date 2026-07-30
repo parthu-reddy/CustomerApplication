@@ -85,6 +85,7 @@ public class Order {
     @Column(name = "distance_km")
     private BigDecimal distanceKm;
     
+    @JsonIgnore
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderCharge> charges;
     

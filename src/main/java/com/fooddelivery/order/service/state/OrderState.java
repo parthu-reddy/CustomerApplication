@@ -50,12 +50,20 @@ public interface OrderState {
         throw new IllegalStateTransitionException("Cannot process ORDER_CANCELLED_BY_RESTAURANT. Current status: " + ctx.getOrder().getStatus());
     }
 
+    default void handleOrderCancelledByAdmin(OrderContext ctx) {
+        throw new IllegalStateTransitionException("Cannot process ORDER_CANCELLED_BY_ADMIN. Current status: " + ctx.getOrder().getStatus());
+    }
+
     default void cancelByCustomer(OrderContext ctx, String reason) {
         throw new IllegalStateTransitionException("Cannot cancel order. Current status: " + ctx.getOrder().getStatus());
     }
 
     default void handleDispatchFailed(OrderContext ctx) {
         throw new IllegalStateTransitionException("Cannot process DISPATCH_FAILED. Current status: " + ctx.getOrder().getStatus());
+    }
+
+    default void handlePriorityDispatchFailed(OrderContext ctx) {
+        throw new IllegalStateTransitionException("Cannot process PRIORITY_DISPATCH_FAILED. Current status: " + ctx.getOrder().getStatus());
     }
 
     default void handleDeliveryFailed(OrderContext ctx) {

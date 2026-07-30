@@ -67,7 +67,7 @@ public class OrderActionService {
             
             OutboxEventEntity outboxEvent = OutboxEventEntity.builder()
                     .id(UUID.randomUUID())
-                    .aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER) // We can keep ORDER aggregate for ledger
+                    .aggregateType(com.fooddelivery.common.constants.AggregateType.LEDGER)
                     .aggregateId(transferId.toString())
                     .eventType(com.fooddelivery.common.constants.EventType.valueOf("LEDGER_TRANSACTION_REQUEST"))
                     .payload(objectMapper.writeValueAsString(payloadNode))

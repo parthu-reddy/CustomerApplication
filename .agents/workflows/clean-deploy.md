@@ -1,5 +1,6 @@
 ---
 description: create a clean fresh deployment on oracle
 ---
-
+[01_oci_setup_guide.md](file;file:///Users/parthureddy/Documents/Food%20Delivery.nosync/Deployment/OracleDeployment/01_oci_setup_guide.md)[02_vm_init.sh](file;file:///Users/parthureddy/Documents/Food%20Delivery.nosync/Deployment/OracleDeployment/02_vm_init.sh)[03_deploy_all.sh](file;file:///Users/parthureddy/Documents/Food%20Delivery.nosync/Deployment/OracleDeployment/03_deploy_all.sh)[03_deploy_dev.sh](file;file:///Users/parthureddy/Documents/Food%20Delivery.nosync/Deployment/OracleDeployment/03_deploy_dev.sh)[ORACLE_CONFIG.md](file;file:///Users/parthureddy/Documents/Food%20Delivery.nosync/Deployment/OracleDeployment/ORACLE_CONFIG.md)  understand these thoroughly. make sure you keep local code changes in sync on remote oracle.
 Now what I need is to you to completely clean everything in oracle clound and deploy all services as fresh. Deploy as Dev profile. check logs and make sure every service started without any errors.
+add your learning to [GENERALIZED_DEPLOYMENT_STEPS.md](file;file:///Users/parthureddy/Documents/Food%20Delivery.nosync/Deployment/DeploymentSteps/GENERALIZED_DEPLOYMENT_STEPS.md) if you face any errors and the procedure you followed to fix them so that when I deploy new services I don't face same errors

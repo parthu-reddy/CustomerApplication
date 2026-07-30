@@ -18,6 +18,7 @@ public class OrderStateFactory {
         stateMap.put(OrderStatus.PREPARING, new PreparingState());
         stateMap.put(OrderStatus.READY_FOR_PICKUP, new ReadyForPickupState());
         stateMap.put(OrderStatus.PICKED_UP, new PickedUpState());
+        stateMap.put(OrderStatus.REQUIRES_MANUAL_INTERVENTION, new RequiresManualInterventionState());
         
         // Terminal states
         TerminalState terminalState = new TerminalState();

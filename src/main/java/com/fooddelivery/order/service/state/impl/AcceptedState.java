@@ -8,6 +8,9 @@ import com.fooddelivery.order.service.state.OrderState;
 
 import java.util.UUID;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 public class AcceptedState implements OrderState {
 
     @Override
@@ -65,5 +68,15 @@ public class AcceptedState implements OrderState {
         
         ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.DISPATCH_FAILED.name());
         ctx.setRequiresRefund(true);
+    }
+
+    @Override
+    public void handlePriorityDispatchFailed(OrderContext ctx) {
+        Order order = ctx.getOrder();
+        order.setStatus(OrderStatus.REQUIRES_MANUAL_INTERVENTION);
+        ctx.getActionService().saveOrder(order);
+        
+        // Notify admin dashboard if possible. For now just update state.
+        log.warn("Order {} requires manual intervention due to priority dispatch failure.", order.getId());
     }
 }

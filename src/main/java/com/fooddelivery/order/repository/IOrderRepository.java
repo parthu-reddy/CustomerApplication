@@ -42,4 +42,7 @@ public interface IOrderRepository extends JpaRepository<Order, UUID> {
     
     @EntityGraph(attributePaths = {"orderItems"})
     Page<Order> findByCustomerIdAndStatusInOrderByCreatedAtDesc(UUID customerId, List<com.fooddelivery.common.enums.OrderStatus> statuses, Pageable pageable);
+    
+    @EntityGraph(attributePaths = {"orderItems"})
+    Page<Order> findByStatusOrderByCreatedAtDesc(com.fooddelivery.common.enums.OrderStatus status, Pageable pageable);
 }
