@@ -14,13 +14,12 @@ import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class PickedUpState implements OrderState {
+public class HandedOverState implements OrderState {
 
     @Override
     public void handleOrderDelivered(OrderContext ctx) {
         Order order = ctx.getOrder();
         
-        order.setStatus(OrderStatus.DELIVERED);
         order.setDeliveryStatus(com.fooddelivery.common.enums.DeliveryStatus.DELIVERED);
         ctx.getActionService().saveOrder(order);
         
@@ -62,11 +61,21 @@ public class PickedUpState implements OrderState {
     @Override
     public void handleDeliveryFailed(OrderContext ctx) {
         Order order = ctx.getOrder();
-        order.setStatus(OrderStatus.DELIVERY_FAILED);
         order.setDeliveryStatus(com.fooddelivery.common.enums.DeliveryStatus.FAILED);
         ctx.getActionService().saveOrder(order);
         
         ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.DELIVERY_FAILED.name());
+        ctx.setRequiresRefund(true);
+    }
+
+    @Override
+    public void handleOrderCancelledByAdmin(OrderContext ctx) {
+        Order order = ctx.getOrder();
+        order.setStatus(OrderStatus.CANCELLED);
+        order.setCancellationReason(ctx.getEventPayload().path("reason").asText("Cancelled by Admin (Delivery abandoned or failed)"));
+        ctx.getActionService().saveOrder(order);
+        
+        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_CANCELLED_BY_ADMIN.name());
         ctx.setRequiresRefund(true);
     }
 }

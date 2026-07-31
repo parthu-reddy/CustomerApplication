@@ -32,7 +32,7 @@ public class AbandonedDeliverySweeper {
         
         LocalDateTime threshold = LocalDateTime.now().minusHours(2);
         
-        sweepByStatus(OrderStatus.PICKED_UP, threshold);
+        sweepByStatus(OrderStatus.HANDED_OVER, threshold);
     }
     
     private void sweepByStatus(OrderStatus status, LocalDateTime threshold) {
@@ -50,8 +50,8 @@ public class AbandonedDeliverySweeper {
         try {
             transactionTemplate.execute(status -> {
                 Order currentOrder = orderRepository.findById(order.getId()).orElse(null);
-                if (currentOrder != null && currentOrder.getStatus() == OrderStatus.PICKED_UP) {
-                    currentOrder.setStatus(OrderStatus.DELIVERY_FAILED);
+                if (currentOrder != null && currentOrder.getStatus() == OrderStatus.HANDED_OVER) {
+                    currentOrder.setDeliveryStatus(com.fooddelivery.common.enums.DeliveryStatus.FAILED);
                     orderRepository.save(currentOrder);
                     
                     orderActionService.emitOrderDeliveryFailedEvent(currentOrder.getId(), "Driver abandoned the delivery (no updates for 2 hours)");

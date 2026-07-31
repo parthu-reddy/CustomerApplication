@@ -35,6 +35,7 @@ public class AcceptedState implements OrderState {
         try {
             UUID driverUUID = UUID.fromString(driverIdStr);
             order.setDeliveryExecutiveId(driverUUID);
+            order.setDeliveryStatus(com.fooddelivery.common.enums.DeliveryStatus.ASSIGNED);
             ctx.getActionService().saveOrder(order);
             ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), com.fooddelivery.common.constants.NotificationTemplate.DRIVER_ON_THE_WAY.name());
         } catch (IllegalArgumentException e) {
@@ -63,20 +64,28 @@ public class AcceptedState implements OrderState {
     @Override
     public void handleDispatchFailed(OrderContext ctx) {
         Order order = ctx.getOrder();
-        order.setStatus(OrderStatus.DELIVERY_FAILED);
+        order.setDeliveryStatus(com.fooddelivery.common.enums.DeliveryStatus.FAILED);
         ctx.getActionService().saveOrder(order);
         
         ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.DISPATCH_FAILED.name());
+    }
+
+    @Override
+    public void handleOrderCancelledByAdmin(OrderContext ctx) {
+        Order order = ctx.getOrder();
+        order.setStatus(OrderStatus.CANCELLED);
+        order.setCancellationReason(ctx.getEventPayload().path("reason").asText("Cancelled by Admin"));
+        ctx.getActionService().saveOrder(order);
+        
+        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_CANCELLED_BY_ADMIN.name());
         ctx.setRequiresRefund(true);
     }
 
     @Override
-    public void handlePriorityDispatchFailed(OrderContext ctx) {
+    public void handleManualInterventionRequired(OrderContext ctx) {
         Order order = ctx.getOrder();
-        order.setStatus(OrderStatus.REQUIRES_MANUAL_INTERVENTION);
+        order.setDeliveryStatus(com.fooddelivery.common.enums.DeliveryStatus.MANUAL_INTERVENTION_REQUIRED);
         ctx.getActionService().saveOrder(order);
-        
-        // Notify admin dashboard if possible. For now just update state.
-        log.warn("Order {} requires manual intervention due to priority dispatch failure.", order.getId());
+        log.info("Manual intervention required for order {}. Delivery status set to MANUAL_INTERVENTION_REQUIRED.", order.getId());
     }
 }

@@ -46,6 +46,8 @@ public class Order {
     
     @Column(name = "customer_id")
     private UUID customerId;
+    @Column(name = "customer_name")
+    private String customerName;
     @Column(name = "restaurant_id")
     private UUID restaurantId;
     @Column(name = "restaurant_name")

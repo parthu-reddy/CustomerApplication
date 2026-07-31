@@ -37,7 +37,7 @@ public class AdminOrderManualController {
             @RequestParam(defaultValue = "20") int size) {
         log.info("Fetching orders requiring manual intervention. Page: {}, Size: {}", page, size);
         Pageable pageable = PageRequest.of(page, size);
-        Page<Order> orders = orderRepository.findByStatusOrderByCreatedAtDesc(OrderStatus.REQUIRES_MANUAL_INTERVENTION, pageable);
+        Page<Order> orders = orderRepository.findByDeliveryStatusOrderByCreatedAtDesc(com.fooddelivery.common.enums.DeliveryStatus.MANUAL_INTERVENTION_REQUIRED, pageable);
         return ResponseEntity.ok(orders);
     }
 
@@ -60,8 +60,8 @@ public class AdminOrderManualController {
                 return ResponseEntity.notFound().build();
             }
             Order order = orderOpt.get();
-            if (order.getStatus() != OrderStatus.REQUIRES_MANUAL_INTERVENTION) {
-                return ResponseEntity.badRequest().body(ApiResponse.error("Order is no longer in REQUIRES_MANUAL_INTERVENTION status. Current status: " + order.getStatus()));
+            if (order.getDeliveryStatus() != com.fooddelivery.common.enums.DeliveryStatus.MANUAL_INTERVENTION_REQUIRED) {
+                return ResponseEntity.badRequest().body(ApiResponse.error("Order is no longer in MANUAL_INTERVENTION_REQUIRED delivery status. Current delivery status: " + order.getDeliveryStatus()));
             }
 
             // Publish DELIVERY_EXECUTIVE_ASSIGNED event
@@ -72,7 +72,7 @@ public class AdminOrderManualController {
             eventPayload.put("timestamp", System.currentTimeMillis());
 
             Map<String, Object> kafkaMessage = new HashMap<>();
-            kafkaMessage.put("eventType", EventType.DRIVER_ASSIGNED.name());
+            kafkaMessage.put("eventType", EventType.FORCE_ASSIGN_DRIVER.name());
             kafkaMessage.put("payload", eventPayload);
 
             com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
@@ -103,8 +103,8 @@ public class AdminOrderManualController {
                 return ResponseEntity.notFound().build();
             }
             Order order = orderOpt.get();
-            if (order.getStatus() != OrderStatus.REQUIRES_MANUAL_INTERVENTION) {
-                return ResponseEntity.badRequest().body(ApiResponse.error("Order is no longer in REQUIRES_MANUAL_INTERVENTION status. Current status: " + order.getStatus()));
+            if (order.getDeliveryStatus() != com.fooddelivery.common.enums.DeliveryStatus.MANUAL_INTERVENTION_REQUIRED) {
+                return ResponseEntity.badRequest().body(ApiResponse.error("Order is no longer in MANUAL_INTERVENTION_REQUIRED delivery status. Current delivery status: " + order.getDeliveryStatus()));
             }
 
             Map<String, Object> eventPayload = new HashMap<>();

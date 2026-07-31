@@ -60,4 +60,15 @@ public class AwaitingDelayApprovalState implements OrderState {
         ctx.getActionService().emitOrderCancelledByCustomerEvent(order.getId());
         ctx.setRequiresRefund(true);
     }
+
+    @Override
+    public void handleOrderCancelledByAdmin(OrderContext ctx) {
+        Order order = ctx.getOrder();
+        order.setStatus(OrderStatus.CANCELLED);
+        order.setCancellationReason(ctx.getEventPayload().path("reason").asText("Cancelled by Admin"));
+        ctx.getActionService().saveOrder(order);
+        
+        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_CANCELLED_BY_ADMIN.name());
+        ctx.setRequiresRefund(true);
+    }
 }

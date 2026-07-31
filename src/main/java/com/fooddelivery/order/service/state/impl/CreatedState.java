@@ -59,4 +59,18 @@ public class CreatedState implements OrderState {
         // Emit the event to notify other services if needed
         ctx.getActionService().emitOrderCancelledByCustomerEvent(order.getId());
     }
+
+    @Override
+    public void handleOrderCancelledByAdmin(OrderContext ctx) {
+        Order order = ctx.getOrder();
+        order.setStatus(OrderStatus.CANCELLED);
+        order.setCancellationReason(ctx.getEventPayload().path("reason").asText("Cancelled by Admin"));
+        ctx.getActionService().saveOrder(order);
+        
+        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_CANCELLED_BY_ADMIN.name());
+        
+        if (order.getPaymentStatus() == PaymentIntentStatus.SUCCESS) {
+            ctx.setRequiresRefund(true);
+        }
+    }
 }

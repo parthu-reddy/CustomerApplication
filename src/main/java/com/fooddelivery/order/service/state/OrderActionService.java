@@ -218,6 +218,7 @@ public class OrderActionService {
             com.fooddelivery.common.event.OrderPaidEvent paidEvent = com.fooddelivery.common.event.OrderPaidEvent.builder()
                     .orderId(order.getId())
                     .restaurantId(order.getRestaurantId())
+                    .customerName(order.getCustomerName())
                     .estimatedPrepTimeMinutes(order.getEstimatedPrepTimeMinutes())
                     .deliveryLat(order.getDeliveryLat())
                     .deliveryLng(order.getDeliveryLng())

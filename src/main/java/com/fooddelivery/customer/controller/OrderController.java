@@ -36,17 +36,14 @@ public class OrderController {
             @Valid @RequestBody OrderRequest request) {
             
         java.util.UUID customerId = java.util.UUID.fromString(principal.getName());
-        
-        return customerOrderService.createOrderWithPayment(
-                customerId,
-                request.getRestaurantId(),
-                request.getDeliveryAddressId(),
-                request.getItems()
-        ).thenApply(result -> {
-            OrderResponse response = mapToResponse(result.order());
-            response.setPaymentIntent(result.paymentIntent());
-            return ResponseEntity.ok(ApiResponse.success(response, "Order created successfully"));
-        }).exceptionally(ex -> {
+        request.setCustomerId(customerId); // ensure customerId is set from principal
+        return customerOrderService.createOrderWithPayment(request)
+                .thenApply(result -> {
+                    OrderResponse response = mapToResponse(result.order());
+                    response.setPaymentIntent(result.paymentIntent());
+                    return ResponseEntity.ok(ApiResponse.success(response, "Order created successfully. Please complete payment."));
+                })
+                .exceptionally(ex -> {
             Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
             if (cause instanceof com.fooddelivery.customer.exception.DeliveryPartnerUnavailableException || 
                 cause instanceof com.fooddelivery.customer.exception.MenuItemsUnavailableException || 

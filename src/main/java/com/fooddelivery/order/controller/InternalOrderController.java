@@ -28,13 +28,14 @@ public class InternalOrderController {
     @PreAuthorize("hasAnyRole('ADMIN', 'DELIVERY')")
     public ResponseEntity<List<Order>> getActiveOrdersForDriver(@PathVariable UUID driverId) {
         log.debug("Fetching active orders for driver {}", driverId);
-        List<OrderStatus> inactiveStatuses = Arrays.asList(
-                OrderStatus.DELIVERED,
-                OrderStatus.DELIVERY_FAILED,
+        List<OrderStatus> cancelledStatuses = Arrays.asList(
                 OrderStatus.CANCELLED,
                 OrderStatus.CANCELLED_BY_RESTAURANT
         );
-        List<Order> activeOrders = orderRepository.findByDeliveryExecutiveIdAndStatusNotIn(driverId, inactiveStatuses);
+        List<Order> activeOrders = orderRepository.findActiveOrdersForDriver(
+                driverId, 
+                cancelledStatuses, 
+                java.util.List.of(com.fooddelivery.common.enums.DeliveryStatus.DELIVERED, com.fooddelivery.common.enums.DeliveryStatus.FAILED, com.fooddelivery.common.enums.DeliveryStatus.CANCELLED));
         return ResponseEntity.ok(activeOrders);
     }
 
@@ -49,8 +50,16 @@ public class InternalOrderController {
         LocalDateTime startOfDay = queryDate.atStartOfDay();
         LocalDateTime endOfDay = queryDate.atTime(LocalTime.MAX);
 
-        List<Order> history = orderRepository.findByDeliveryExecutiveIdAndStatusAndCreatedAtBetween(
-                driverId, OrderStatus.DELIVERED, startOfDay, endOfDay);
+        List<OrderStatus> cancelledStatuses = Arrays.asList(
+                OrderStatus.CANCELLED,
+                OrderStatus.CANCELLED_BY_RESTAURANT
+        );
+        List<Order> history = orderRepository.findHistoryOrdersForDriver(
+                driverId, 
+                cancelledStatuses, 
+                java.util.List.of(com.fooddelivery.common.enums.DeliveryStatus.DELIVERED, com.fooddelivery.common.enums.DeliveryStatus.FAILED, com.fooddelivery.common.enums.DeliveryStatus.CANCELLED), 
+                startOfDay, 
+                endOfDay);
         return ResponseEntity.ok(history);
     }
 

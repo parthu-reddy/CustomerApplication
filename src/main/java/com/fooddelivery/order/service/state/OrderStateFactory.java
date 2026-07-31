@@ -17,15 +17,12 @@ public class OrderStateFactory {
         stateMap.put(OrderStatus.ACCEPTED, new AcceptedState());
         stateMap.put(OrderStatus.PREPARING, new PreparingState());
         stateMap.put(OrderStatus.READY_FOR_PICKUP, new ReadyForPickupState());
-        stateMap.put(OrderStatus.PICKED_UP, new PickedUpState());
-        stateMap.put(OrderStatus.REQUIRES_MANUAL_INTERVENTION, new RequiresManualInterventionState());
+        stateMap.put(OrderStatus.HANDED_OVER, new HandedOverState());
         
         // Terminal states
         TerminalState terminalState = new TerminalState();
-        stateMap.put(OrderStatus.DELIVERED, terminalState);
         stateMap.put(OrderStatus.CANCELLED, terminalState);
         stateMap.put(OrderStatus.CANCELLED_BY_RESTAURANT, terminalState);
-        stateMap.put(OrderStatus.DELIVERY_FAILED, terminalState);
     }
 
     public static OrderState getState(OrderStatus status) {

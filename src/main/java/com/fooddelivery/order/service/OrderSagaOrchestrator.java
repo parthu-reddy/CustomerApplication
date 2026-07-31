@@ -61,7 +61,7 @@ public class OrderSagaOrchestrator {
         EVENT_HANDLERS.put(EventType.ORDER_CANCELLED_BY_ADMIN.name(), com.fooddelivery.order.service.state.OrderState::handleOrderCancelledByAdmin);
         EVENT_HANDLERS.put(EventType.ORDER_REJECTED.name(), com.fooddelivery.order.service.state.OrderState::handleOrderCancelledByRestaurant);
         EVENT_HANDLERS.put(EventType.DRIVER_ASSIGNED.name(), com.fooddelivery.order.service.state.OrderState::handleDriverAssigned);
-        EVENT_HANDLERS.put(EventType.PRIORITY_DISPATCH_FAILED.name(), com.fooddelivery.order.service.state.OrderState::handlePriorityDispatchFailed);
+        EVENT_HANDLERS.put(EventType.MANUAL_INTERVENTION_REQUIRED.name(), com.fooddelivery.order.service.state.OrderState::handleManualInterventionRequired);
         EVENT_HANDLERS.put(EventType.DELIVERY_FAILED.name(), com.fooddelivery.order.service.state.OrderState::handleDeliveryFailed);
         EVENT_HANDLERS.put(EventType.ORDER_DELAY_APPROVAL_REQUESTED.name(), com.fooddelivery.order.service.state.OrderState::handleDelayApprovalRequested);
         EVENT_HANDLERS.put(EventType.ORDER_DELAY_REJECTED.name(), com.fooddelivery.order.service.state.OrderState::handleDelayRejected);
@@ -69,6 +69,7 @@ public class OrderSagaOrchestrator {
         EVENT_HANDLERS.put(EventType.ORDER_PREPARING.name(), com.fooddelivery.order.service.state.OrderState::handleOrderPreparing);
         EVENT_HANDLERS.put(EventType.ORDER_READY.name(), com.fooddelivery.order.service.state.OrderState::handleOrderReady);
         EVENT_HANDLERS.put(EventType.ORDER_AT_RESTAURANT.name(), com.fooddelivery.order.service.state.OrderState::handleDriverAtRestaurant);
+        EVENT_HANDLERS.put(EventType.ORDER_DELIVERED.name(), com.fooddelivery.order.service.state.OrderState::handleOrderDelivered);
 
     }
     private final com.fooddelivery.customer.client.PaymentClient paymentClient;
@@ -618,10 +619,9 @@ public class OrderSagaOrchestrator {
     }
 
     private boolean isTerminalState(OrderStatus status) {
-        return status == OrderStatus.DELIVERED || 
-               status == OrderStatus.CANCELLED ||
-               status == OrderStatus.CANCELLED_BY_RESTAURANT ||
-               status == OrderStatus.DELIVERY_FAILED;
+        return status == OrderStatus.HANDED_OVER || 
+               status == OrderStatus.CANCELLED || 
+               status == OrderStatus.CANCELLED_BY_RESTAURANT;
     }
 
     @DltHandler

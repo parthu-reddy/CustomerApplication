@@ -23,6 +23,7 @@ public class ReadyForPickupState implements OrderState {
         try {
             UUID driverUUID = UUID.fromString(driverIdStr);
             order.setDeliveryExecutiveId(driverUUID);
+            order.setDeliveryStatus(com.fooddelivery.common.enums.DeliveryStatus.ASSIGNED);
             // Notice: We do NOT transition back to DISPATCHED if already READY_FOR_PICKUP
             ctx.getActionService().saveOrder(order);
             ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), com.fooddelivery.common.constants.NotificationTemplate.DRIVER_ON_THE_WAY.name());
@@ -39,15 +40,19 @@ public class ReadyForPickupState implements OrderState {
     }
 
     @Override
+    public void handleOrderHandedOver(OrderContext ctx) {
+        Order order = ctx.getOrder();
+        order.setStatus(OrderStatus.HANDED_OVER);
+        order.setDeliveryStatus(com.fooddelivery.common.enums.DeliveryStatus.OUT_FOR_DELIVERY);
+        ctx.getActionService().saveOrder(order);
+        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), com.fooddelivery.common.constants.NotificationTemplate.DRIVER_ON_THE_WAY.name());
+    }
+
+    @Override
     public void handleStatusUpdate(OrderContext ctx) {
         String updateStatus = ctx.getEventPayload().path("status").asText(null);
         if ("OUT_FOR_DELIVERY".equals(updateStatus)) {
-            Order order = ctx.getOrder();
-            
-            order.setStatus(OrderStatus.PICKED_UP);
-            order.setDeliveryStatus(com.fooddelivery.common.enums.DeliveryStatus.OUT_FOR_DELIVERY);
-            ctx.getActionService().saveOrder(order);
-            ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), com.fooddelivery.common.constants.NotificationTemplate.DRIVER_ON_THE_WAY.name());
+            handleOrderHandedOver(ctx);
         } else {
             OrderState.super.handleStatusUpdate(ctx);
         }
@@ -56,26 +61,35 @@ public class ReadyForPickupState implements OrderState {
     @Override
     public void handleDispatchFailed(OrderContext ctx) {
         Order order = ctx.getOrder();
-        order.setStatus(OrderStatus.DELIVERY_FAILED);
+        order.setDeliveryStatus(com.fooddelivery.common.enums.DeliveryStatus.FAILED);
         ctx.getActionService().saveOrder(order);
         
         ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.DISPATCH_FAILED.name());
+    }
+
+    @Override
+    public void handleOrderCancelledByAdmin(OrderContext ctx) {
+        Order order = ctx.getOrder();
+        order.setStatus(OrderStatus.CANCELLED);
+        order.setCancellationReason(ctx.getEventPayload().path("reason").asText("Cancelled by Admin"));
+        ctx.getActionService().saveOrder(order);
+        
+        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_CANCELLED_BY_ADMIN.name());
         ctx.setRequiresRefund(true);
     }
 
     @Override
-    public void handlePriorityDispatchFailed(OrderContext ctx) {
+    public void handleManualInterventionRequired(OrderContext ctx) {
         Order order = ctx.getOrder();
-        order.setStatus(OrderStatus.REQUIRES_MANUAL_INTERVENTION);
+        order.setDeliveryStatus(com.fooddelivery.common.enums.DeliveryStatus.MANUAL_INTERVENTION_REQUIRED);
         ctx.getActionService().saveOrder(order);
-        
-        log.warn("Order {} requires manual intervention due to priority dispatch failure.", order.getId());
+        log.info("Manual intervention required for order {}. Delivery status set to MANUAL_INTERVENTION_REQUIRED.", order.getId());
     }
 
     @Override
     public void handleDeliveryFailed(OrderContext ctx) {
         Order order = ctx.getOrder();
-        order.setStatus(OrderStatus.DELIVERY_FAILED);
+        order.setDeliveryStatus(com.fooddelivery.common.enums.DeliveryStatus.FAILED);
         ctx.getActionService().saveOrder(order);
         
         ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.DELIVERY_FAILED.name());
@@ -85,7 +99,7 @@ public class ReadyForPickupState implements OrderState {
     @Override
     public void handleOrderDelivered(OrderContext ctx) {
         Order order = ctx.getOrder();
-        order.setStatus(OrderStatus.DELIVERED);
+        order.setDeliveryStatus(com.fooddelivery.common.enums.DeliveryStatus.DELIVERED);
         ctx.getActionService().saveOrder(order);
         
         // Ledger accounting

@@ -19,6 +19,9 @@ import jakarta.validation.Valid;
 public class OrderRequest {
     @NotNull
     private UUID customerId;
+    
+    private String customerName;
+    
     @NotNull
     private UUID restaurantId;
     @NotNull

@@ -60,16 +60,15 @@ public class CustomerOrderService {
     private static final List<com.fooddelivery.common.enums.OrderStatus> REFUND_STATUSES = List.of(
         com.fooddelivery.common.enums.OrderStatus.CANCELLED,
         com.fooddelivery.common.enums.OrderStatus.CANCELLED_BY_RESTAURANT,
-        com.fooddelivery.common.enums.OrderStatus.DELIVERY_FAILED
+        com.fooddelivery.common.enums.OrderStatus.CANCELLED_BY_RESTAURANT
     );
 
-    private static final List<com.fooddelivery.common.enums.OrderStatus> INACTIVE_STATUSES = java.util.stream.Stream.concat(
-        REFUND_STATUSES.stream(),
-        java.util.stream.Stream.of(com.fooddelivery.common.enums.OrderStatus.DELIVERED)
-    ).collect(java.util.stream.Collectors.toList());
-
     public org.springframework.data.domain.Page<Order> getActiveOrdersPaginated(UUID customerId, org.springframework.data.domain.Pageable pageable) {
-        return orderRepository.findByCustomerIdAndStatusNotInOrderByCreatedAtDesc(customerId, INACTIVE_STATUSES, pageable);
+        return orderRepository.findActiveOrdersForCustomer(
+                customerId, 
+                REFUND_STATUSES, 
+                java.util.List.of(com.fooddelivery.common.enums.DeliveryStatus.DELIVERED, com.fooddelivery.common.enums.DeliveryStatus.FAILED, com.fooddelivery.common.enums.DeliveryStatus.CANCELLED), 
+                pageable);
     }
 
     public org.springframework.data.domain.Page<Order> getRefundOrdersPaginated(UUID customerId, org.springframework.data.domain.Pageable pageable) {
@@ -77,7 +76,11 @@ public class CustomerOrderService {
     }
 
     public org.springframework.data.domain.Page<Order> getOrderHistoryPaginated(UUID customerId, org.springframework.data.domain.Pageable pageable) {
-        return orderRepository.findByCustomerIdAndStatusInOrderByCreatedAtDesc(customerId, INACTIVE_STATUSES, pageable);
+        return orderRepository.findHistoryOrdersForCustomer(
+                customerId, 
+                REFUND_STATUSES, 
+                java.util.List.of(com.fooddelivery.common.enums.DeliveryStatus.DELIVERED, com.fooddelivery.common.enums.DeliveryStatus.FAILED, com.fooddelivery.common.enums.DeliveryStatus.CANCELLED), 
+                pageable);
     }
 
     public Order getOrderByIdAndCustomer(UUID orderId, UUID customerId) {
@@ -85,8 +88,8 @@ public class CustomerOrderService {
             .orElseThrow(() -> new RuntimeException("Order not found or access denied"));
     }
 
-    public java.util.concurrent.CompletableFuture<OrderWithPayment> createOrderWithPayment(UUID customerId, UUID restaurantId, UUID deliveryAddressId, List<OrderItemRequest> requestedItems) {
-        return createOrder(customerId, restaurantId, deliveryAddressId, requestedItems).thenApply(order -> {
+    public java.util.concurrent.CompletableFuture<OrderWithPayment> createOrderWithPayment(com.fooddelivery.customer.dto.OrderRequest request) {
+        return createOrder(request).thenApply(order -> {
             try {
                 String intent = paymentGatewayOrchestrator.generateUpiIntent(order);
                 return new OrderWithPayment(order, intent);
@@ -97,7 +100,7 @@ public class CustomerOrderService {
             // order from propagating through the system.
             log.error("PAYMENT_INTENT_FAILURE: Payment intent generation failed for Order {}. " +
                     "Compensating by cancelling order. CustomerId={}, RestaurantId={}, TotalAmount={}",
-                    order.getId(), customerId, restaurantId, order.getTotalAmount(), e);
+                    order.getId(), request.getCustomerId(), request.getRestaurantId(), order.getTotalAmount(), e);
             
             transactionTemplate.executeWithoutResult(status -> {
                 Order freshOrder = orderRepository.findById(order.getId()).orElse(null);
@@ -131,7 +134,12 @@ public class CustomerOrderService {
         });
     }
 
-    protected java.util.concurrent.CompletableFuture<Order> createOrder(UUID customerId, UUID restaurantId, UUID deliveryAddressId, List<OrderItemRequest> requestedItems) {
+    protected java.util.concurrent.CompletableFuture<Order> createOrder(com.fooddelivery.customer.dto.OrderRequest request) {
+        UUID customerId = request.getCustomerId();
+        UUID restaurantId = request.getRestaurantId();
+        UUID deliveryAddressId = request.getDeliveryAddressId();
+        List<OrderItemRequest> requestedItems = request.getItems();
+        
         if (requestedItems == null || requestedItems.isEmpty()) {
             throw new IllegalArgumentException("Order must contain at least one item.");
         }
@@ -310,6 +318,7 @@ public class CustomerOrderService {
             Order order = Order.builder()
                     .id(UUID.randomUUID())
                     .customerId(customerId)
+                    .customerName(request.getCustomerName())
                     .restaurantId(restaurantId)
                     .restaurantName((String) restaurantData.get("name"))
                     .deliveryAddressId(deliveryAddressId)

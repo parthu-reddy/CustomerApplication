@@ -39,5 +39,7 @@ public class OrderResponse {
     private String pickupOtp;
     private String otp;
     private Long estimatedCompletionTime;
+    @com.fasterxml.jackson.annotation.JsonProperty("expiresAt")
     private Long expiresAt;
+    private Long remainingPingSeconds;
 }

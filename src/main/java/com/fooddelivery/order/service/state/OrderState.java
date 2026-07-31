@@ -34,6 +34,10 @@ public interface OrderState {
         throw new IllegalStateTransitionException("Cannot process DRIVER_AT_RESTAURANT. Current status: " + ctx.getOrder().getStatus());
     }
 
+    default void handleOrderHandedOver(OrderContext ctx) {
+        throw new IllegalStateTransitionException("Cannot process HANDED_OVER. Current status: " + ctx.getOrder().getStatus());
+    }
+
     default void handleOrderDelivered(OrderContext ctx) {
         throw new IllegalStateTransitionException("Cannot process ORDER_DELIVERED. Current status: " + ctx.getOrder().getStatus());
     }
@@ -62,8 +66,8 @@ public interface OrderState {
         throw new IllegalStateTransitionException("Cannot process DISPATCH_FAILED. Current status: " + ctx.getOrder().getStatus());
     }
 
-    default void handlePriorityDispatchFailed(OrderContext ctx) {
-        throw new IllegalStateTransitionException("Cannot process PRIORITY_DISPATCH_FAILED. Current status: " + ctx.getOrder().getStatus());
+    default void handleManualInterventionRequired(OrderContext ctx) {
+        throw new IllegalStateTransitionException("Cannot process MANUAL_INTERVENTION_REQUIRED in state: " + ctx.getOrder().getStatus());
     }
 
     default void handleDeliveryFailed(OrderContext ctx) {
@@ -78,15 +82,14 @@ public interface OrderState {
                 OrderStatus currentStatus = ctx.getOrder().getStatus();
                 
                 if (newStatus.getSequence() > currentStatus.getSequence()) {
-                    ctx.getOrder().setStatus(newStatus);
-                    if (newStatus == OrderStatus.PICKED_UP) {
-                        ctx.getOrder().setDeliveryStatus(com.fooddelivery.common.enums.DeliveryStatus.OUT_FOR_DELIVERY);
-                    } else if (newStatus == OrderStatus.DELIVERED) {
-                        ctx.getOrder().setDeliveryStatus(com.fooddelivery.common.enums.DeliveryStatus.DELIVERED);
-                    } else if (newStatus == OrderStatus.DELIVERY_FAILED) {
-                        ctx.getOrder().setDeliveryStatus(com.fooddelivery.common.enums.DeliveryStatus.FAILED);
+                    if (newStatus == OrderStatus.HANDED_OVER) {
+                        handleOrderHandedOver(ctx);
+                    } else {
+                        // For generic status updates, fallback to save
+                        Order order = ctx.getOrder();
+                        order.setStatus(newStatus);
+                        ctx.getActionService().saveOrder(order);
                     }
-                    ctx.getActionService().saveOrder(ctx.getOrder());
                     return; // Successfully fast-forwarded
                 }
             } catch (IllegalArgumentException e) {
