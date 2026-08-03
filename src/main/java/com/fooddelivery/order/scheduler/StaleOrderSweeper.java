@@ -31,7 +31,8 @@ public class StaleOrderSweeper {
         }
         
         LocalDateTime threshold = LocalDateTime.now().minusMinutes(15);
-        List<Order> staleOrders = orderRepository.findByStatusAndUpdatedAtBefore(OrderStatus.CREATED, threshold);
+        org.springframework.data.domain.Page<Order> staleOrdersPage = orderRepository.findByStatusAndUpdatedAtBefore(OrderStatus.CREATED, threshold, org.springframework.data.domain.PageRequest.of(0, 500));
+        List<Order> staleOrders = staleOrdersPage.getContent();
         
         if (!staleOrders.isEmpty()) {
             log.info("Found {} stale CREATED orders. Cancelling them...", staleOrders.size());

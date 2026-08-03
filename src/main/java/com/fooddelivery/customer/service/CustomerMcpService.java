@@ -18,6 +18,9 @@ public class CustomerMcpService {
     private final OrderController orderController;
     private final PlacesController placesController;
     private final CustomerTrackingController trackingController;
+    private final AdminOrderController adminOrderController;
+    private final AdminCustomerController adminCustomerController;
+    private final DriverOrderController driverOrderController;
     private final ObjectMapper objectMapper;
 
     public CustomerMcpService(CustomerAddressController addressController,
@@ -25,12 +28,18 @@ public class CustomerMcpService {
                               OrderController orderController,
                               PlacesController placesController,
                               CustomerTrackingController trackingController,
+                              AdminOrderController adminOrderController,
+                              AdminCustomerController adminCustomerController,
+                              DriverOrderController driverOrderController,
                               ObjectMapper objectMapper) {
         this.addressController = addressController;
         this.restaurantController = restaurantController;
         this.orderController = orderController;
         this.placesController = placesController;
         this.trackingController = trackingController;
+        this.adminOrderController = adminOrderController;
+        this.adminCustomerController = adminCustomerController;
+        this.driverOrderController = driverOrderController;
         this.objectMapper = objectMapper;
     }
 
@@ -119,5 +128,93 @@ public class CustomerMcpService {
         // SSE endpoints can't easily be returned as standard MCP Strings because they block/stream. 
         // Returning a placeholder that we would ideally wire up to the cache.
         return "SSE tracking stream initiated for order " + orderId + ". For discrete state, use order querying.";
+    }
+
+    // AdminOrderController
+
+    @Tool(description = "Admin: Get active orders for user. Provide userId.")
+    public String getActiveOrdersForUser(String userId) {
+        try {
+            return objectMapper.writeValueAsString(adminOrderController.getActiveOrdersForUser(UUID.fromString(userId)).getBody());
+        } catch (Exception e) {
+            return "Error: " + e.getMessage();
+        }
+    }
+
+    @Tool(description = "Admin: Get unassigned orders.")
+    public String getUnassignedOrders() {
+        try {
+            return objectMapper.writeValueAsString(adminOrderController.getUnassignedOrders().getBody());
+        } catch (Exception e) {
+            return "Error: " + e.getMessage();
+        }
+    }
+
+    @Tool(description = "Admin: Get all active orders.")
+    public String getAllActiveOrders() {
+        try {
+            return objectMapper.writeValueAsString(adminOrderController.getAllActiveOrders().getBody());
+        } catch (Exception e) {
+            return "Error: " + e.getMessage();
+        }
+    }
+
+    @Tool(description = "Admin: Reconcile order state. Provide orderId.")
+    public String reconcileOrderState(String orderId) {
+        try {
+            return objectMapper.writeValueAsString(adminOrderController.reconcileOrderState(UUID.fromString(orderId)).getBody());
+        } catch (Exception e) {
+            return "Error: " + e.getMessage();
+        }
+    }
+
+    @Tool(description = "Admin: Initiate partial refund. Provide orderId and JSON string of PartialRefundRequest (amount).")
+    public String initiatePartialRefund(String orderId, String requestJson) {
+        try {
+            PartialRefundRequest req = objectMapper.readValue(requestJson, PartialRefundRequest.class);
+            return objectMapper.writeValueAsString(adminOrderController.initiatePartialRefund(UUID.fromString(orderId), req).getBody());
+        } catch (Exception e) {
+            return "Error: " + e.getMessage();
+        }
+    }
+
+    // AdminCustomerController
+
+    @Tool(description = "Admin: Get all customer addresses.")
+    public String getAllCustomerAddresses() {
+        try {
+            return objectMapper.writeValueAsString(adminCustomerController.getAllCustomerAddresses().getBody());
+        } catch (Exception e) {
+            return "Error: " + e.getMessage();
+        }
+    }
+
+    // DriverOrderController
+
+    @Tool(description = "Driver: Get available orders. Provide driverId.")
+    public String getAvailableOrders(String driverId) {
+        try {
+            return objectMapper.writeValueAsString(driverOrderController.getAvailableOrders(createMockPrincipal(driverId)).getBody());
+        } catch (Exception e) {
+            return "Error: " + e.getMessage();
+        }
+    }
+
+    @Tool(description = "Driver: Get active orders. Provide driverId.")
+    public String getActiveOrders(String driverId) {
+        try {
+            return objectMapper.writeValueAsString(driverOrderController.getActiveOrders(createMockPrincipal(driverId)).getBody());
+        } catch (Exception e) {
+            return "Error: " + e.getMessage();
+        }
+    }
+
+    @Tool(description = "Driver: Get history orders. Provide driverId and date (optional).")
+    public String getHistoryOrders(String driverId, String date) {
+        try {
+            return objectMapper.writeValueAsString(driverOrderController.getHistoryOrders(createMockPrincipal(driverId), date).getBody());
+        } catch (Exception e) {
+            return "Error: " + e.getMessage();
+        }
     }
 }

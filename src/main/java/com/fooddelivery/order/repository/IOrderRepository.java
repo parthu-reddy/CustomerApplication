@@ -13,6 +13,7 @@ import org.springframework.data.jpa.repository.EntityGraph;
 
 public interface IOrderRepository extends JpaRepository<Order, UUID> {
     List<Order> findByStatusAndUpdatedAtBefore(com.fooddelivery.common.enums.OrderStatus status, LocalDateTime time);
+    Page<Order> findByStatusAndUpdatedAtBefore(com.fooddelivery.common.enums.OrderStatus status, LocalDateTime time, Pageable pageable);
     
     @EntityGraph(attributePaths = {"orderItems"})
     List<Order> findByCustomerId(UUID customerId);

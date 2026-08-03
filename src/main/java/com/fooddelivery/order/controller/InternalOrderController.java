@@ -26,6 +26,7 @@ public class InternalOrderController {
 
     @GetMapping("/driver/{driverId}/active")
     @PreAuthorize("hasAnyRole('ADMIN', 'DELIVERY')")
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public ResponseEntity<List<Order>> getActiveOrdersForDriver(@PathVariable UUID driverId) {
         log.debug("Fetching active orders for driver {}", driverId);
         List<OrderStatus> cancelledStatuses = Arrays.asList(
@@ -41,6 +42,7 @@ public class InternalOrderController {
 
     @GetMapping("/driver/{driverId}/history")
     @PreAuthorize("hasAnyRole('ADMIN', 'DELIVERY')")
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public ResponseEntity<List<Order>> getOrderHistoryForDriver(
             @PathVariable UUID driverId,
             @RequestParam(required = false) String date) {
@@ -65,6 +67,7 @@ public class InternalOrderController {
 
     @GetMapping("/unassigned")
     @PreAuthorize("hasAnyRole('ADMIN', 'DELIVERY')")
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public ResponseEntity<List<Order>> getUnassignedOrders() {
         log.debug("Fetching unassigned orders for broadcast");
         List<OrderStatus> dispatchableStatuses = Arrays.asList(
@@ -74,5 +77,19 @@ public class InternalOrderController {
         );
         List<Order> unassignedOrders = orderRepository.findByStatusInAndDeliveryExecutiveIdIsNull(dispatchableStatuses);
         return ResponseEntity.ok(unassignedOrders);
+    }
+
+    @GetMapping("/{orderId}/participants")
+    public ResponseEntity<List<String>> getOrderParticipants(@PathVariable UUID orderId) {
+        log.debug("Fetching authorized participants for order {}", orderId);
+        return orderRepository.findById(orderId)
+                .map(order -> {
+                    List<String> participants = new java.util.ArrayList<>();
+                    if (order.getCustomerId() != null) participants.add(order.getCustomerId().toString());
+                    if (order.getRestaurantId() != null) participants.add(order.getRestaurantId().toString());
+                    if (order.getDeliveryExecutiveId() != null) participants.add(order.getDeliveryExecutiveId().toString());
+                    return ResponseEntity.ok(participants);
+                })
+                .orElse(ResponseEntity.notFound().build());
     }
 }

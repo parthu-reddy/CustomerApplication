@@ -25,7 +25,7 @@ public class DynamicPricingService {
         
         BigDecimal totalCustomerDeliveryFee = custPaysDe.add(config.getFixedPlatformFee());
         
-        java.util.List<com.fooddelivery.order.entity.OrderCharge> charges = new java.util.ArrayList<>();
+        java.util.Set<com.fooddelivery.order.entity.OrderCharge> charges = new java.util.HashSet<>();
         
         // 0. Platform pays Restaurant the Food Cost
         charges.add(createCharge(com.fooddelivery.common.enums.ChargeCategory.FOOD_COST, 
@@ -97,5 +97,20 @@ public class DynamicPricingService {
                 .payeeType(payee)
                 .amount(amount.setScale(2, RoundingMode.HALF_UP))
                 .build();
+    }
+    
+    public BigDecimal getMinAmountForFreeDelivery(BigDecimal distanceKm) {
+        BigDecimal effectiveDistance = distanceKm.max(BigDecimal.ONE);
+        BigDecimal driverPayout = config.getBasePrice().add(effectiveDistance.multiply(config.getPerKmRate()));
+        
+        // For custPaysDe to be 0, maxRestContribution must be >= driverPayout
+        // maxRestContribution = foodCost * restMaxContributionPercent
+        // So, foodCost >= driverPayout / restMaxContributionPercent
+        
+        if (config.getRestMaxContributionPercent().compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.valueOf(999999); // Cannot get free delivery if rest contribution is 0
+        }
+        
+        return driverPayout.divide(config.getRestMaxContributionPercent(), 2, RoundingMode.CEILING);
     }
 }

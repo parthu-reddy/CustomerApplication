@@ -16,6 +16,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.HashSet;
 import java.util.UUID;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.FetchType;
@@ -88,8 +90,9 @@ public class Order {
     private BigDecimal distanceKm;
     
     @JsonIgnore
-    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<OrderCharge> charges;
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @Builder.Default
+    private Set<OrderCharge> charges = new HashSet<>();
     
     @Column(name = "delivery_executive_id")
     private UUID deliveryExecutiveId;
@@ -129,7 +132,7 @@ public class Order {
     @JsonIgnore
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
     @Builder.Default
-    private List<OrderItem> orderItems = new ArrayList<>();
+    private Set<OrderItem> orderItems = new HashSet<>();
     
     @CreationTimestamp
     @Column(name = "created_at")

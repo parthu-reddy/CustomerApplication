@@ -34,6 +34,7 @@ public class OrderResponse {
     private Double deliveryLng;
     private List<OrderItemResponse> items;
     private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
     private UUID riderId;
     private String paymentIntent;
     private String pickupOtp;
@@ -42,4 +43,5 @@ public class OrderResponse {
     @com.fasterxml.jackson.annotation.JsonProperty("expiresAt")
     private Long expiresAt;
     private Long remainingPingSeconds;
+    private BigDecimal distanceKm;
 }

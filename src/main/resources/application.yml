@@ -26,6 +26,7 @@ resilience4j:
         baseConfig: default
       payment-service:
         baseConfig: default
+
   retry:
     configs:
       default:

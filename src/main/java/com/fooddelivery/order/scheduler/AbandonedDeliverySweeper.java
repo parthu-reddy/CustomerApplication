@@ -36,7 +36,8 @@ public class AbandonedDeliverySweeper {
     }
     
     private void sweepByStatus(OrderStatus status, LocalDateTime threshold) {
-        List<Order> abandonedOrders = orderRepository.findByStatusAndUpdatedAtBefore(status, threshold);
+        org.springframework.data.domain.Page<Order> page = orderRepository.findByStatusAndUpdatedAtBefore(status, threshold, org.springframework.data.domain.PageRequest.of(0, 500));
+        List<Order> abandonedOrders = page.getContent();
         
         if (!abandonedOrders.isEmpty()) {
             log.info("Found {} abandoned {} orders. Marking them as DELIVERY_FAILED...", abandonedOrders.size(), status);

@@ -131,6 +131,7 @@ public class DriverOrderController {
                 .deliveryLng(order.getDeliveryLng())
                 .items(itemResponses)
                 .createdAt(order.getCreatedAt())
+                .updatedAt(order.getUpdatedAt())
                 .riderId(order.getDeliveryExecutiveId())
                 .otp(order.getOtp())
                 .pickupOtp(order.getPickupOtp())

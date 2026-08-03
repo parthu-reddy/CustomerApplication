@@ -33,4 +33,12 @@ public class MapsClientFallback implements MapsClient {
         fallback.put("fallback", true);
         return fallback;
     }
+
+    @Override
+    public Map<String, Object> getDistance(String origin, String destination) {
+        Map<String, Object> fallback = new HashMap<>();
+        fallback.put("distance", 5.0); // 5km fallback
+        fallback.put("fallback", true);
+        return fallback;
+    }
 }

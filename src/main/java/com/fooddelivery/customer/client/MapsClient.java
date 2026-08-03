@@ -21,4 +21,7 @@ public interface MapsClient {
                                      
     @GetMapping("/api/places/reverse-geocode")
     Map<String, Object> reverseGeocode(@RequestParam("lat") double lat, @RequestParam("lng") double lng);
+
+    @GetMapping("/api/logistics/distance")
+    Map<String, Object> getDistance(@RequestParam("origin") String origin, @RequestParam("destination") String destination);
 }

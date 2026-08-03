@@ -12,6 +12,7 @@ import com.fooddelivery.order.enums.ChargeEntityType;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -42,7 +43,7 @@ class DynamicPricingServiceTest {
         
         assertEquals(new BigDecimal("30.00"), result.getTotalCustomerDeliveryFee());
         
-        List<OrderCharge> charges = result.getCharges();
+        Set<OrderCharge> charges = result.getCharges();
         assertChargeExists(charges, ChargeCategory.FOOD_COST, ChargeEntityType.PLATFORM, ChargeEntityType.RESTAURANT, "200.00");
         assertChargeExists(charges, ChargeCategory.PLATFORM_FIXED_FEE, ChargeEntityType.CUSTOMER, ChargeEntityType.PLATFORM, "5.00");
         assertChargeExists(charges, ChargeCategory.DELIVERY_FEE, ChargeEntityType.CUSTOMER, ChargeEntityType.DRIVER, "25.00");
@@ -59,7 +60,7 @@ class DynamicPricingServiceTest {
         
         assertEquals(new BigDecimal("5.00"), result.getTotalCustomerDeliveryFee());
         
-        List<OrderCharge> charges = result.getCharges();
+        Set<OrderCharge> charges = result.getCharges();
         assertChargeExists(charges, ChargeCategory.FOOD_COST, ChargeEntityType.PLATFORM, ChargeEntityType.RESTAURANT, "500.00");
         assertChargeExists(charges, ChargeCategory.PLATFORM_FIXED_FEE, ChargeEntityType.CUSTOMER, ChargeEntityType.PLATFORM, "5.00");
         assertChargeExists(charges, ChargeCategory.PLATFORM_FIXED_FEE, ChargeEntityType.RESTAURANT, ChargeEntityType.PLATFORM, "5.00");
@@ -76,7 +77,7 @@ class DynamicPricingServiceTest {
         
         assertEquals(new BigDecimal("5.00"), result.getTotalCustomerDeliveryFee());
         
-        List<OrderCharge> charges = result.getCharges();
+        Set<OrderCharge> charges = result.getCharges();
         assertChargeExists(charges, ChargeCategory.FOOD_COST, ChargeEntityType.PLATFORM, ChargeEntityType.RESTAURANT, "1000.00");
         assertChargeExists(charges, ChargeCategory.PLATFORM_FIXED_FEE, ChargeEntityType.CUSTOMER, ChargeEntityType.PLATFORM, "5.00");
         assertChargeExists(charges, ChargeCategory.PLATFORM_FIXED_FEE, ChargeEntityType.RESTAURANT, ChargeEntityType.PLATFORM, "5.00");
@@ -86,7 +87,7 @@ class DynamicPricingServiceTest {
         assertChargeExists(charges, ChargeCategory.CGST, ChargeEntityType.CUSTOMER, ChargeEntityType.RESTAURANT, "25.00");
     }
     
-    private void assertChargeExists(List<OrderCharge> charges, ChargeCategory category, ChargeEntityType payer, ChargeEntityType payee, String amount) {
+    private void assertChargeExists(Set<OrderCharge> charges, ChargeCategory category, ChargeEntityType payer, ChargeEntityType payee, String amount) {
         boolean exists = charges.stream().anyMatch(c -> 
             c.getCategory() == category &&
             c.getPayerType() == payer &&

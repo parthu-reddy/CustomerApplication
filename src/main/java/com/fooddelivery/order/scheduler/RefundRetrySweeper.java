@@ -31,10 +31,12 @@ public class RefundRetrySweeper {
             return;
         }
 
-        List<PaymentIntent> failedIntents = paymentIntentRepository.findByStatusAndCreatedAtBefore(
+        org.springframework.data.domain.Page<PaymentIntent> failedIntentsPage = paymentIntentRepository.findByStatusAndCreatedAtBefore(
             PaymentIntentStatus.REFUND_FAILED, 
-            java.time.LocalDateTime.now()
+            java.time.LocalDateTime.now(),
+            org.springframework.data.domain.PageRequest.of(0, 500)
         );
+        List<PaymentIntent> failedIntents = failedIntentsPage.getContent();
         
         if (!failedIntents.isEmpty()) {
             log.info("Found {} intents with REFUND_FAILED status. Retrying...", failedIntents.size());

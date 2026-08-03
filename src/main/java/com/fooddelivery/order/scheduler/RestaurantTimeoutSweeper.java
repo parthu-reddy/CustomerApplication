@@ -35,7 +35,8 @@ public class RestaurantTimeoutSweeper {
         }
 
         LocalDateTime threshold = LocalDateTime.now().minusMinutes(10);
-        List<Order> staleOrders = orderRepository.findByStatusAndUpdatedAtBefore(OrderStatus.PENDING_ACCEPTANCE, threshold);
+        org.springframework.data.domain.Page<Order> staleOrdersPage = orderRepository.findByStatusAndUpdatedAtBefore(OrderStatus.PENDING_ACCEPTANCE, threshold, org.springframework.data.domain.PageRequest.of(0, 500));
+        List<Order> staleOrders = staleOrdersPage.getContent();
         
         if (!staleOrders.isEmpty()) {
             log.info("Found {} stale PAID orders (Restaurant Timeout). Cancelling them...", staleOrders.size());
@@ -44,7 +45,8 @@ public class RestaurantTimeoutSweeper {
             }
         }
         
-        List<Order> staleDelayApprovals = orderRepository.findByStatusAndUpdatedAtBefore(OrderStatus.AWAITING_DELAY_APPROVAL, threshold);
+        org.springframework.data.domain.Page<Order> staleDelayApprovalsPage = orderRepository.findByStatusAndUpdatedAtBefore(OrderStatus.AWAITING_DELAY_APPROVAL, threshold, org.springframework.data.domain.PageRequest.of(0, 500));
+        List<Order> staleDelayApprovals = staleDelayApprovalsPage.getContent();
         if (!staleDelayApprovals.isEmpty()) {
             log.info("Found {} stale AWAITING_DELAY_APPROVAL orders. Cancelling them...", staleDelayApprovals.size());
             for (Order order : staleDelayApprovals) {

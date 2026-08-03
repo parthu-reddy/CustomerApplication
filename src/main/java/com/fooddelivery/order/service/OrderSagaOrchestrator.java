@@ -154,15 +154,16 @@ public class OrderSagaOrchestrator {
         log.info("Received Payment Event: {}", payload);
         
         String eventId = com.fooddelivery.common.util.KafkaHeaderUtils.extractHeaderValue(headers, "eventId");
+        boolean isNew = false;
         if (eventId != null) {
-            Boolean isNew = redisTemplate.opsForValue().setIfAbsent("processed_event:" + eventId, "1", java.time.Duration.ofDays(7));
-            if (Boolean.FALSE.equals(isNew)) {
+            isNew = Boolean.TRUE.equals(redisTemplate.opsForValue().setIfAbsent("processed_event:" + eventId, "1", java.time.Duration.ofDays(7)));
+            if (!isNew) {
                 log.info("Duplicate event ignored: {}", eventId);
                 return;
             }
         }
 
-        
+        try {        
         int retries = 0;
         boolean success = false;
         while (!success && retries < AppConstants.MAX_OPTIMISTIC_LOCK_RETRIES) {
@@ -273,6 +274,12 @@ public class OrderSagaOrchestrator {
                 throw new RuntimeException("Failed to process payment event", e);
             }
         }
+        } catch (Exception e) {
+            if (isNew && eventId != null) {
+                redisTemplate.delete("processed_event:" + eventId);
+            }
+            throw e;
+        }
     }
 
     // Listens to Kafka 'order-events' topic for ORDER_ACCEPTED
@@ -285,14 +292,16 @@ public class OrderSagaOrchestrator {
         log.info("OrderSagaOrchestrator received event: {}", payload);
         
         String eventId = com.fooddelivery.common.util.KafkaHeaderUtils.extractHeaderValue(headers, "eventId");
+        boolean isNew = false;
         if (eventId != null) {
-            Boolean isNew = redisTemplate.opsForValue().setIfAbsent("processed_event:" + eventId, "1", java.time.Duration.ofDays(7));
-            if (Boolean.FALSE.equals(isNew)) {
+            isNew = Boolean.TRUE.equals(redisTemplate.opsForValue().setIfAbsent("processed_event:" + eventId, "1", java.time.Duration.ofDays(7)));
+            if (!isNew) {
                 log.info("Duplicate event ignored: {}", eventId);
                 return;
             }
         }
         
+        try {
         int retries = 0;
         boolean success = false;
         while (!success && retries < AppConstants.MAX_OPTIMISTIC_LOCK_RETRIES) {
@@ -374,6 +383,12 @@ public class OrderSagaOrchestrator {
                 log.error("Error processing order event", e);
                 throw new RuntimeException("Failed to process order event", e);
             }
+        }
+        } catch (Exception e) {
+            if (isNew && eventId != null) {
+                redisTemplate.delete("processed_event:" + eventId);
+            }
+            throw e;
         }
     }
 

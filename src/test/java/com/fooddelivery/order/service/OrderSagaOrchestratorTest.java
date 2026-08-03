@@ -127,7 +127,12 @@ class OrderSagaOrchestratorTest {
         intent.setInternalOrderId(internalOrderId);
         intent.setStatus(com.fooddelivery.common.constants.PaymentIntentStatus.CREATED);
 
-        Order order = Order.builder().id(internalOrderId).customerId(UUID.randomUUID()).status(OrderStatus.CREATED).build();
+        Order order = Order.builder()
+                .id(internalOrderId)
+                .customerId(UUID.randomUUID())
+                .status(OrderStatus.CREATED)
+                .totalAmount(new java.math.BigDecimal("100.00"))
+                .build();
 
         when(paymentIntentRepository.findByGatewayOrderId(gatewayOrderId)).thenReturn(Optional.of(intent));
         when(paymentIntentRepository.findByInternalOrderId(internalOrderId)).thenReturn(Optional.of(intent));
@@ -149,7 +154,7 @@ class OrderSagaOrchestratorTest {
         verify(paymentIntentRepository).save(intent);
         assertThat(intent.getStatus()).isEqualTo(com.fooddelivery.common.constants.PaymentIntentStatus.SUCCESS);
 
-        verify(outboxEventRepository, times(2)).save(any(OutboxEventEntity.class));
+        verify(outboxEventRepository, times(3)).save(any(OutboxEventEntity.class));
     }
 
     @Test

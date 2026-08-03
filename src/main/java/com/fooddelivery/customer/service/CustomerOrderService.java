@@ -18,8 +18,11 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.HashSet;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -264,14 +267,53 @@ public class CustomerOrderService {
                             );
                         }
 
-            // Distance check (Haversine)
-            double distance = calculateDistance(rLat, rLng, address.getLatitude(), address.getLongitude());
+            String distanceCacheKey = "distance_cache:" + address.getId() + ":" + request.getRestaurantId();
+            String cachedDistance = redisTemplate.opsForValue().get(distanceCacheKey);
+            
+            double distance = -1.0; // Enforce financial integrity: no default distance
+            boolean isFallback = false;
+            boolean cacheHit = false;
+            
+            if (cachedDistance != null) {
+                try {
+                    distance = Double.parseDouble(cachedDistance);
+                    cacheHit = true;
+                } catch (NumberFormatException e) {
+                    log.warn("Corrupted distance cache value for key {}: '{}'. Deleting and re-fetching.", distanceCacheKey, cachedDistance);
+                    redisTemplate.delete(distanceCacheKey);
+                }
+            }
+            
+            if (!cacheHit) {
+                String originStr = address.getLatitude() + "," + address.getLongitude();
+                String destinationStr = rLat + "," + rLng;
+                java.util.Map<String, Object> distanceMap = mapsClient.getDistance(originStr, destinationStr);
+                
+                if (distanceMap != null) {
+                    if (distanceMap.containsKey("distance")) {
+                        distance = ((Number) distanceMap.get("distance")).doubleValue();
+                    } else {
+                        isFallback = true;
+                    }
+                    if (Boolean.TRUE.equals(distanceMap.get("fallback"))) {
+                        isFallback = true;
+                    }
+                } else {
+                    isFallback = true;
+                }
+                
+                if (isFallback) {
+                    throw new IllegalArgumentException("Unable to calculate accurate delivery distance as the mapping service is currently unavailable. Please try again later.");
+                } else {
+                    redisTemplate.opsForValue().set(distanceCacheKey, String.valueOf(distance), 1, java.util.concurrent.TimeUnit.HOURS);
+                }
+            }
             if (distance > com.fooddelivery.common.constants.AppConstants.MAX_DELIVERY_RADIUS_KM) {
                 throw new IllegalArgumentException("Delivery address is outside the " + com.fooddelivery.common.constants.AppConstants.MAX_DELIVERY_RADIUS_KM + "km radius. Distance: " + String.format("%.2f", distance) + " km.");
             }
 
             BigDecimal totalAmount = BigDecimal.ZERO;
-            List<OrderItem> orderItems = new ArrayList<>();
+            Set<OrderItem> orderItems = new HashSet<>();
 
             List<MenuItemDTO> fetchedItems = menuFuture.get();
             if (fetchedItems == null) {
@@ -327,7 +369,7 @@ public class CustomerOrderService {
                     .deliveryLng(address.getLongitude())
                     .otp(String.format("%06d", new java.security.SecureRandom().nextInt(1000000)))
                     .status(OrderStatus.CREATED)
-                    .orderItems(new ArrayList<>())
+                    .orderItems(new HashSet<>())
                     .estimatedPrepTimeMinutes(maxPrepTime)
                     .build();
 
@@ -412,16 +454,6 @@ public class CustomerOrderService {
         });
     }
 
-    private double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
-        final int R = 6371; // Radius of the earth in km
-        double latDistance = Math.toRadians(lat2 - lat1);
-        double lonDistance = Math.toRadians(lon2 - lon1);
-        double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
-                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
-                * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
-        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return R * c; // in km
-    }
     
     private String formatAddress(com.fooddelivery.customer.entity.CustomerAddress address) {
         StringBuilder sb = new StringBuilder();
