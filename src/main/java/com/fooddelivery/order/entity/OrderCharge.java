@@ -15,7 +15,8 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "order_charges")
-@Data
+@lombok.Getter
+@lombok.Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder

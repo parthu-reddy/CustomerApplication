@@ -91,6 +91,10 @@ public class CustomerOrderService {
             .orElseThrow(() -> new RuntimeException("Order not found or access denied"));
     }
 
+    public List<Order> getOrdersByIdsAndCustomer(List<UUID> orderIds, UUID customerId) {
+        return orderRepository.findByIdInAndCustomerId(orderIds, customerId);
+    }
+
     public java.util.concurrent.CompletableFuture<OrderWithPayment> createOrderWithPayment(com.fooddelivery.customer.dto.OrderRequest request) {
         return createOrder(request).thenApply(order -> {
             try {
@@ -285,27 +289,64 @@ public class CustomerOrderService {
             }
             
             if (!cacheHit) {
-                String originStr = address.getLatitude() + "," + address.getLongitude();
-                String destinationStr = rLat + "," + rLng;
-                java.util.Map<String, Object> distanceMap = mapsClient.getDistance(originStr, destinationStr);
+                // Implement distributed lock to prevent cache stampede
+                String lockKey = "lock:distance_cache:" + address.getId() + ":" + request.getRestaurantId();
+                Boolean acquired = redisTemplate.opsForValue().setIfAbsent(lockKey, "1", 10, java.util.concurrent.TimeUnit.SECONDS);
                 
-                if (distanceMap != null) {
-                    if (distanceMap.containsKey("distance")) {
-                        distance = ((Number) distanceMap.get("distance")).doubleValue();
+                try {
+                    if (Boolean.TRUE.equals(acquired)) {
+                        // Double-check cache inside lock
+                        cachedDistance = redisTemplate.opsForValue().get(distanceCacheKey);
+                        if (cachedDistance != null) {
+                            try {
+                                distance = Double.parseDouble(cachedDistance);
+                                cacheHit = true;
+                            } catch (NumberFormatException ignored) {}
+                        }
+                        
+                        if (!cacheHit) {
+                            String originStr = address.getLatitude() + "," + address.getLongitude();
+                            String destinationStr = rLat + "," + rLng;
+                            java.util.Map<String, Object> distanceMap = mapsClient.getDistance(originStr, destinationStr);
+                            
+                            if (distanceMap != null) {
+                                if (distanceMap.containsKey("distance")) {
+                                    distance = ((Number) distanceMap.get("distance")).doubleValue();
+                                } else {
+                                    isFallback = true;
+                                }
+                                if (Boolean.TRUE.equals(distanceMap.get("fallback"))) {
+                                    isFallback = true;
+                                }
+                            } else {
+                                isFallback = true;
+                            }
+                            
+                            if (!isFallback) {
+                                redisTemplate.opsForValue().set(distanceCacheKey, String.valueOf(distance), 1, java.util.concurrent.TimeUnit.HOURS);
+                            }
+                        }
                     } else {
-                        isFallback = true;
+                        // If lock not acquired, wait and retry cache fetch once
+                        try {
+                            Thread.sleep(500);
+                        } catch (InterruptedException ignored) {}
+                        
+                        cachedDistance = redisTemplate.opsForValue().get(distanceCacheKey);
+                        if (cachedDistance != null) {
+                            distance = Double.parseDouble(cachedDistance);
+                        } else {
+                            throw new RuntimeException("Timeout waiting for distance calculation");
+                        }
                     }
-                    if (Boolean.TRUE.equals(distanceMap.get("fallback"))) {
-                        isFallback = true;
+                } finally {
+                    if (Boolean.TRUE.equals(acquired)) {
+                        redisTemplate.delete(lockKey);
                     }
-                } else {
-                    isFallback = true;
                 }
                 
                 if (isFallback) {
                     throw new IllegalArgumentException("Unable to calculate accurate delivery distance as the mapping service is currently unavailable. Please try again later.");
-                } else {
-                    redisTemplate.opsForValue().set(distanceCacheKey, String.valueOf(distance), 1, java.util.concurrent.TimeUnit.HOURS);
                 }
             }
             if (distance > com.fooddelivery.common.constants.AppConstants.MAX_DELIVERY_RADIUS_KM) {

@@ -36,7 +36,8 @@ import lombok.extern.slf4j.Slf4j;
     @jakarta.persistence.Index(name = "idx_order_delivery_exec", columnList = "deliveryExecutiveId"),
     @jakarta.persistence.Index(name = "idx_order_status", columnList = "status")
 })
-@Data
+@lombok.Getter
+@lombok.Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor

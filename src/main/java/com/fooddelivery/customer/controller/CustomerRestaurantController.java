@@ -29,6 +29,7 @@ public class CustomerRestaurantController {
     private final com.fooddelivery.customer.service.DynamicPricingService dynamicPricingService;
     private final com.fooddelivery.customer.config.DynamicPricingConfig dynamicPricingConfig;
     private final com.fooddelivery.customer.repository.CustomerAddressRepository customerAddressRepository;
+    private final com.fooddelivery.customer.client.AdvertisementClient advertisementClient;
 
     @GetMapping("/nearby")
     public ResponseEntity<ApiResponse<List<Object>>> getNearbyRestaurants(
@@ -37,6 +38,41 @@ public class CustomerRestaurantController {
             @RequestParam(defaultValue = "5.0") double radius) {
         
         ApiResponse<List<Object>> response = restaurantClient.getNearbyRestaurants(lat, lng, radius);
+        
+        // Fetch ads from AdvertisementService (BiddingEngine)
+        try {
+            Map<String, Object> bidRequest = new java.util.HashMap<>();
+            bidRequest.put("id", java.util.UUID.randomUUID().toString());
+            
+            Map<String, Object> imp = new java.util.HashMap<>();
+            imp.put("id", "1");
+            bidRequest.put("imp", java.util.List.of(imp));
+            
+            Map<String, Object> user = new java.util.HashMap<>();
+            user.put("geo", "US"); // simplified
+            bidRequest.put("user", user);
+            
+            Object adResponse = advertisementClient.fetchAds(bidRequest);
+            
+            if (adResponse != null && response.getData() != null) {
+                // If we get an ad, extract the ad content and inject it at the top of the restaurant list
+                // Realistically, adResponse should be mapped properly to extract campaign/restaurant ID.
+                // For simplicity, we just add a mock sponsored listing object.
+                Map<String, Object> sponsoredListing = new java.util.HashMap<>();
+                sponsoredListing.put("isSponsored", true);
+                sponsoredListing.put("adData", adResponse);
+                
+                // Add to the front of the list
+                List<Object> merged = new java.util.ArrayList<>();
+                merged.add(sponsoredListing);
+                merged.addAll(response.getData());
+                
+                return ResponseEntity.ok(ApiResponse.success(merged, "Successfully fetched nearby restaurants"));
+            }
+        } catch (Exception e) {
+            log.warn("Failed to fetch advertisements: {}", e.getMessage());
+        }
+
         return ResponseEntity.ok(response);
     }
 

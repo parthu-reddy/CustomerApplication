@@ -36,6 +36,9 @@ public interface IOrderRepository extends JpaRepository<Order, UUID> {
     java.util.Optional<Order> findByIdAndCustomerId(UUID id, UUID customerId);
 
     @EntityGraph(attributePaths = {"orderItems"})
+    List<Order> findByIdInAndCustomerId(List<UUID> ids, UUID customerId);
+
+    @EntityGraph(attributePaths = {"orderItems"})
     Page<Order> findByCustomerIdOrderByCreatedAtDesc(UUID customerId, Pageable pageable);
     
     @EntityGraph(attributePaths = {"orderItems"})

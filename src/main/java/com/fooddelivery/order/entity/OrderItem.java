@@ -19,7 +19,8 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "order_items")
-@Data
+@lombok.Getter
+@lombok.Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor

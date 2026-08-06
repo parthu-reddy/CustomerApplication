@@ -26,6 +26,8 @@ resilience4j:
         baseConfig: default
       payment-service:
         baseConfig: default
+      bidding-engine:
+        baseConfig: default
 
   retry:
     configs:
@@ -52,3 +54,5 @@ resilience4j:
         baseConfig: default
       payment-service:
         baseConfig: default
+      bidding-engine:
+        timeoutDuration: 100ms

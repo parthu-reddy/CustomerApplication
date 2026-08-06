@@ -500,6 +500,29 @@ public class OrderSagaOrchestrator {
                         Order latestOrder = orderRepository.findById(order.getId()).orElse(null);
                         if(latestOrder != null) {
                             latestOrder.setPaymentStatus(PaymentIntentStatus.REFUND_PENDING);
+                    
+                    // Publish REFUND_GENERATED for WalletService
+                    Map<String, Object> walletPayload = new HashMap<>();
+                    walletPayload.put("entityId", order.getCustomerId().toString());
+                    walletPayload.put("entityType", "CUSTOMER");
+                    walletPayload.put("amount", order.getTotalAmount());
+                    walletPayload.put("referenceId", "REFUND_" + order.getId().toString());
+                    walletPayload.put("description", "Refund for Order " + order.getId().toString());
+                    
+                    try {
+                        String payloadString = objectMapper.writeValueAsString(walletPayload);
+                        OutboxEventEntity walletOutboxEvent = OutboxEventEntity.builder()
+                                .id(UUID.randomUUID())
+                                .aggregateType(com.fooddelivery.common.constants.AggregateType.WALLET)
+                                .aggregateId(order.getCustomerId().toString())
+                                .eventType(com.fooddelivery.common.constants.EventType.valueOf("REFUND_GENERATED")) // Requires REFUND_GENERATED in EventType
+                                .payload(payloadString)
+                                .createdAt(LocalDateTime.now())
+                                .build();
+                        outboxEventRepository.save(walletOutboxEvent);
+                    } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+                        throw new RuntimeException("Failed to serialize wallet payload", e);
+                    }
                             orderRepository.save(latestOrder);
                         }
                     });
