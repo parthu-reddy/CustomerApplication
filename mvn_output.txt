@@ -1,0 +1,656 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] ---------------< com.fooddelivery:food-delivery-backend >---------------
+[INFO] Building food-delivery-backend 1.0-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- clean:3.3.2:clean (default-clean) @ food-delivery-backend ---
+[INFO] Deleting /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/target
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ food-delivery-backend ---
+[INFO] Copying 1 resource from src/main/resources to target/classes
+[INFO] Copying 9 resources from src/main/resources to target/classes
+[INFO] 
+[INFO] --- compiler:3.13.0:compile (default-compile) @ food-delivery-backend ---
+[INFO] Recompiling the module because of changed source code.
+[INFO] Compiling 77 source files with javac [forked debug parameters release 17] to target/classes
+[INFO] -------------------------------------------------------------
+[ERROR] COMPILATION ERROR : 
+[INFO] -------------------------------------------------------------
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/controller/CustomerRestaurantController.java:[26] error: Slf4j is not a repeatable annotation interface
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[108,12] error: cannot find symbol
+  symbol:   variable log
+  location: class CustomerOrderService
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[110,25] error: cannot find symbol
+  symbol:   method getId()
+  location: variable order of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[110,42] error: cannot find symbol
+  symbol:   method getCustomerId()
+  location: variable request of type OrderRequest
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[110,67] error: cannot find symbol
+  symbol:   method getRestaurantId()
+  location: variable request of type OrderRequest
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[110,92] error: cannot find symbol
+  symbol:   method getTotalAmount()
+  location: variable order of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[113,65] error: cannot find symbol
+  symbol:   method getId()
+  location: variable order of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[114,52] error: cannot find symbol
+  symbol:   method getStatus()
+  location: variable freshOrder of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[116,30] error: cannot find symbol
+  symbol:   method setCancellationReason(String)
+  location: variable freshOrder of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[124,51] error: cannot find symbol
+  symbol:   method getId()
+  location: variable freshOrder of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[126,169] error: cannot find symbol
+  symbol:   method getId()
+  location: variable freshOrder of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[129,20] error: cannot find symbol
+  symbol:   variable log
+  location: class CustomerOrderService
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[129,145] error: cannot find symbol
+  symbol:   method getId()
+  location: variable freshOrder of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[132,20] error: cannot find symbol
+  symbol:   variable log
+  location: class CustomerOrderService
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[132,124] error: cannot find symbol
+  symbol:   method getId()
+  location: variable freshOrder of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[134,20] error: cannot find symbol
+  symbol:   variable log
+  location: class CustomerOrderService
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[135,33] error: cannot find symbol
+  symbol:   method getId()
+  location: variable order of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[135,74] error: cannot find symbol
+  symbol:   method getStatus()
+  location: variable freshOrder of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[139,137] error: cannot find symbol
+  symbol:   method getId()
+  location: variable order of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[145,33] error: cannot find symbol
+  symbol:   method getCustomerId()
+  location: variable request of type OrderRequest
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[146,35] error: cannot find symbol
+  symbol:   method getRestaurantId()
+  location: variable request of type OrderRequest
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[147,40] error: cannot find symbol
+  symbol:   method getDeliveryAddressId()
+  location: variable request of type OrderRequest
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[148,55] error: cannot find symbol
+  symbol:   method getItems()
+  location: variable request of type OrderRequest
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[162,24] error: cannot find symbol
+  symbol:   method getCustomerId()
+  location: variable address of type CustomerAddress
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[167,23] error: cannot find symbol
+  symbol:   method getQuantity()
+  location: variable req of type OrderItemRequest
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[167,52] error: cannot find symbol
+  symbol:   method getQuantity()
+  location: variable req of type OrderItemRequest
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[173,31] error: cannot find symbol
+  symbol:   method getMenuItemId()
+  location: variable req of type OrderItemRequest
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[174,16] error: no suitable method found for collect(Collector<CharSequence,CAP#1,String>)
+    method Stream.<R#1>collect(Supplier<R#1>,BiConsumer<R#1,? super Object>,BiConsumer<R#1,R#1>) is not applicable
+      (cannot infer type-variable(s) R#1
+        (actual and formal argument lists differ in length))
+    method Stream.<R#2,A>collect(Collector<? super Object,A,R#2>) is not applicable
+      (cannot infer type-variable(s) R#2,A
+        (argument mismatch; Collector<CharSequence,CAP#2,String> cannot be converted to Collector<? super Object,A,R#2>))
+  where R#1,T,R#2,A are type-variables:
+    R#1 extends Object declared in method <R#1>collect(Supplier<R#1>,BiConsumer<R#1,? super T>,BiConsumer<R#1,R#1>)
+    T extends Object declared in interface Stream
+    R#2 extends Object declared in method <R#2,A>collect(Collector<? super T,A,R#2>)
+    A extends Object declared in method <R#2,A>collect(Collector<? super T,A,R#2>)
+  where CAP#1,CAP#2 are fresh type-variables:
+    CAP#1 extends Object from capture of ?
+    CAP#2 extends Object from capture of ?
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[248,24] error: cannot find symbol
+  symbol:   variable log
+  location: class CustomerOrderService
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[274,65] error: cannot find symbol
+  symbol:   method getId()
+  location: variable address of type CustomerAddress
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[274,89] error: cannot find symbol
+  symbol:   method getRestaurantId()
+  location: variable request of type OrderRequest
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[286,20] error: cannot find symbol
+  symbol:   variable log
+  location: class CustomerOrderService
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[293,65] error: cannot find symbol
+  symbol:   method getId()
+  location: variable address of type CustomerAddress
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[293,89] error: cannot find symbol
+  symbol:   method getRestaurantId()
+  location: variable request of type OrderRequest
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[308,54] error: cannot find symbol
+  symbol:   method getLatitude()
+  location: variable address of type CustomerAddress
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[308,84] error: cannot find symbol
+  symbol:   method getLongitude()
+  location: variable address of type CustomerAddress
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[369,58] error: cannot find symbol
+  symbol:   method getMenuItemId()
+  location: variable req of type OrderItemRequest
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[371,46] error: cannot find symbol
+  symbol:   method getMenuItemId()
+  location: variable req of type OrderItemRequest
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[381,58] error: cannot find symbol
+  symbol:   method getMenuItemId()
+  location: variable req of type OrderItemRequest
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[387,87] error: cannot find symbol
+  symbol:   method getQuantity()
+  location: variable req of type OrderItemRequest
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[390,47] error: cannot find symbol
+  symbol:   method builder()
+  location: class OrderItem
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[394,37] error: cannot find symbol
+  symbol:   method getQuantity()
+  location: variable req of type OrderItemRequest
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[401,31] error: cannot find symbol
+  symbol:   method builder()
+  location: class Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[404,41] error: cannot find symbol
+  symbol:   method getCustomerName()
+  location: variable request of type OrderRequest
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[409,40] error: cannot find symbol
+  symbol:   method getLatitude()
+  location: variable address of type CustomerAddress
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[410,40] error: cannot find symbol
+  symbol:   method getLongitude()
+  location: variable address of type CustomerAddress
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[418,20] error: cannot find symbol
+  symbol:   method setOrder(Order)
+  location: variable item of type OrderItem
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[420,17] error: cannot find symbol
+  symbol:   method setOrderItems(Set<OrderItem>)
+  location: variable order of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[432,49] error: cannot find symbol
+  symbol:   method getTotalCustomerDeliveryFee()
+  location: variable pricing of type PricingBreakdown
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[432,92] error: cannot find symbol
+  symbol:   method getSgst()
+  location: variable pricing of type PricingBreakdown
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[432,115] error: cannot find symbol
+  symbol:   method getCgst()
+  location: variable pricing of type PricingBreakdown
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[434,17] error: cannot find symbol
+  symbol:   method setTotalAmount(BigDecimal)
+  location: variable order of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[435,17] error: cannot find symbol
+  symbol:   method setDistanceKm(BigDecimal)
+  location: variable order of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[437,75] error: cannot find symbol
+  symbol:   method getCharges()
+  location: variable pricing of type PricingBreakdown
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[438,22] error: cannot find symbol
+  symbol:   method setOrder(Order)
+  location: variable charge of type OrderCharge
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[440,36] error: cannot find symbol
+  symbol:   method getCharges()
+  location: variable pricing of type PricingBreakdown
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[444,12] error: cannot find symbol
+  symbol:   variable log
+  location: class CustomerOrderService
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[444,83] error: cannot find symbol
+  symbol:   method getId()
+  location: variable order of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[456,12] error: cannot find symbol
+  symbol:   variable log
+  location: class CustomerOrderService
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[465,18] error: cannot find symbol
+  symbol:   method getCustomerId()
+  location: variable order of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[469,17] error: cannot find symbol
+  symbol:   method getStatus()
+  location: variable order of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[470,108] error: cannot find symbol
+  symbol:   method getStatus()
+  location: variable order of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[489,18] error: cannot find symbol
+  symbol:   method getCustomerId()
+  location: variable order of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[501,19] error: cannot find symbol
+  symbol:   method getAddressLine1()
+  location: variable address of type CustomerAddress
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[501,64] error: cannot find symbol
+  symbol:   method getAddressLine1()
+  location: variable address of type CustomerAddress
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[502,19] error: cannot find symbol
+  symbol:   method getAddressLine2()
+  location: variable address of type CustomerAddress
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[502,57] error: cannot find symbol
+  symbol:   method getAddressLine2()
+  location: variable address of type CustomerAddress
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[503,42] error: cannot find symbol
+  symbol:   method getAddressLine2()
+  location: variable address of type CustomerAddress
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[505,19] error: cannot find symbol
+  symbol:   method getCity()
+  location: variable address of type CustomerAddress
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[505,69] error: cannot find symbol
+  symbol:   method getCity()
+  location: variable address of type CustomerAddress
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[506,19] error: cannot find symbol
+  symbol:   method getState()
+  location: variable address of type CustomerAddress
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[506,70] error: cannot find symbol
+  symbol:   method getState()
+  location: variable address of type CustomerAddress
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[507,19] error: cannot find symbol
+  symbol:   method getZipCode()
+  location: variable address of type CustomerAddress
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[507,73] error: cannot find symbol
+  symbol:   method getZipCode()
+  location: variable address of type CustomerAddress
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/entity/Order.java:[74,16] error: cannot find symbol
+  symbol:   variable log
+  location: class Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/entity/Order.java:[79,12] error: cannot find symbol
+  symbol:   variable log
+  location: class Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[87,13] error: cannot find symbol
+  symbol:   method setPickupOtp(String)
+  location: variable order of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[91,13] error: cannot find symbol
+  symbol:   method setOtp(String)
+  location: variable order of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[96,35] error: cannot find symbol
+  symbol:   method getId()
+  location: variable savedOrder of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[97,38] error: cannot find symbol
+  symbol:   method getCustomerId()
+  location: variable savedOrder of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[98,40] error: cannot find symbol
+  symbol:   method getRestaurantId()
+  location: variable savedOrder of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[99,39] error: cannot find symbol
+  symbol:   method getTotalAmount()
+  location: variable savedOrder of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[100,39] error: cannot find symbol
+  symbol:   method getDeliveryLat()
+  location: variable savedOrder of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[101,39] error: cannot find symbol
+  symbol:   method getDeliveryLng()
+  location: variable savedOrder of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[102,43] error: cannot find symbol
+  symbol:   method getDeliveryAddress()
+  location: variable savedOrder of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[103,37] error: cannot find symbol
+  symbol:   method getPickupOtp()
+  location: variable savedOrder of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[104,39] error: cannot find symbol
+  symbol:   method getOtp()
+  location: variable savedOrder of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[111,43] error: cannot find symbol
+  symbol:   method getId()
+  location: variable savedOrder of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[117,12] error: cannot find symbol
+  symbol:   variable log
+  location: class OrderSagaOrchestrator
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[117,101] error: cannot find symbol
+  symbol:   method getId()
+  location: variable savedOrder of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[119,12] error: cannot find symbol
+  symbol:   variable log
+  location: class OrderSagaOrchestrator
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[119,88] error: cannot find symbol
+  symbol:   method getId()
+  location: variable savedOrder of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[122,12] error: cannot find symbol
+  symbol:   variable log
+  location: class OrderSagaOrchestrator
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[142,8] error: cannot find symbol
+  symbol:   variable log
+  location: class OrderSagaOrchestrator
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[144,8] error: cannot find symbol
+  symbol:   variable log
+  location: class OrderSagaOrchestrator
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[144,77] error: cannot find symbol
+  symbol:   method getId()
+  location: variable order of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[154,8] error: cannot find symbol
+  symbol:   variable log
+  location: class OrderSagaOrchestrator
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[161,16] error: cannot find symbol
+  symbol:   variable log
+  location: class OrderSagaOrchestrator
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[176,16] error: cannot find symbol
+  symbol:   variable log
+  location: class OrderSagaOrchestrator
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[184,16] error: cannot find symbol
+  symbol:   variable log
+  location: class OrderSagaOrchestrator
+[INFO] 100 errors 
+[INFO] -------------------------------------------------------------
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  3.419 s
+[INFO] Finished at: 2026-08-06T20:21:18+05:30
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.13.0:compile (default-compile) on project food-delivery-backend: Compilation failure: Compilation failure: 
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/controller/CustomerRestaurantController.java:[26] error: Slf4j is not a repeatable annotation interface
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[108,12] error: cannot find symbol
+[ERROR]   symbol:   variable log
+[ERROR]   location: class CustomerOrderService
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[110,25] error: cannot find symbol
+[ERROR]   symbol:   method getId()
+[ERROR]   location: variable order of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[110,42] error: cannot find symbol
+[ERROR]   symbol:   method getCustomerId()
+[ERROR]   location: variable request of type OrderRequest
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[110,67] error: cannot find symbol
+[ERROR]   symbol:   method getRestaurantId()
+[ERROR]   location: variable request of type OrderRequest
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[110,92] error: cannot find symbol
+[ERROR]   symbol:   method getTotalAmount()
+[ERROR]   location: variable order of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[113,65] error: cannot find symbol
+[ERROR]   symbol:   method getId()
+[ERROR]   location: variable order of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[114,52] error: cannot find symbol
+[ERROR]   symbol:   method getStatus()
+[ERROR]   location: variable freshOrder of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[116,30] error: cannot find symbol
+[ERROR]   symbol:   method setCancellationReason(String)
+[ERROR]   location: variable freshOrder of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[124,51] error: cannot find symbol
+[ERROR]   symbol:   method getId()
+[ERROR]   location: variable freshOrder of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[126,169] error: cannot find symbol
+[ERROR]   symbol:   method getId()
+[ERROR]   location: variable freshOrder of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[129,20] error: cannot find symbol
+[ERROR]   symbol:   variable log
+[ERROR]   location: class CustomerOrderService
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[129,145] error: cannot find symbol
+[ERROR]   symbol:   method getId()
+[ERROR]   location: variable freshOrder of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[132,20] error: cannot find symbol
+[ERROR]   symbol:   variable log
+[ERROR]   location: class CustomerOrderService
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[132,124] error: cannot find symbol
+[ERROR]   symbol:   method getId()
+[ERROR]   location: variable freshOrder of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[134,20] error: cannot find symbol
+[ERROR]   symbol:   variable log
+[ERROR]   location: class CustomerOrderService
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[135,33] error: cannot find symbol
+[ERROR]   symbol:   method getId()
+[ERROR]   location: variable order of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[135,74] error: cannot find symbol
+[ERROR]   symbol:   method getStatus()
+[ERROR]   location: variable freshOrder of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[139,137] error: cannot find symbol
+[ERROR]   symbol:   method getId()
+[ERROR]   location: variable order of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[145,33] error: cannot find symbol
+[ERROR]   symbol:   method getCustomerId()
+[ERROR]   location: variable request of type OrderRequest
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[146,35] error: cannot find symbol
+[ERROR]   symbol:   method getRestaurantId()
+[ERROR]   location: variable request of type OrderRequest
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[147,40] error: cannot find symbol
+[ERROR]   symbol:   method getDeliveryAddressId()
+[ERROR]   location: variable request of type OrderRequest
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[148,55] error: cannot find symbol
+[ERROR]   symbol:   method getItems()
+[ERROR]   location: variable request of type OrderRequest
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[162,24] error: cannot find symbol
+[ERROR]   symbol:   method getCustomerId()
+[ERROR]   location: variable address of type CustomerAddress
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[167,23] error: cannot find symbol
+[ERROR]   symbol:   method getQuantity()
+[ERROR]   location: variable req of type OrderItemRequest
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[167,52] error: cannot find symbol
+[ERROR]   symbol:   method getQuantity()
+[ERROR]   location: variable req of type OrderItemRequest
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[173,31] error: cannot find symbol
+[ERROR]   symbol:   method getMenuItemId()
+[ERROR]   location: variable req of type OrderItemRequest
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[174,16] error: no suitable method found for collect(Collector<CharSequence,CAP#1,String>)
+[ERROR]     method Stream.<R#1>collect(Supplier<R#1>,BiConsumer<R#1,? super Object>,BiConsumer<R#1,R#1>) is not applicable
+[ERROR]       (cannot infer type-variable(s) R#1
+[ERROR]         (actual and formal argument lists differ in length))
+[ERROR]     method Stream.<R#2,A>collect(Collector<? super Object,A,R#2>) is not applicable
+[ERROR]       (cannot infer type-variable(s) R#2,A
+[ERROR]         (argument mismatch; Collector<CharSequence,CAP#2,String> cannot be converted to Collector<? super Object,A,R#2>))
+[ERROR]   where R#1,T,R#2,A are type-variables:
+[ERROR]     R#1 extends Object declared in method <R#1>collect(Supplier<R#1>,BiConsumer<R#1,? super T>,BiConsumer<R#1,R#1>)
+[ERROR]     T extends Object declared in interface Stream
+[ERROR]     R#2 extends Object declared in method <R#2,A>collect(Collector<? super T,A,R#2>)
+[ERROR]     A extends Object declared in method <R#2,A>collect(Collector<? super T,A,R#2>)
+[ERROR]   where CAP#1,CAP#2 are fresh type-variables:
+[ERROR]     CAP#1 extends Object from capture of ?
+[ERROR]     CAP#2 extends Object from capture of ?
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[248,24] error: cannot find symbol
+[ERROR]   symbol:   variable log
+[ERROR]   location: class CustomerOrderService
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[274,65] error: cannot find symbol
+[ERROR]   symbol:   method getId()
+[ERROR]   location: variable address of type CustomerAddress
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[274,89] error: cannot find symbol
+[ERROR]   symbol:   method getRestaurantId()
+[ERROR]   location: variable request of type OrderRequest
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[286,20] error: cannot find symbol
+[ERROR]   symbol:   variable log
+[ERROR]   location: class CustomerOrderService
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[293,65] error: cannot find symbol
+[ERROR]   symbol:   method getId()
+[ERROR]   location: variable address of type CustomerAddress
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[293,89] error: cannot find symbol
+[ERROR]   symbol:   method getRestaurantId()
+[ERROR]   location: variable request of type OrderRequest
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[308,54] error: cannot find symbol
+[ERROR]   symbol:   method getLatitude()
+[ERROR]   location: variable address of type CustomerAddress
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[308,84] error: cannot find symbol
+[ERROR]   symbol:   method getLongitude()
+[ERROR]   location: variable address of type CustomerAddress
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[369,58] error: cannot find symbol
+[ERROR]   symbol:   method getMenuItemId()
+[ERROR]   location: variable req of type OrderItemRequest
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[371,46] error: cannot find symbol
+[ERROR]   symbol:   method getMenuItemId()
+[ERROR]   location: variable req of type OrderItemRequest
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[381,58] error: cannot find symbol
+[ERROR]   symbol:   method getMenuItemId()
+[ERROR]   location: variable req of type OrderItemRequest
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[387,87] error: cannot find symbol
+[ERROR]   symbol:   method getQuantity()
+[ERROR]   location: variable req of type OrderItemRequest
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[390,47] error: cannot find symbol
+[ERROR]   symbol:   method builder()
+[ERROR]   location: class OrderItem
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[394,37] error: cannot find symbol
+[ERROR]   symbol:   method getQuantity()
+[ERROR]   location: variable req of type OrderItemRequest
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[401,31] error: cannot find symbol
+[ERROR]   symbol:   method builder()
+[ERROR]   location: class Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[404,41] error: cannot find symbol
+[ERROR]   symbol:   method getCustomerName()
+[ERROR]   location: variable request of type OrderRequest
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[409,40] error: cannot find symbol
+[ERROR]   symbol:   method getLatitude()
+[ERROR]   location: variable address of type CustomerAddress
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[410,40] error: cannot find symbol
+[ERROR]   symbol:   method getLongitude()
+[ERROR]   location: variable address of type CustomerAddress
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[418,20] error: cannot find symbol
+[ERROR]   symbol:   method setOrder(Order)
+[ERROR]   location: variable item of type OrderItem
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[420,17] error: cannot find symbol
+[ERROR]   symbol:   method setOrderItems(Set<OrderItem>)
+[ERROR]   location: variable order of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[432,49] error: cannot find symbol
+[ERROR]   symbol:   method getTotalCustomerDeliveryFee()
+[ERROR]   location: variable pricing of type PricingBreakdown
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[432,92] error: cannot find symbol
+[ERROR]   symbol:   method getSgst()
+[ERROR]   location: variable pricing of type PricingBreakdown
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[432,115] error: cannot find symbol
+[ERROR]   symbol:   method getCgst()
+[ERROR]   location: variable pricing of type PricingBreakdown
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[434,17] error: cannot find symbol
+[ERROR]   symbol:   method setTotalAmount(BigDecimal)
+[ERROR]   location: variable order of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[435,17] error: cannot find symbol
+[ERROR]   symbol:   method setDistanceKm(BigDecimal)
+[ERROR]   location: variable order of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[437,75] error: cannot find symbol
+[ERROR]   symbol:   method getCharges()
+[ERROR]   location: variable pricing of type PricingBreakdown
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[438,22] error: cannot find symbol
+[ERROR]   symbol:   method setOrder(Order)
+[ERROR]   location: variable charge of type OrderCharge
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[440,36] error: cannot find symbol
+[ERROR]   symbol:   method getCharges()
+[ERROR]   location: variable pricing of type PricingBreakdown
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[444,12] error: cannot find symbol
+[ERROR]   symbol:   variable log
+[ERROR]   location: class CustomerOrderService
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[444,83] error: cannot find symbol
+[ERROR]   symbol:   method getId()
+[ERROR]   location: variable order of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[456,12] error: cannot find symbol
+[ERROR]   symbol:   variable log
+[ERROR]   location: class CustomerOrderService
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[465,18] error: cannot find symbol
+[ERROR]   symbol:   method getCustomerId()
+[ERROR]   location: variable order of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[469,17] error: cannot find symbol
+[ERROR]   symbol:   method getStatus()
+[ERROR]   location: variable order of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[470,108] error: cannot find symbol
+[ERROR]   symbol:   method getStatus()
+[ERROR]   location: variable order of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[489,18] error: cannot find symbol
+[ERROR]   symbol:   method getCustomerId()
+[ERROR]   location: variable order of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[501,19] error: cannot find symbol
+[ERROR]   symbol:   method getAddressLine1()
+[ERROR]   location: variable address of type CustomerAddress
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[501,64] error: cannot find symbol
+[ERROR]   symbol:   method getAddressLine1()
+[ERROR]   location: variable address of type CustomerAddress
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[502,19] error: cannot find symbol
+[ERROR]   symbol:   method getAddressLine2()
+[ERROR]   location: variable address of type CustomerAddress
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[502,57] error: cannot find symbol
+[ERROR]   symbol:   method getAddressLine2()
+[ERROR]   location: variable address of type CustomerAddress
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[503,42] error: cannot find symbol
+[ERROR]   symbol:   method getAddressLine2()
+[ERROR]   location: variable address of type CustomerAddress
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[505,19] error: cannot find symbol
+[ERROR]   symbol:   method getCity()
+[ERROR]   location: variable address of type CustomerAddress
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[505,69] error: cannot find symbol
+[ERROR]   symbol:   method getCity()
+[ERROR]   location: variable address of type CustomerAddress
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[506,19] error: cannot find symbol
+[ERROR]   symbol:   method getState()
+[ERROR]   location: variable address of type CustomerAddress
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[506,70] error: cannot find symbol
+[ERROR]   symbol:   method getState()
+[ERROR]   location: variable address of type CustomerAddress
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[507,19] error: cannot find symbol
+[ERROR]   symbol:   method getZipCode()
+[ERROR]   location: variable address of type CustomerAddress
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/customer/service/CustomerOrderService.java:[507,73] error: cannot find symbol
+[ERROR]   symbol:   method getZipCode()
+[ERROR]   location: variable address of type CustomerAddress
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/entity/Order.java:[74,16] error: cannot find symbol
+[ERROR]   symbol:   variable log
+[ERROR]   location: class Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/entity/Order.java:[79,12] error: cannot find symbol
+[ERROR]   symbol:   variable log
+[ERROR]   location: class Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[87,13] error: cannot find symbol
+[ERROR]   symbol:   method setPickupOtp(String)
+[ERROR]   location: variable order of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[91,13] error: cannot find symbol
+[ERROR]   symbol:   method setOtp(String)
+[ERROR]   location: variable order of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[96,35] error: cannot find symbol
+[ERROR]   symbol:   method getId()
+[ERROR]   location: variable savedOrder of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[97,38] error: cannot find symbol
+[ERROR]   symbol:   method getCustomerId()
+[ERROR]   location: variable savedOrder of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[98,40] error: cannot find symbol
+[ERROR]   symbol:   method getRestaurantId()
+[ERROR]   location: variable savedOrder of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[99,39] error: cannot find symbol
+[ERROR]   symbol:   method getTotalAmount()
+[ERROR]   location: variable savedOrder of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[100,39] error: cannot find symbol
+[ERROR]   symbol:   method getDeliveryLat()
+[ERROR]   location: variable savedOrder of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[101,39] error: cannot find symbol
+[ERROR]   symbol:   method getDeliveryLng()
+[ERROR]   location: variable savedOrder of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[102,43] error: cannot find symbol
+[ERROR]   symbol:   method getDeliveryAddress()
+[ERROR]   location: variable savedOrder of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[103,37] error: cannot find symbol
+[ERROR]   symbol:   method getPickupOtp()
+[ERROR]   location: variable savedOrder of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[104,39] error: cannot find symbol
+[ERROR]   symbol:   method getOtp()
+[ERROR]   location: variable savedOrder of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[111,43] error: cannot find symbol
+[ERROR]   symbol:   method getId()
+[ERROR]   location: variable savedOrder of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[117,12] error: cannot find symbol
+[ERROR]   symbol:   variable log
+[ERROR]   location: class OrderSagaOrchestrator
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[117,101] error: cannot find symbol
+[ERROR]   symbol:   method getId()
+[ERROR]   location: variable savedOrder of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[119,12] error: cannot find symbol
+[ERROR]   symbol:   variable log
+[ERROR]   location: class OrderSagaOrchestrator
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[119,88] error: cannot find symbol
+[ERROR]   symbol:   method getId()
+[ERROR]   location: variable savedOrder of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[122,12] error: cannot find symbol
+[ERROR]   symbol:   variable log
+[ERROR]   location: class OrderSagaOrchestrator
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[142,8] error: cannot find symbol
+[ERROR]   symbol:   variable log
+[ERROR]   location: class OrderSagaOrchestrator
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[144,8] error: cannot find symbol
+[ERROR]   symbol:   variable log
+[ERROR]   location: class OrderSagaOrchestrator
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[144,77] error: cannot find symbol
+[ERROR]   symbol:   method getId()
+[ERROR]   location: variable order of type Order
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[154,8] error: cannot find symbol
+[ERROR]   symbol:   variable log
+[ERROR]   location: class OrderSagaOrchestrator
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[161,16] error: cannot find symbol
+[ERROR]   symbol:   variable log
+[ERROR]   location: class OrderSagaOrchestrator
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[176,16] error: cannot find symbol
+[ERROR]   symbol:   variable log
+[ERROR]   location: class OrderSagaOrchestrator
+[ERROR] /Users/parthureddy/Documents/Food Delivery.nosync/CustomerApplication/src/main/java/com/fooddelivery/order/service/OrderSagaOrchestrator.java:[184,16] error: cannot find symbol
+[ERROR]   symbol:   variable log
+[ERROR]   location: class OrderSagaOrchestrator
+[ERROR] -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException

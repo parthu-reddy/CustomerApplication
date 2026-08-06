@@ -18,11 +18,13 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @RequestMapping("/api/v1/delivery/orders")
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('DELIVERY')")
+@Slf4j
 public class DriverOrderController {
 
     private final IOrderRepository orderRepository;

@@ -17,11 +17,13 @@ import java.util.stream.Collectors;
 
 import org.springframework.security.access.prepost.PreAuthorize;
 import jakarta.validation.Valid;
+import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @RequestMapping("/api/v1/customers/{customerId}/addresses")
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('CUSTOMER') and #customerId.toString() == authentication.principal")
+@Slf4j
 public class CustomerAddressController {
 
     private final CustomerAddressRepository addressRepository;

@@ -16,12 +16,13 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.security.access.prepost.PreAuthorize;
+import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @RequestMapping("/api/v1/restaurants")
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('CUSTOMER')")
-@lombok.extern.slf4j.Slf4j
+@Slf4j
 public class CustomerRestaurantController {
 
     private final RestaurantClient restaurantClient;

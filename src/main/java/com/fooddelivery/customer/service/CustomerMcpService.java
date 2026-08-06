@@ -9,8 +9,10 @@ import java.security.Principal;
 import java.lang.reflect.Proxy;
 import java.util.UUID;
 import java.util.List;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
+@Slf4j
 public class CustomerMcpService {
 
     private final CustomerAddressController addressController;

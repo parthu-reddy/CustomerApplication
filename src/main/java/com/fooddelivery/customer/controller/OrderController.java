@@ -21,11 +21,13 @@ import java.math.BigDecimal;
 
 import org.springframework.security.access.prepost.PreAuthorize;
 import jakarta.validation.Valid;
+import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @RequestMapping("/api/v1/orders")
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('CUSTOMER')")
+@Slf4j
 public class OrderController {
 
     private final CustomerOrderService customerOrderService;

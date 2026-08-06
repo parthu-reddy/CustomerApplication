@@ -20,10 +20,12 @@ import com.fooddelivery.customer.client.RestaurantClient;
 import com.fooddelivery.order.service.state.OrderActionService;
 import com.fooddelivery.customer.dto.PartialRefundRequest;
 import org.springframework.web.bind.annotation.RequestBody;
+import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @RequestMapping("/api/v1/internal/admin/orders")
 @RequiredArgsConstructor
+@Slf4j
 public class AdminOrderController {
 
     private final IOrderRepository orderRepository;

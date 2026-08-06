@@ -15,10 +15,12 @@ import java.util.stream.Collectors;
 import com.fooddelivery.customer.repository.ICustomerRepository;
 import com.fooddelivery.customer.entity.Customer;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @RequestMapping("/api/v1/internal/admin/customers")
 @RequiredArgsConstructor
+@Slf4j
 public class AdminCustomerController {
 
     private final CustomerAddressRepository addressRepository;

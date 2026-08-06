@@ -13,11 +13,13 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.security.access.prepost.PreAuthorize;
+import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @RequestMapping("/api/v1/places")
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('CUSTOMER')")
+@Slf4j
 public class PlacesController {
 
     private final PlacesService placesService;
