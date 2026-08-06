@@ -15,6 +15,8 @@ public interface IOrderRepository extends JpaRepository<Order, UUID> {
     List<Order> findByStatusAndUpdatedAtBefore(com.fooddelivery.common.enums.OrderStatus status, LocalDateTime time);
     Page<Order> findByStatusAndUpdatedAtBefore(com.fooddelivery.common.enums.OrderStatus status, LocalDateTime time, Pageable pageable);
     
+    List<Order> findByStatusAndCreatedAtBefore(com.fooddelivery.common.enums.OrderStatus status, LocalDateTime time);
+    
     @EntityGraph(attributePaths = {"orderItems"})
     List<Order> findByCustomerId(UUID customerId);
     

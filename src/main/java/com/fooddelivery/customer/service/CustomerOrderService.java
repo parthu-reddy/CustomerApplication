@@ -186,7 +186,7 @@ public class CustomerOrderService {
                     org.springframework.web.context.request.RequestContextHolder.resetRequestAttributes();
                     org.springframework.security.core.context.SecurityContextHolder.clearContext();
                 }
-            }, executorService);
+            }, executorService).orTimeout(3, java.util.concurrent.TimeUnit.SECONDS);
 
             // 2. Launch Restaurant Fetch Async -> Maps Fetch Async
             // 2. Launch Restaurant Fetch Async
@@ -227,7 +227,7 @@ public class CustomerOrderService {
                     org.springframework.web.context.request.RequestContextHolder.resetRequestAttributes();
                     org.springframework.security.core.context.SecurityContextHolder.clearContext();
                 }
-            }, executorService);
+            }, executorService).orTimeout(3, java.util.concurrent.TimeUnit.SECONDS);
 
             // 3. Launch Maps Fetch Async
             java.util.concurrent.CompletableFuture<Boolean> mapsFuture = restaurantDataFuture.thenApplyAsync(restaurantData -> {
@@ -252,7 +252,7 @@ public class CustomerOrderService {
                     org.springframework.web.context.request.RequestContextHolder.resetRequestAttributes();
                     org.springframework.security.core.context.SecurityContextHolder.clearContext();
                 }
-            }, executorService);
+            }, executorService).orTimeout(3, java.util.concurrent.TimeUnit.SECONDS);
 
             // Wait for all async calls to complete non-blockingly
             return java.util.concurrent.CompletableFuture.allOf(menuFuture, restaurantDataFuture, mapsFuture)
