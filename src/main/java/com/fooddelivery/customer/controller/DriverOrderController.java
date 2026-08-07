@@ -5,28 +5,24 @@ import com.fooddelivery.customer.dto.OrderResponse;
 import com.fooddelivery.customer.dto.OrderItemResponse;
 import com.fooddelivery.order.entity.Order;
 import com.fooddelivery.order.repository.IOrderRepository;
-import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
-import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @RequestMapping("/api/v1/delivery/orders")
-@RequiredArgsConstructor
-@PreAuthorize("hasRole('DELIVERY')")
-@Slf4j
+@PreAuthorize("hasRole(\'DELIVERY\')")
 public class DriverOrderController {
-
+    @java.lang.SuppressWarnings("all")
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(DriverOrderController.class);
     private final IOrderRepository orderRepository;
     private final StringRedisTemplate redisTemplate;
 
@@ -35,20 +31,14 @@ public class DriverOrderController {
     public ResponseEntity<ApiResponse<List<OrderResponse>>> getAvailableOrders(java.security.Principal principal) {
         UUID driverId = UUID.fromString(principal.getName());
         List<OrderResponse> responses = new ArrayList<>();
-        
         // Fast lookup for this driver's ping
         String orderIdStr = redisTemplate.opsForValue().get(com.fooddelivery.common.constants.RedisKeyConstants.PREFIX_DRIVER_PENDING_PING + driverId.toString());
         if (orderIdStr != null) {
             try {
                 UUID orderId = UUID.fromString(orderIdStr);
                 orderRepository.findById(orderId).ifPresent(order -> {
-                    if (order.getDeliveryExecutiveId() == null && 
-                        (order.getStatus() == com.fooddelivery.common.enums.OrderStatus.ACCEPTED || 
-                         order.getStatus() == com.fooddelivery.common.enums.OrderStatus.PREPARING || 
-                         order.getStatus() == com.fooddelivery.common.enums.OrderStatus.READY_FOR_PICKUP)) {
-                        
+                    if (order.getDeliveryExecutiveId() == null && (order.getStatus() == com.fooddelivery.common.enums.OrderStatus.ACCEPTED || order.getStatus() == com.fooddelivery.common.enums.OrderStatus.PREPARING || order.getStatus() == com.fooddelivery.common.enums.OrderStatus.READY_FOR_PICKUP)) {
                         OrderResponse response = mapToResponse(order);
-                        
                         // Set expiration time
                         Double score = redisTemplate.opsForZSet().score("order:ping:timeouts", orderIdStr);
                         if (score != null) {
@@ -56,15 +46,13 @@ public class DriverOrderController {
                             long remaining = Math.max(0, (score.longValue() - System.currentTimeMillis()) / 1000);
                             response.setRemainingPingSeconds(remaining);
                         }
-                        
                         responses.add(response);
                     }
                 });
             } catch (Exception e) {
-                // ignore invalid uuid
             }
         }
-        
+        // ignore invalid uuid
         return ResponseEntity.ok(ApiResponse.success(responses, "Available orders retrieved"));
     }
 
@@ -72,37 +60,20 @@ public class DriverOrderController {
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public ResponseEntity<ApiResponse<List<OrderResponse>>> getActiveOrders(java.security.Principal principal) {
         UUID driverId = UUID.fromString(principal.getName());
-        List<Order> activeOrders = orderRepository.findByDeliveryExecutiveId(driverId).stream()
-                .filter(o -> (o.getStatus() == com.fooddelivery.common.enums.OrderStatus.ACCEPTED || 
-                             o.getStatus() == com.fooddelivery.common.enums.OrderStatus.PREPARING || 
-                             o.getStatus() == com.fooddelivery.common.enums.OrderStatus.READY_FOR_PICKUP || 
-                             o.getStatus() == com.fooddelivery.common.enums.OrderStatus.HANDED_OVER) &&
-                             o.getDeliveryStatus() != com.fooddelivery.common.enums.DeliveryStatus.DELIVERED &&
-                             o.getDeliveryStatus() != com.fooddelivery.common.enums.DeliveryStatus.FAILED &&
-                             o.getDeliveryStatus() != com.fooddelivery.common.enums.DeliveryStatus.CANCELLED)
-                .collect(Collectors.toList());
-        
+        List<Order> activeOrders = orderRepository.findByDeliveryExecutiveId(driverId).stream().filter(o -> (o.getStatus() == com.fooddelivery.common.enums.OrderStatus.ACCEPTED || o.getStatus() == com.fooddelivery.common.enums.OrderStatus.PREPARING || o.getStatus() == com.fooddelivery.common.enums.OrderStatus.READY_FOR_PICKUP || o.getStatus() == com.fooddelivery.common.enums.OrderStatus.HANDED_OVER) && o.getDeliveryStatus() != com.fooddelivery.common.enums.DeliveryStatus.DELIVERED && o.getDeliveryStatus() != com.fooddelivery.common.enums.DeliveryStatus.FAILED && o.getDeliveryStatus() != com.fooddelivery.common.enums.DeliveryStatus.CANCELLED).collect(Collectors.toList());
         List<OrderResponse> responses = activeOrders.stream().map(this::mapToResponse).collect(Collectors.toList());
         return ResponseEntity.ok(ApiResponse.success(responses, "Active orders retrieved"));
     }
 
     @GetMapping("/history")
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
-    public ResponseEntity<ApiResponse<List<OrderResponse>>> getHistoryOrders(java.security.Principal principal, 
-                                                                             @org.springframework.web.bind.annotation.RequestParam(required = false) String date) {
+    public ResponseEntity<ApiResponse<List<OrderResponse>>> getHistoryOrders(java.security.Principal principal, @org.springframework.web.bind.annotation.RequestParam(required = false) String date) {
         UUID driverId = UUID.fromString(principal.getName());
-        List<Order> terminalOrders = orderRepository.findByDeliveryExecutiveId(driverId).stream()
-                    .filter(o -> o.getDeliveryExecutiveId() != null && o.getDeliveryExecutiveId().equals(driverId) &&
-                            (o.getDeliveryStatus() == com.fooddelivery.common.enums.DeliveryStatus.DELIVERED || 
-                             o.getDeliveryStatus() == com.fooddelivery.common.enums.DeliveryStatus.FAILED ||
-                             o.getDeliveryStatus() == com.fooddelivery.common.enums.DeliveryStatus.CANCELLED))
-                .filter(o -> {
-                    if (date == null || date.isEmpty()) return true;
-                    if (o.getCreatedAt() == null) return true;
-                    return o.getCreatedAt().toLocalDate().toString().equals(date);
-                })
-                .collect(Collectors.toList());
-        
+        List<Order> terminalOrders = orderRepository.findByDeliveryExecutiveId(driverId).stream().filter(o -> o.getDeliveryExecutiveId() != null && o.getDeliveryExecutiveId().equals(driverId) && (o.getDeliveryStatus() == com.fooddelivery.common.enums.DeliveryStatus.DELIVERED || o.getDeliveryStatus() == com.fooddelivery.common.enums.DeliveryStatus.FAILED || o.getDeliveryStatus() == com.fooddelivery.common.enums.DeliveryStatus.CANCELLED)).filter(o -> {
+            if (date == null || date.isEmpty()) return true;
+            if (o.getCreatedAt() == null) return true;
+            return o.getCreatedAt().toLocalDate().toString().equals(date);
+        }).collect(Collectors.toList());
         List<OrderResponse> responses = terminalOrders.stream().map(this::mapToResponse).collect(Collectors.toList());
         return ResponseEntity.ok(ApiResponse.success(responses, "History orders retrieved"));
     }
@@ -110,34 +81,14 @@ public class DriverOrderController {
     private OrderResponse mapToResponse(Order order) {
         List<OrderItemResponse> itemResponses = new java.util.ArrayList<>();
         if (order.getOrderItems() != null) {
-            itemResponses = order.getOrderItems().stream()
-                    .map(item -> OrderItemResponse.builder()
-                            .id(item.getId())
-                            .menuItemId(item.getMenuItemId())
-                            .quantity(item.getQuantity())
-                            .price(item.getPrice())
-                            .build())
-                    .collect(Collectors.toList());
+            itemResponses = order.getOrderItems().stream().map(item -> OrderItemResponse.builder().id(item.getId()).menuItemId(item.getMenuItemId()).quantity(item.getQuantity()).price(item.getPrice()).build()).collect(Collectors.toList());
         }
+        return OrderResponse.builder().id(order.getId()).customerId(order.getCustomerId()).restaurantId(order.getRestaurantId()).restaurantName(order.getRestaurantName()).status(order.getStatus()).deliveryStatus(order.getDeliveryStatus()).totalAmount(order.getTotalAmount()).deliveryAddress(order.getDeliveryAddress()).deliveryLat(order.getDeliveryLat()).deliveryLng(order.getDeliveryLng()).items(itemResponses).createdAt(order.getCreatedAt()).updatedAt(order.getUpdatedAt()).riderId(order.getDeliveryExecutiveId()).otp(order.getOtp()).pickupOtp(order.getPickupOtp()).estimatedCompletionTime(order.getEstimatedCompletionTime()).build();
+    }
 
-        return OrderResponse.builder()
-                .id(order.getId())
-                .customerId(order.getCustomerId())
-                .restaurantId(order.getRestaurantId())
-                .restaurantName(order.getRestaurantName())
-                .status(order.getStatus())
-                .deliveryStatus(order.getDeliveryStatus())
-                .totalAmount(order.getTotalAmount())
-                .deliveryAddress(order.getDeliveryAddress())
-                .deliveryLat(order.getDeliveryLat())
-                .deliveryLng(order.getDeliveryLng())
-                .items(itemResponses)
-                .createdAt(order.getCreatedAt())
-                .updatedAt(order.getUpdatedAt())
-                .riderId(order.getDeliveryExecutiveId())
-                .otp(order.getOtp())
-                .pickupOtp(order.getPickupOtp())
-                .estimatedCompletionTime(order.getEstimatedCompletionTime())
-                .build();
+    @java.lang.SuppressWarnings("all")
+    public DriverOrderController(final IOrderRepository orderRepository, final StringRedisTemplate redisTemplate) {
+        this.orderRepository = orderRepository;
+        this.redisTemplate = redisTemplate;
     }
 }

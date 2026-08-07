@@ -9,12 +9,11 @@ import java.security.Principal;
 import java.lang.reflect.Proxy;
 import java.util.UUID;
 import java.util.List;
-import lombok.extern.slf4j.Slf4j;
 
 @Service
-@Slf4j
 public class CustomerMcpService {
-
+    @java.lang.SuppressWarnings("all")
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(CustomerMcpService.class);
     private final CustomerAddressController addressController;
     private final CustomerRestaurantController restaurantController;
     private final OrderController orderController;
@@ -25,15 +24,7 @@ public class CustomerMcpService {
     private final DriverOrderController driverOrderController;
     private final ObjectMapper objectMapper;
 
-    public CustomerMcpService(CustomerAddressController addressController,
-                              CustomerRestaurantController restaurantController,
-                              OrderController orderController,
-                              PlacesController placesController,
-                              CustomerTrackingController trackingController,
-                              AdminOrderController adminOrderController,
-                              AdminCustomerController adminCustomerController,
-                              DriverOrderController driverOrderController,
-                              ObjectMapper objectMapper) {
+    public CustomerMcpService(CustomerAddressController addressController, CustomerRestaurantController restaurantController, OrderController orderController, PlacesController placesController, CustomerTrackingController trackingController, AdminOrderController adminOrderController, AdminCustomerController adminCustomerController, DriverOrderController driverOrderController, ObjectMapper objectMapper) {
         this.addressController = addressController;
         this.restaurantController = restaurantController;
         this.orderController = orderController;
@@ -133,7 +124,6 @@ public class CustomerMcpService {
     }
 
     // AdminOrderController
-
     @Tool(description = "Admin: Get active orders for user. Provide userId.")
     public String getActiveOrdersForUser(String userId) {
         try {
@@ -181,7 +171,6 @@ public class CustomerMcpService {
     }
 
     // AdminCustomerController
-
     @Tool(description = "Admin: Get all customer addresses.")
     public String getAllCustomerAddresses() {
         try {
@@ -192,7 +181,6 @@ public class CustomerMcpService {
     }
 
     // DriverOrderController
-
     @Tool(description = "Driver: Get available orders. Provide driverId.")
     public String getAvailableOrders(String driverId) {
         try {

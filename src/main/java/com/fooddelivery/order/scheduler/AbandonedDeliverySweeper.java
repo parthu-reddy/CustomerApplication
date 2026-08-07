@@ -4,20 +4,16 @@ import com.fooddelivery.common.enums.OrderStatus;
 import com.fooddelivery.order.entity.Order;
 import com.fooddelivery.order.repository.IOrderRepository;
 import com.fooddelivery.order.service.state.OrderActionService;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
-
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Component
-@Slf4j
-@RequiredArgsConstructor
 public class AbandonedDeliverySweeper {
-
+    @java.lang.SuppressWarnings("all")
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AbandonedDeliverySweeper.class);
     private final IOrderRepository orderRepository;
     private final OrderActionService orderActionService;
     private final TransactionTemplate transactionTemplate;
@@ -29,16 +25,13 @@ public class AbandonedDeliverySweeper {
         if (!Boolean.TRUE.equals(locked)) {
             return;
         }
-        
         LocalDateTime threshold = LocalDateTime.now().minusHours(2);
-        
         sweepByStatus(OrderStatus.HANDED_OVER, threshold);
     }
-    
+
     private void sweepByStatus(OrderStatus status, LocalDateTime threshold) {
         org.springframework.data.domain.Page<Order> page = orderRepository.findByStatusAndUpdatedAtBefore(status, threshold, org.springframework.data.domain.PageRequest.of(0, 500));
         List<Order> abandonedOrders = page.getContent();
-        
         if (!abandonedOrders.isEmpty()) {
             log.info("Found {} abandoned {} orders. Marking them as DELIVERY_FAILED...", abandonedOrders.size(), status);
             for (Order order : abandonedOrders) {
@@ -46,7 +39,7 @@ public class AbandonedDeliverySweeper {
             }
         }
     }
-    
+
     private void failAbandonedOrder(Order order) {
         try {
             transactionTemplate.execute(status -> {
@@ -54,7 +47,6 @@ public class AbandonedDeliverySweeper {
                 if (currentOrder != null && currentOrder.getStatus() == OrderStatus.HANDED_OVER) {
                     currentOrder.setDeliveryStatus(com.fooddelivery.common.enums.DeliveryStatus.FAILED);
                     orderRepository.save(currentOrder);
-                    
                     orderActionService.emitOrderDeliveryFailedEvent(currentOrder.getId(), "Driver abandoned the delivery (no updates for 2 hours)");
                     log.info("Marked abandoned order {} as DELIVERY_FAILED", currentOrder.getId());
                 }
@@ -63,5 +55,13 @@ public class AbandonedDeliverySweeper {
         } catch (Exception e) {
             log.error("Failed to mark abandoned order {} as DELIVERY_FAILED", order.getId(), e);
         }
+    }
+
+    @java.lang.SuppressWarnings("all")
+    public AbandonedDeliverySweeper(final IOrderRepository orderRepository, final OrderActionService orderActionService, final TransactionTemplate transactionTemplate, final org.springframework.data.redis.core.StringRedisTemplate redisTemplate) {
+        this.orderRepository = orderRepository;
+        this.orderActionService = orderActionService;
+        this.transactionTemplate = transactionTemplate;
+        this.redisTemplate = redisTemplate;
     }
 }

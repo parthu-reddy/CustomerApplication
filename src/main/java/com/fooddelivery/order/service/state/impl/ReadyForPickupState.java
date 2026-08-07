@@ -6,15 +6,14 @@ import com.fooddelivery.order.entity.Order;
 import com.fooddelivery.order.service.state.OrderContext;
 import com.fooddelivery.order.service.state.OrderState;
 import com.fooddelivery.common.enums.AccountType;
-
 import com.fooddelivery.common.constants.AppConstants;
 import com.fooddelivery.order.service.state.OrderActionService;
 import java.math.BigDecimal;
 import java.util.UUID;
-import lombok.extern.slf4j.Slf4j;
 
-@Slf4j
 public class ReadyForPickupState implements OrderState {
+    @java.lang.SuppressWarnings("all")
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ReadyForPickupState.class);
 
     @Override
     public void handleDriverAssigned(OrderContext ctx) {
@@ -63,7 +62,6 @@ public class ReadyForPickupState implements OrderState {
         Order order = ctx.getOrder();
         order.setDeliveryStatus(com.fooddelivery.common.enums.DeliveryStatus.FAILED);
         ctx.getActionService().saveOrder(order);
-        
         ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.DISPATCH_FAILED.name());
     }
 
@@ -73,7 +71,6 @@ public class ReadyForPickupState implements OrderState {
         order.setStatus(OrderStatus.CANCELLED);
         order.setCancellationReason(ctx.getEventPayload().path("reason").asText("Cancelled by Admin"));
         ctx.getActionService().saveOrder(order);
-        
         ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_CANCELLED_BY_ADMIN.name());
         ctx.setRequiresRefund(true);
     }
@@ -91,7 +88,6 @@ public class ReadyForPickupState implements OrderState {
         Order order = ctx.getOrder();
         order.setDeliveryStatus(com.fooddelivery.common.enums.DeliveryStatus.FAILED);
         ctx.getActionService().saveOrder(order);
-        
         ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.DELIVERY_FAILED.name());
         ctx.setRequiresRefund(true);
     }
@@ -101,26 +97,22 @@ public class ReadyForPickupState implements OrderState {
         Order order = ctx.getOrder();
         order.setDeliveryStatus(com.fooddelivery.common.enums.DeliveryStatus.DELIVERED);
         ctx.getActionService().saveOrder(order);
-        
         // Ledger accounting
         if (order.getCharges() != null) {
             for (com.fooddelivery.order.entity.OrderCharge charge : order.getCharges()) {
                 UUID fromId = getAccountId(charge.getPayerType(), order, false);
                 AccountType fromType = getAccountType(charge.getPayerType());
-                
                 UUID toId = getAccountId(charge.getPayeeType(), order, true);
                 AccountType toType = getAccountType(charge.getPayeeType());
-                
                 if (fromId != null && toId != null) {
                     UUID transferId = UUID.nameUUIDFromBytes(("CHARGE_" + charge.getId()).getBytes());
                     ctx.getActionService().recordLedgerTransaction(transferId, fromId, fromType, toId, toType, charge.getAmount(), charge.getCategory());
                 }
             }
         }
-        
         ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_DELIVERED.name());
     }
-    
+
     private UUID getAccountId(com.fooddelivery.order.enums.ChargeEntityType type, Order order, boolean isPayee) {
         if (type == com.fooddelivery.order.enums.ChargeEntityType.CUSTOMER) return OrderActionService.PLATFORM_ACCOUNT_ID;
         if (type == com.fooddelivery.order.enums.ChargeEntityType.PLATFORM) return isPayee ? OrderActionService.PLATFORM_PROFIT_ACCOUNT_ID : OrderActionService.PLATFORM_ACCOUNT_ID;
@@ -128,7 +120,7 @@ public class ReadyForPickupState implements OrderState {
         if (type == com.fooddelivery.order.enums.ChargeEntityType.DRIVER) return order.getDeliveryExecutiveId();
         return null;
     }
-    
+
     private AccountType getAccountType(com.fooddelivery.order.enums.ChargeEntityType type) {
         if (type == com.fooddelivery.order.enums.ChargeEntityType.CUSTOMER) return AccountType.PLATFORM;
         if (type == com.fooddelivery.order.enums.ChargeEntityType.PLATFORM) return AccountType.PLATFORM;
@@ -143,7 +135,6 @@ public class ReadyForPickupState implements OrderState {
         order.setStatus(OrderStatus.CANCELLED_BY_RESTAURANT);
         order.setCancellationReason(ctx.getEventPayload().path("reason").asText("Restaurant could not fulfill the order"));
         ctx.getActionService().saveOrder(order);
-        
         ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_CANCELLED_BY_RESTAURANT.name());
         ctx.setRequiresRefund(true);
     }

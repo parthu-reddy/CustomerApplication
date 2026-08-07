@@ -5,22 +5,18 @@ import com.fooddelivery.order.entity.Order;
 import com.fooddelivery.order.repository.IOrderRepository;
 import com.fooddelivery.order.service.OrderSagaOrchestrator;
 import com.fooddelivery.order.service.state.OrderActionService;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import java.time.Duration;
 import org.springframework.transaction.support.TransactionTemplate;
-
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Component
-@Slf4j
-@RequiredArgsConstructor
 public class RestaurantTimeoutSweeper {
-
+    @java.lang.SuppressWarnings("all")
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(RestaurantTimeoutSweeper.class);
     private final IOrderRepository orderRepository;
     private final OrderActionService orderActionService;
     private final OrderSagaOrchestrator orderSagaOrchestrator;
@@ -33,18 +29,15 @@ public class RestaurantTimeoutSweeper {
         if (!Boolean.TRUE.equals(locked)) {
             return;
         }
-
         LocalDateTime threshold = LocalDateTime.now().minusMinutes(10);
         org.springframework.data.domain.Page<Order> staleOrdersPage = orderRepository.findByStatusAndUpdatedAtBefore(OrderStatus.PENDING_ACCEPTANCE, threshold, org.springframework.data.domain.PageRequest.of(0, 500));
         List<Order> staleOrders = staleOrdersPage.getContent();
-        
         if (!staleOrders.isEmpty()) {
             log.info("Found {} stale PAID orders (Restaurant Timeout). Cancelling them...", staleOrders.size());
             for (Order order : staleOrders) {
                 cancelStaleOrder(order, "Auto-cancelled: Restaurant did not respond within 10 minutes");
             }
         }
-        
         org.springframework.data.domain.Page<Order> staleDelayApprovalsPage = orderRepository.findByStatusAndUpdatedAtBefore(OrderStatus.AWAITING_DELAY_APPROVAL, threshold, org.springframework.data.domain.PageRequest.of(0, 500));
         List<Order> staleDelayApprovals = staleDelayApprovalsPage.getContent();
         if (!staleDelayApprovals.isEmpty()) {
@@ -54,7 +47,7 @@ public class RestaurantTimeoutSweeper {
             }
         }
     }
-    
+
     private void cancelStaleOrder(Order order, String reason) {
         try {
             boolean refundNeeded = Boolean.TRUE.equals(transactionTemplate.execute(status -> {
@@ -64,14 +57,12 @@ public class RestaurantTimeoutSweeper {
                     currentOrder.setStatus(OrderStatus.CANCELLED_BY_RESTAURANT); // Use restaurant cancellation so refund triggers
                     currentOrder.setCancellationReason(reason);
                     orderRepository.save(currentOrder);
-                    
                     orderActionService.emitOrderCancelledByRestaurantEvent(currentOrder.getId(), currentOrder.getCancellationReason());
                     log.info("Auto-cancelled timeout order {}", currentOrder.getId());
                     return true;
                 }
                 return false;
             }));
-
             if (refundNeeded) {
                 // Process refund outside the transaction lock to avoid hanging on HTTP calls
                 orderSagaOrchestrator.processRefund(order);
@@ -79,5 +70,14 @@ public class RestaurantTimeoutSweeper {
         } catch (Exception e) {
             log.error("Failed to auto-cancel timeout order {}", order.getId(), e);
         }
+    }
+
+    @java.lang.SuppressWarnings("all")
+    public RestaurantTimeoutSweeper(final IOrderRepository orderRepository, final OrderActionService orderActionService, final OrderSagaOrchestrator orderSagaOrchestrator, final TransactionTemplate transactionTemplate, final StringRedisTemplate redisTemplate) {
+        this.orderRepository = orderRepository;
+        this.orderActionService = orderActionService;
+        this.orderSagaOrchestrator = orderSagaOrchestrator;
+        this.transactionTemplate = transactionTemplate;
+        this.redisTemplate = redisTemplate;
     }
 }

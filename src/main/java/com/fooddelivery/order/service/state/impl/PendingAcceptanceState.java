@@ -6,27 +6,24 @@ import com.fooddelivery.common.enums.OrderStatus;
 import com.fooddelivery.order.entity.Order;
 import com.fooddelivery.order.service.state.OrderContext;
 import com.fooddelivery.order.service.state.OrderState;
-import lombok.extern.slf4j.Slf4j;
 
-@Slf4j
 public class PendingAcceptanceState implements OrderState {
+    @java.lang.SuppressWarnings("all")
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(PendingAcceptanceState.class);
 
     @Override
     public void handleOrderAccepted(OrderContext ctx) {
         log.info("Order {} accepted by restaurant", ctx.getOrder().getId());
         Order order = ctx.getOrder();
         order.setStatus(OrderStatus.ACCEPTED);
-
         JsonNode prepNode = ctx.getEventPayload().path("estimatedPrepTimeMinutes");
         if (!prepNode.isMissingNode() && !prepNode.isNull()) {
             order.setEstimatedPrepTimeMinutes(prepNode.asInt());
         }
-        
         JsonNode completionNode = ctx.getEventPayload().path("estimatedCompletionTime");
         if (!completionNode.isMissingNode() && !completionNode.isNull()) {
             order.setEstimatedCompletionTime(completionNode.asLong());
         }
-        
         ctx.getActionService().saveOrder(order);
     }
 
@@ -44,7 +41,6 @@ public class PendingAcceptanceState implements OrderState {
         order.setStatus(OrderStatus.CANCELLED_BY_RESTAURANT);
         order.setCancellationReason(ctx.getEventPayload().path("reason").asText("Restaurant could not fulfill the order"));
         ctx.getActionService().saveOrder(order);
-        
         ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_CANCELLED_BY_RESTAURANT.name());
         ctx.setRequiresRefund(true);
     }
@@ -55,7 +51,6 @@ public class PendingAcceptanceState implements OrderState {
         order.setStatus(OrderStatus.CANCELLED);
         order.setCancellationReason(reason != null ? reason : "Cancelled by customer");
         ctx.getActionService().saveOrder(order);
-
         // Notify restaurant to cancel (since it was paid)
         ctx.getActionService().emitOrderCancelledByCustomerEvent(order.getId());
         ctx.setRequiresRefund(true); // Full refund when customer cancels before restaurant accepts
@@ -67,7 +62,6 @@ public class PendingAcceptanceState implements OrderState {
         order.setStatus(OrderStatus.CANCELLED);
         order.setCancellationReason(ctx.getEventPayload().path("reason").asText("Cancelled by Admin"));
         ctx.getActionService().saveOrder(order);
-        
         ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_CANCELLED_BY_ADMIN.name());
         ctx.setRequiresRefund(true);
     }

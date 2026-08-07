@@ -4,20 +4,16 @@ import com.fooddelivery.common.enums.OrderStatus;
 import com.fooddelivery.order.entity.Order;
 import com.fooddelivery.order.repository.IOrderRepository;
 import com.fooddelivery.order.service.state.OrderActionService;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
-
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Component
-@Slf4j
-@RequiredArgsConstructor
 public class StaleOrderSweeper {
-
+    @java.lang.SuppressWarnings("all")
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(StaleOrderSweeper.class);
     private final IOrderRepository orderRepository;
     private final OrderActionService orderActionService;
     private final TransactionTemplate transactionTemplate;
@@ -29,11 +25,9 @@ public class StaleOrderSweeper {
         if (!Boolean.TRUE.equals(locked)) {
             return;
         }
-        
         LocalDateTime threshold = LocalDateTime.now().minusMinutes(15);
         org.springframework.data.domain.Page<Order> staleOrdersPage = orderRepository.findByStatusAndUpdatedAtBefore(OrderStatus.CREATED, threshold, org.springframework.data.domain.PageRequest.of(0, 500));
         List<Order> staleOrders = staleOrdersPage.getContent();
-        
         if (!staleOrders.isEmpty()) {
             log.info("Found {} stale CREATED orders. Cancelling them...", staleOrders.size());
             for (Order order : staleOrders) {
@@ -41,7 +35,7 @@ public class StaleOrderSweeper {
             }
         }
     }
-    
+
     private void cancelStaleOrder(Order order) {
         try {
             transactionTemplate.execute(status -> {
@@ -51,7 +45,6 @@ public class StaleOrderSweeper {
                     currentOrder.setStatus(OrderStatus.CANCELLED);
                     currentOrder.setCancellationReason("Payment timeout after 15 minutes");
                     orderRepository.save(currentOrder);
-                    
                     orderActionService.emitOrderCancelledEvent(currentOrder.getId(), "Customer failed to complete payment within 15 minutes");
                     log.info("Auto-cancelled stale order {}", currentOrder.getId());
                 }
@@ -60,5 +53,13 @@ public class StaleOrderSweeper {
         } catch (Exception e) {
             log.error("Failed to cancel stale order {}", order.getId(), e);
         }
+    }
+
+    @java.lang.SuppressWarnings("all")
+    public StaleOrderSweeper(final IOrderRepository orderRepository, final OrderActionService orderActionService, final TransactionTemplate transactionTemplate, final org.springframework.data.redis.core.StringRedisTemplate redisTemplate) {
+        this.orderRepository = orderRepository;
+        this.orderActionService = orderActionService;
+        this.transactionTemplate = transactionTemplate;
+        this.redisTemplate = redisTemplate;
     }
 }

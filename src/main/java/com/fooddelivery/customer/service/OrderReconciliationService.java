@@ -4,21 +4,17 @@ import com.fooddelivery.common.enums.OrderStatus;
 import com.fooddelivery.order.entity.Order;
 import com.fooddelivery.order.repository.IOrderRepository;
 import com.fooddelivery.order.service.OrderSagaOrchestrator;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
-
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
 @Service
-@RequiredArgsConstructor
-@Slf4j
 public class OrderReconciliationService {
-
+    @java.lang.SuppressWarnings("all")
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(OrderReconciliationService.class);
     private final IOrderRepository orderRepository;
     private final OrderSagaOrchestrator orderSagaOrchestrator;
     private final TransactionTemplate transactionTemplate;
@@ -34,16 +30,12 @@ public class OrderReconciliationService {
     public void cancelDanglingInitiatedOrders() {
         log.info("RECONCILIATION: Starting sweep for dangling CREATED orders...");
         LocalDateTime threshold = LocalDateTime.now().minusMinutes(15);
-        
         List<Order> danglingOrders = orderRepository.findByStatusAndCreatedAtBefore(OrderStatus.CREATED, threshold);
-        
         if (danglingOrders.isEmpty()) {
             log.info("RECONCILIATION: No dangling CREATED orders found.");
             return;
         }
-
         log.warn("RECONCILIATION: Found {} dangling CREATED orders. Cancelling them...", danglingOrders.size());
-        
         for (Order order : danglingOrders) {
             try {
                 transactionTemplate.executeWithoutResult(status -> {
@@ -53,16 +45,8 @@ public class OrderReconciliationService {
                         freshOrder.setStatus(OrderStatus.CANCELLED);
                         freshOrder.setCancellationReason("System reconciliation: Payment intent timed out or abandoned");
                         orderRepository.save(freshOrder);
-
                         // Trigger compensation event
-                        com.fooddelivery.common.outbox.entity.OutboxEventEntity cancelEvent = com.fooddelivery.common.outbox.entity.OutboxEventEntity.builder()
-                                .id(UUID.randomUUID())
-                                .aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER)
-                                .aggregateId(freshOrder.getId().toString())
-                                .eventType(com.fooddelivery.common.constants.EventType.ORDER_CANCELLED)
-                                .payload(String.format("{\"eventType\":\"ORDER_CANCELLED\", \"orderId\":\"%s\", \"reason\":\"System reconciliation: Payment intent timed out\"}", freshOrder.getId()))
-                                .createdAt(java.time.LocalDateTime.now())
-                                .build();
+                        com.fooddelivery.common.outbox.entity.OutboxEventEntity cancelEvent = com.fooddelivery.common.outbox.entity.OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER).aggregateId(freshOrder.getId().toString()).eventType(com.fooddelivery.common.constants.EventType.ORDER_CANCELLED).payload(String.format("{\"eventType\":\"ORDER_CANCELLED\", \"orderId\":\"%s\", \"reason\":\"System reconciliation: Payment intent timed out\"}", freshOrder.getId())).createdAt(java.time.LocalDateTime.now()).build();
                         outboxEventRepository.save(cancelEvent);
                         log.info("RECONCILIATION: Cancelled order {} successfully.", freshOrder.getId());
                     }
@@ -72,5 +56,13 @@ public class OrderReconciliationService {
             }
         }
         log.info("RECONCILIATION: Sweep completed.");
+    }
+
+    @java.lang.SuppressWarnings("all")
+    public OrderReconciliationService(final IOrderRepository orderRepository, final OrderSagaOrchestrator orderSagaOrchestrator, final TransactionTemplate transactionTemplate, final com.fooddelivery.common.outbox.repository.OutboxEventRepository outboxEventRepository) {
+        this.orderRepository = orderRepository;
+        this.orderSagaOrchestrator = orderSagaOrchestrator;
+        this.transactionTemplate = transactionTemplate;
+        this.outboxEventRepository = outboxEventRepository;
     }
 }
