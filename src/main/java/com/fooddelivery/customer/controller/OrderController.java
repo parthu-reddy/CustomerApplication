@@ -60,59 +60,49 @@ public class OrderController {
 
     @org.springframework.web.bind.annotation.GetMapping("/active")
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
-    public java.util.concurrent.CompletableFuture<ResponseEntity<ApiResponse<org.springframework.data.domain.Page<OrderResponse>>>> getActiveOrders(java.security.Principal principal, @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") int page, @org.springframework.web.bind.annotation.RequestParam(defaultValue = "10") int size) {
-        return java.util.concurrent.CompletableFuture.supplyAsync(() -> {
-            java.util.UUID customerId = java.util.UUID.fromString(principal.getName());
-            org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
-            org.springframework.data.domain.Page<Order> orders = customerOrderService.getActiveOrdersPaginated(customerId, pageable);
-            org.springframework.data.domain.Page<OrderResponse> responses = orders.map(this::mapToResponse);
-            return ResponseEntity.ok(ApiResponse.success(responses, "Active orders retrieved"));
-        });
+    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<OrderResponse>>> getActiveOrders(java.security.Principal principal, @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") int page, @org.springframework.web.bind.annotation.RequestParam(defaultValue = "10") int size) {
+        java.util.UUID customerId = java.util.UUID.fromString(principal.getName());
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
+        org.springframework.data.domain.Page<Order> orders = customerOrderService.getActiveOrdersPaginated(customerId, pageable);
+        org.springframework.data.domain.Page<OrderResponse> responses = orders.map(this::mapToResponse);
+        return ResponseEntity.ok(ApiResponse.success(responses, "Active orders retrieved"));
     }
 
     @org.springframework.web.bind.annotation.GetMapping("/refunds")
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
-    public java.util.concurrent.CompletableFuture<ResponseEntity<ApiResponse<org.springframework.data.domain.Page<OrderResponse>>>> getRefundOrders(java.security.Principal principal, @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") int page, @org.springframework.web.bind.annotation.RequestParam(defaultValue = "10") int size) {
-        return java.util.concurrent.CompletableFuture.supplyAsync(() -> {
-            java.util.UUID customerId = java.util.UUID.fromString(principal.getName());
-            org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
-            org.springframework.data.domain.Page<Order> orders = customerOrderService.getRefundOrdersPaginated(customerId, pageable);
-            org.springframework.data.domain.Page<OrderResponse> responses = orders.map(this::mapToResponse);
-            return ResponseEntity.ok(ApiResponse.success(responses, "Refund orders retrieved"));
-        });
+    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<OrderResponse>>> getRefundOrders(java.security.Principal principal, @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") int page, @org.springframework.web.bind.annotation.RequestParam(defaultValue = "10") int size) {
+        java.util.UUID customerId = java.util.UUID.fromString(principal.getName());
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
+        org.springframework.data.domain.Page<Order> orders = customerOrderService.getRefundOrdersPaginated(customerId, pageable);
+        org.springframework.data.domain.Page<OrderResponse> responses = orders.map(this::mapToResponse);
+        return ResponseEntity.ok(ApiResponse.success(responses, "Refund orders retrieved"));
     }
 
     @org.springframework.web.bind.annotation.GetMapping("/history")
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
-    public java.util.concurrent.CompletableFuture<ResponseEntity<ApiResponse<org.springframework.data.domain.Page<OrderResponse>>>> getOrderHistory(java.security.Principal principal, @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") int page, @org.springframework.web.bind.annotation.RequestParam(defaultValue = "10") int size) {
-        return java.util.concurrent.CompletableFuture.supplyAsync(() -> {
-            java.util.UUID customerId = java.util.UUID.fromString(principal.getName());
-            org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
-            org.springframework.data.domain.Page<Order> orders = customerOrderService.getOrderHistoryPaginated(customerId, pageable);
-            org.springframework.data.domain.Page<OrderResponse> responses = orders.map(this::mapToResponse);
-            return ResponseEntity.ok(ApiResponse.success(responses, "Order history retrieved"));
-        });
+    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<OrderResponse>>> getOrderHistory(java.security.Principal principal, @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") int page, @org.springframework.web.bind.annotation.RequestParam(defaultValue = "10") int size) {
+        java.util.UUID customerId = java.util.UUID.fromString(principal.getName());
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
+        org.springframework.data.domain.Page<Order> orders = customerOrderService.getOrderHistoryPaginated(customerId, pageable);
+        org.springframework.data.domain.Page<OrderResponse> responses = orders.map(this::mapToResponse);
+        return ResponseEntity.ok(ApiResponse.success(responses, "Order history retrieved"));
     }
 
     @org.springframework.web.bind.annotation.GetMapping("/batch")
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
-    public java.util.concurrent.CompletableFuture<ResponseEntity<ApiResponse<List<OrderResponse>>>> getOrdersBatch(java.security.Principal principal, @org.springframework.web.bind.annotation.RequestParam List<java.util.UUID> ids) {
-        return java.util.concurrent.CompletableFuture.supplyAsync(() -> {
-            java.util.UUID customerId = java.util.UUID.fromString(principal.getName());
-            List<Order> orders = customerOrderService.getOrdersByIdsAndCustomer(ids, customerId);
-            List<OrderResponse> responses = orders.stream().map(this::mapToResponse).collect(Collectors.toList());
-            return ResponseEntity.ok(ApiResponse.success(responses, "Batch orders retrieved"));
-        });
+    public ResponseEntity<ApiResponse<List<OrderResponse>>> getOrdersBatch(java.security.Principal principal, @org.springframework.web.bind.annotation.RequestParam List<java.util.UUID> ids) {
+        java.util.UUID customerId = java.util.UUID.fromString(principal.getName());
+        List<Order> orders = customerOrderService.getOrdersByIdsAndCustomer(ids, customerId);
+        List<OrderResponse> responses = orders.stream().map(this::mapToResponse).collect(Collectors.toList());
+        return ResponseEntity.ok(ApiResponse.success(responses, "Batch orders retrieved"));
     }
 
     @org.springframework.web.bind.annotation.GetMapping("/{orderId}")
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
-    public java.util.concurrent.CompletableFuture<ResponseEntity<ApiResponse<OrderResponse>>> getOrder(java.security.Principal principal, @org.springframework.web.bind.annotation.PathVariable java.util.UUID orderId) {
-        return java.util.concurrent.CompletableFuture.supplyAsync(() -> {
-            java.util.UUID customerId = java.util.UUID.fromString(principal.getName());
-            Order order = customerOrderService.getOrderByIdAndCustomer(orderId, customerId);
-            return ResponseEntity.ok(ApiResponse.success(mapToResponse(order), "Order retrieved"));
-        });
+    public ResponseEntity<ApiResponse<OrderResponse>> getOrder(java.security.Principal principal, @org.springframework.web.bind.annotation.PathVariable java.util.UUID orderId) {
+        java.util.UUID customerId = java.util.UUID.fromString(principal.getName());
+        Order order = customerOrderService.getOrderByIdAndCustomer(orderId, customerId);
+        return ResponseEntity.ok(ApiResponse.success(mapToResponse(order), "Order retrieved"));
     }
 
     private OrderResponse mapToResponse(Order order) {

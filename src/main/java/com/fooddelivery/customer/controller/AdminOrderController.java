@@ -27,6 +27,7 @@ public class AdminOrderController {
     private final IOrderRepository orderRepository;
     private final RestaurantClient restaurantClient;
     private final com.fooddelivery.order.service.OrderSagaOrchestrator orderSagaOrchestrator;
+    private final com.fooddelivery.order.service.state.OrderActionService orderActionService;
 
     @GetMapping("/user/{userId}/active")
     @PreAuthorize("hasRole(\'ADMIN\')")
@@ -44,10 +45,17 @@ public class AdminOrderController {
 
     @GetMapping("/active-all")
     @PreAuthorize("hasRole(\'ADMIN\')")
-    public ResponseEntity<List<Order>> getAllActiveOrders() {
-        List<Order> activeOrders = orderRepository.findByStatusIn(List.of(OrderStatus.CREATED, OrderStatus.ACCEPTED, OrderStatus.READY_FOR_PICKUP, OrderStatus.HANDED_OVER));
-        // Sort by created at descending
-        activeOrders.sort((o1, o2) -> o2.getCreatedAt().compareTo(o1.getCreatedAt()));
+    public ResponseEntity<org.springframework.data.domain.Page<Order>> getAllActiveOrders(
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") int page,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "50") int size) {
+        
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(
+            page, size, org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt")
+        );
+        org.springframework.data.domain.Page<Order> activeOrders = orderRepository.findByStatusIn(
+            List.of(OrderStatus.CREATED, OrderStatus.ACCEPTED, OrderStatus.READY_FOR_PICKUP, OrderStatus.HANDED_OVER),
+            pageable
+        );
         return ResponseEntity.ok(activeOrders);
     }
 
@@ -112,10 +120,67 @@ public class AdminOrderController {
         return ResponseEntity.ok(Map.of("message", "Partial refund initiated successfully"));
     }
 
+    @PostMapping("/{orderId}/override-status")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, String>> overrideOrderStatus(@PathVariable UUID orderId, @RequestBody Map<String, String> payload) {
+        Order order = orderRepository.findById(orderId).orElse(null);
+        if (order == null) {
+            return ResponseEntity.notFound().build();
+        }
+        
+        String targetStatusStr = payload.get("targetStatus");
+        if (targetStatusStr == null || targetStatusStr.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "targetStatus is required"));
+        }
+
+        try {
+            OrderStatus newStatus = OrderStatus.valueOf(targetStatusStr);
+            OrderStatus oldStatus = order.getStatus();
+            order.setStatus(newStatus);
+            orderRepository.save(order);
+            
+            log.warn("Admin forcefully overridden order {} status from {} to {}", orderId, oldStatus, newStatus);
+            orderActionService.emitOrderStatusSyncEvent(order.getId(), newStatus);
+            
+            return ResponseEntity.ok(Map.of(
+                "message", "Order status overridden successfully",
+                "oldStatus", oldStatus.name(),
+                "newStatus", newStatus.name()
+            ));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Invalid order status"));
+        }
+    }
+
+    @PostMapping("/{orderId}/refund/post-delivery")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, String>> initiatePostDeliveryRefund(@PathVariable UUID orderId, @RequestBody PartialRefundRequest request) {
+        Order order = orderRepository.findById(orderId).orElse(null);
+        if (order == null) {
+            return ResponseEntity.notFound().build();
+        }
+        if (order.getDeliveryStatus() != com.fooddelivery.common.enums.DeliveryStatus.DELIVERED) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Order must be in DELIVERED state to initiate a post-delivery refund."));
+        }
+        if (request.getAmount() == null || request.getAmount().compareTo(java.math.BigDecimal.ZERO) <= 0) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Invalid refund amount"));
+        }
+        java.math.BigDecimal alreadyRefunded = order.getRefundedAmount() != null ? order.getRefundedAmount() : java.math.BigDecimal.ZERO;
+        java.math.BigDecimal remainingAmount = order.getTotalAmount().subtract(alreadyRefunded);
+        if (request.getAmount().compareTo(remainingAmount) > 0) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Refund amount exceeds the refundable balance of the order."));
+        }
+        order.setRefundedAmount(alreadyRefunded.add(request.getAmount()));
+        orderRepository.save(order);
+        orderSagaOrchestrator.processPartialRefund(order, request.getAmount());
+        return ResponseEntity.ok(Map.of("message", "Post-delivery refund initiated successfully"));
+    }
+
     @java.lang.SuppressWarnings("all")
-    public AdminOrderController(final IOrderRepository orderRepository, final RestaurantClient restaurantClient, final com.fooddelivery.order.service.OrderSagaOrchestrator orderSagaOrchestrator) {
+    public AdminOrderController(final IOrderRepository orderRepository, final RestaurantClient restaurantClient, final com.fooddelivery.order.service.OrderSagaOrchestrator orderSagaOrchestrator, final com.fooddelivery.order.service.state.OrderActionService orderActionService) {
         this.orderRepository = orderRepository;
         this.restaurantClient = restaurantClient;
         this.orderSagaOrchestrator = orderSagaOrchestrator;
+        this.orderActionService = orderActionService;
     }
 }

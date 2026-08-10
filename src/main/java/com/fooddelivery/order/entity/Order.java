@@ -24,7 +24,12 @@ import org.hibernate.annotations.UpdateTimestamp;
 import jakarta.persistence.Column;
 
 @Entity
-@Table(name = "orders", indexes = {@jakarta.persistence.Index(name = "idx_order_customer", columnList = "customerId"), @jakarta.persistence.Index(name = "idx_order_delivery_exec", columnList = "deliveryExecutiveId"), @jakarta.persistence.Index(name = "idx_order_status", columnList = "status")})
+@Table(name = "orders", indexes = {
+    @jakarta.persistence.Index(name = "idx_order_customer", columnList = "customerId"), 
+    @jakarta.persistence.Index(name = "idx_order_delivery_exec", columnList = "deliveryExecutiveId"), 
+    @jakarta.persistence.Index(name = "idx_order_status", columnList = "status"),
+    @jakarta.persistence.Index(name = "idx_order_restaurant", columnList = "restaurantId")
+})
 public class Order {
     @java.lang.SuppressWarnings("all")
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(Order.class);

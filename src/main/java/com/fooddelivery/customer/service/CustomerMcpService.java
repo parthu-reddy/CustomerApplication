@@ -145,7 +145,7 @@ public class CustomerMcpService {
     @Tool(description = "Admin: Get all active orders.")
     public String getAllActiveOrders() {
         try {
-            return objectMapper.writeValueAsString(adminOrderController.getAllActiveOrders().getBody());
+            return objectMapper.writeValueAsString(adminOrderController.getAllActiveOrders(0, 50).getBody());
         } catch (Exception e) {
             return "Error: " + e.getMessage();
         }

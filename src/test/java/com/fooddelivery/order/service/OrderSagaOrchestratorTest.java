@@ -179,4 +179,51 @@ class OrderSagaOrchestratorTest {
         assertThat(order.getStatus()).isEqualTo(OrderStatus.ACCEPTED);
         verify(orderRepository).save(order);
     }
+    @Test
+    void processRefund_ShouldPublishPaymentRefundRequested() {
+        UUID orderId = UUID.randomUUID();
+        Order order = Order.builder()
+                .id(orderId)
+                .totalAmount(new BigDecimal("100.00"))
+                .refundedAmount(BigDecimal.ZERO)
+                .build();
+
+        PaymentIntent intent = PaymentIntent.builder()
+                .id(UUID.randomUUID())
+                .gatewayOrderId("gw_order_123")
+                .status(com.fooddelivery.common.constants.PaymentIntentStatus.SUCCESS)
+                .gatewayName("RAZORPAY")
+                .build();
+
+        when(paymentIntentRepository.findByInternalOrderId(orderId)).thenReturn(Optional.of(intent));
+
+        orderSagaOrchestrator.processRefund(order);
+
+        verify(outboxEventRepository).save(any(OutboxEventEntity.class));
+        verify(orderRepository).findById(orderId);
+    }
+
+    @Test
+    void processPartialRefund_ShouldPublishPaymentRefundRequested() {
+        UUID orderId = UUID.randomUUID();
+        Order order = Order.builder()
+                .id(orderId)
+                .totalAmount(new BigDecimal("100.00"))
+                .refundedAmount(BigDecimal.ZERO)
+                .build();
+
+        PaymentIntent intent = PaymentIntent.builder()
+                .id(UUID.randomUUID())
+                .gatewayOrderId("gw_order_123")
+                .status(com.fooddelivery.common.constants.PaymentIntentStatus.SUCCESS)
+                .gatewayName("VYAPAR")
+                .build();
+
+        when(paymentIntentRepository.findByInternalOrderId(orderId)).thenReturn(Optional.of(intent));
+
+        orderSagaOrchestrator.processPartialRefund(order, new BigDecimal("40.00"));
+
+        verify(outboxEventRepository).save(any(OutboxEventEntity.class));
+        verify(orderRepository).findById(orderId);
+    }
 }

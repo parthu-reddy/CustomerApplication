@@ -38,12 +38,33 @@ public class RestaurantTimeoutSweeper {
                 cancelStaleOrder(order, "Auto-cancelled: Restaurant did not respond within 10 minutes");
             }
         }
-        org.springframework.data.domain.Page<Order> staleDelayApprovalsPage = orderRepository.findByStatusAndUpdatedAtBefore(OrderStatus.AWAITING_DELAY_APPROVAL, threshold, org.springframework.data.domain.PageRequest.of(0, 500));
-        List<Order> staleDelayApprovals = staleDelayApprovalsPage.getContent();
-        if (!staleDelayApprovals.isEmpty()) {
-            log.info("Found {} stale AWAITING_DELAY_APPROVAL orders. Cancelling them...", staleDelayApprovals.size());
-            for (Order order : staleDelayApprovals) {
-                cancelStaleOrder(order, "Auto-cancelled: Customer did not respond to delay request within 10 minutes");
+
+    }
+
+    @Scheduled(fixedDelay = 60000)
+    public void sweepDelayApprovalTimeouts() {
+        Boolean locked = redisTemplate.opsForValue().setIfAbsent(com.fooddelivery.common.constants.RedisKeyConstants.LOCK_SWEEP_RESTAURANT_TIMEOUTS + "_DELAY", "1", Duration.ofSeconds(50));
+        if (!Boolean.TRUE.equals(locked)) {
+            return;
+        }
+        LocalDateTime cutoffTime = LocalDateTime.now().minusMinutes(10);
+        org.springframework.data.domain.Page<Order> staleOrdersPage = orderRepository.findByStatusAndUpdatedAtBefore(OrderStatus.AWAITING_DELAY_APPROVAL, cutoffTime, org.springframework.data.domain.PageRequest.of(0, 500));
+        List<Order> delayedOrders = staleOrdersPage.getContent();
+        if (!delayedOrders.isEmpty()) {
+            log.info("Found {} stale AWAITING_DELAY_APPROVAL orders. Cancelling them...", delayedOrders.size());
+            for (Order order : delayedOrders) {
+                log.info("Order {} exceeded 10-minute delay approval timeout. Cancelling order.", order.getId());
+                boolean eventPublished = Boolean.TRUE.equals(transactionTemplate.execute(status -> {
+                    Order dbOrder = orderRepository.findById(order.getId()).orElse(null);
+                    if (dbOrder != null && dbOrder.getStatus() == OrderStatus.AWAITING_DELAY_APPROVAL) {
+                        orderSagaOrchestrator.publishDelayApprovalEvent(dbOrder, false, "Auto-cancelled: Customer did not respond to delay approval in 10 minutes");
+                        return true;
+                    }
+                    return false;
+                }));
+                if (eventPublished) {
+                    log.info("Published ORDER_DELAY_REJECTED for order {} due to timeout.", order.getId());
+                }
             }
         }
     }
@@ -53,7 +74,7 @@ public class RestaurantTimeoutSweeper {
             boolean refundNeeded = Boolean.TRUE.equals(transactionTemplate.execute(status -> {
                 // Re-fetch with lock
                 Order currentOrder = orderRepository.findById(order.getId()).orElse(null);
-                if (currentOrder != null && (currentOrder.getStatus() == OrderStatus.PENDING_ACCEPTANCE || currentOrder.getStatus() == OrderStatus.AWAITING_DELAY_APPROVAL)) {
+                if (currentOrder != null && currentOrder.getStatus() == OrderStatus.PENDING_ACCEPTANCE) {
                     currentOrder.setStatus(OrderStatus.CANCELLED_BY_RESTAURANT); // Use restaurant cancellation so refund triggers
                     currentOrder.setCancellationReason(reason);
                     orderRepository.save(currentOrder);

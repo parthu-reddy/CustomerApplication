@@ -47,7 +47,11 @@ public class CustomerRestaurantController {
                 // For simplicity, we just add a mock sponsored listing object.
                 Map<String, Object> sponsoredListing = new java.util.HashMap<>();
                 sponsoredListing.put("isSponsored", true);
-                sponsoredListing.put("adData", adResponse);
+                if (adResponse instanceof java.util.List && !((java.util.List<?>) adResponse).isEmpty()) {
+                    sponsoredListing.put("adData", ((java.util.List<?>) adResponse).get(0));
+                } else {
+                    sponsoredListing.put("adData", adResponse);
+                }
                 // Add to the front of the list
                 List<Object> merged = new java.util.ArrayList<>();
                 merged.add(sponsoredListing);

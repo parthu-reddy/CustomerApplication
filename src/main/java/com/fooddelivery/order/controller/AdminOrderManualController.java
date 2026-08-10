@@ -25,6 +25,7 @@ public class AdminOrderManualController {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AdminOrderManualController.class);
     private final IOrderRepository orderRepository;
     private final KafkaTemplate<String, String> kafkaTemplate;
+    private final com.fooddelivery.order.service.OrderSagaOrchestrator orderSagaOrchestrator;
 
     @GetMapping
     @PreAuthorize("hasRole(\'ADMIN\')")
@@ -64,7 +65,7 @@ public class AdminOrderManualController {
             kafkaMessage.put("payload", eventPayload);
             com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
             String jsonMessage = mapper.writeValueAsString(kafkaMessage);
-            kafkaTemplate.send(KafkaConstants.TOPIC_ORDER_EVENTS, jsonMessage);
+            kafkaTemplate.send(KafkaConstants.TOPIC_ORDER_EVENTS, order.getId().toString(), jsonMessage);
             log.info("Admin successfully requested manual assignment of driver {} to order {}", driverId, order.getId());
             return ResponseEntity.ok(ApiResponse.success("Driver assignment requested successfully", "Operation successful"));
         } catch (IllegalArgumentException e) {
@@ -99,7 +100,7 @@ public class AdminOrderManualController {
             kafkaMessage.put("payload", eventPayload);
             com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
             String jsonMessage = mapper.writeValueAsString(kafkaMessage);
-            kafkaTemplate.send(KafkaConstants.TOPIC_ORDER_EVENTS, jsonMessage);
+            kafkaTemplate.send(KafkaConstants.TOPIC_ORDER_EVENTS, order.getId().toString(), jsonMessage);
             log.info("Admin successfully requested manual cancellation for order {}. Reason: {}", order.getId(), reason);
             return ResponseEntity.ok(ApiResponse.success("Order cancellation requested successfully", "Operation successful"));
         } catch (Exception e) {
@@ -108,9 +109,97 @@ public class AdminOrderManualController {
         }
     }
 
+    @PostMapping("/{orderId}/force-cancel")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<String>> forceCancelOrder(@PathVariable UUID orderId, @RequestBody Map<String, String> payload) {
+        String reason = payload.getOrDefault("reason", "Force Cancelled by Admin");
+        try {
+            Optional<Order> orderOpt = orderRepository.findById(orderId);
+            if (orderOpt.isEmpty()) {
+                return ResponseEntity.notFound().build();
+            }
+            Order order = orderOpt.get();
+            order.setStatus(OrderStatus.CANCELLED);
+            order.setCancellationReason(reason);
+            orderRepository.save(order);
+            orderSagaOrchestrator.processRefund(order);
+            log.info("Admin forcefully cancelled order {}. Reason: {}", order.getId(), reason);
+            return ResponseEntity.ok(ApiResponse.success("Order forcefully cancelled and refund requested", "Operation successful"));
+        } catch (Exception e) {
+            log.error("Error during force cancel", e);
+            return ResponseEntity.internalServerError().body(ApiResponse.error("Failed to force cancel order"));
+        }
+    }
+
+    @PostMapping("/{orderId}/force-refund")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<String>> forceRefund(@PathVariable UUID orderId) {
+        try {
+            Optional<Order> orderOpt = orderRepository.findById(orderId);
+            if (orderOpt.isEmpty()) {
+                return ResponseEntity.notFound().build();
+            }
+            Order order = orderOpt.get();
+            orderSagaOrchestrator.processRefund(order);
+            log.info("Admin forcefully requested refund for order {}", order.getId());
+            return ResponseEntity.ok(ApiResponse.success("Force refund requested successfully", "Operation successful"));
+        } catch (Exception e) {
+            log.error("Error during force refund", e);
+            return ResponseEntity.internalServerError().body(ApiResponse.error("Failed to force refund"));
+        }
+    }
+    @PostMapping("/{orderId}/refund/partial")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<String>> partialRefund(@PathVariable UUID orderId, @RequestBody Map<String, Object> payload) {
+        try {
+            Optional<Order> orderOpt = orderRepository.findById(orderId);
+            if (orderOpt.isEmpty()) {
+                return ResponseEntity.notFound().build();
+            }
+            Order order = orderOpt.get();
+            Object amountObj = payload.get("amount");
+            if (amountObj == null) {
+                return ResponseEntity.badRequest().body(ApiResponse.error("Amount is required"));
+            }
+            java.math.BigDecimal amount = new java.math.BigDecimal(amountObj.toString());
+            orderSagaOrchestrator.processPartialRefund(order, amount);
+            log.info("Admin requested partial refund of {} for order {}", amount, order.getId());
+            return ResponseEntity.ok(ApiResponse.success("Partial refund requested successfully", "Operation successful"));
+        } catch (Exception e) {
+            log.error("Error during partial refund", e);
+            return ResponseEntity.internalServerError().body(ApiResponse.error(e.getMessage() != null ? e.getMessage() : "Failed to process partial refund"));
+        }
+    }
+
+    @PostMapping("/{orderId}/refund/post-delivery")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<String>> postDeliveryRefund(@PathVariable UUID orderId, @RequestBody Map<String, Object> payload) {
+        try {
+            Optional<Order> orderOpt = orderRepository.findById(orderId);
+            if (orderOpt.isEmpty()) {
+                return ResponseEntity.notFound().build();
+            }
+            Order order = orderOpt.get();
+            Object amountObj = payload.get("amount");
+            if (amountObj == null) {
+                return ResponseEntity.badRequest().body(ApiResponse.error("Amount is required"));
+            }
+            java.math.BigDecimal amount = new java.math.BigDecimal(amountObj.toString());
+            // Since the system defaults to Option A (Platform absorbs full loss), we just use GATEWAY destination.
+            orderSagaOrchestrator.processPartialRefund(order, amount, com.fooddelivery.common.enums.RefundDestination.GATEWAY);
+            log.info("Admin requested post-delivery refund of {} for order {}", amount, order.getId());
+            return ResponseEntity.ok(ApiResponse.success("Post-delivery refund requested successfully", "Operation successful"));
+        } catch (Exception e) {
+            log.error("Error during post-delivery refund", e);
+            return ResponseEntity.internalServerError().body(ApiResponse.error(e.getMessage() != null ? e.getMessage() : "Failed to process post-delivery refund"));
+        }
+    }
+
+
     @java.lang.SuppressWarnings("all")
-    public AdminOrderManualController(final IOrderRepository orderRepository, final KafkaTemplate<String, String> kafkaTemplate) {
+    public AdminOrderManualController(final IOrderRepository orderRepository, final KafkaTemplate<String, String> kafkaTemplate, final com.fooddelivery.order.service.OrderSagaOrchestrator orderSagaOrchestrator) {
         this.orderRepository = orderRepository;
         this.kafkaTemplate = kafkaTemplate;
+        this.orderSagaOrchestrator = orderSagaOrchestrator;
     }
 }

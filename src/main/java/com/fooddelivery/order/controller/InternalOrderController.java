@@ -16,9 +16,9 @@ import java.util.Arrays;
 @RestController
 @RequestMapping("/api/v1/internal/orders")
 public class InternalOrderController {
-    @java.lang.SuppressWarnings("all")
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(InternalOrderController.class);
     private final IOrderRepository orderRepository;
+    private final com.fooddelivery.order.service.OrderSagaOrchestrator orderSagaOrchestrator;
 
     @GetMapping("/driver/{driverId}/active")
     @PreAuthorize("hasAnyRole(\'ADMIN\', \'DELIVERY\')")
@@ -65,8 +65,33 @@ public class InternalOrderController {
         }).orElse(ResponseEntity.notFound().build());
     }
 
+    @PostMapping("/{orderId}/partial-refund")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RESTAURANT')")
+    public ResponseEntity<com.fooddelivery.common.dto.ApiResponse<String>> partialRefund(@PathVariable UUID orderId, @RequestBody java.util.Map<String, String> payload) {
+        String amountStr = payload.get("amount");
+        if (amountStr == null || amountStr.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(com.fooddelivery.common.dto.ApiResponse.error("amount is required"));
+        }
+        try {
+            java.math.BigDecimal amount = new java.math.BigDecimal(amountStr);
+            return orderRepository.findById(orderId).map(order -> {
+                orderSagaOrchestrator.processPartialRefund(order, amount);
+                log.info("Requested partial refund of {} for order {}", amount, orderId);
+                return ResponseEntity.ok(com.fooddelivery.common.dto.ApiResponse.success("Partial refund requested successfully", "Operation successful"));
+            }).orElse(ResponseEntity.notFound().build());
+        } catch (NumberFormatException e) {
+            return ResponseEntity.badRequest().body(com.fooddelivery.common.dto.ApiResponse.error("Invalid amount format"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(com.fooddelivery.common.dto.ApiResponse.error(e.getMessage()));
+        } catch (Exception e) {
+            log.error("Error during partial refund", e);
+            return ResponseEntity.internalServerError().body(com.fooddelivery.common.dto.ApiResponse.error("Failed to request partial refund"));
+        }
+    }
+
     @java.lang.SuppressWarnings("all")
-    public InternalOrderController(final IOrderRepository orderRepository) {
+    public InternalOrderController(final IOrderRepository orderRepository, final com.fooddelivery.order.service.OrderSagaOrchestrator orderSagaOrchestrator) {
         this.orderRepository = orderRepository;
+        this.orderSagaOrchestrator = orderSagaOrchestrator;
     }
 }

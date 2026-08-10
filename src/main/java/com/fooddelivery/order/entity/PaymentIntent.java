@@ -21,6 +21,10 @@ public class PaymentIntent {
     @Column(name = "status", nullable = false)
     @Enumerated(EnumType.STRING)
     private PaymentIntentStatus status;
+    
+    @Column(name = "retry_count", nullable = false)
+    private int retryCount = 0;
+
     @Column(name = "gateway_name")
     private String gatewayName;
     @Column(name = "created_at")
@@ -275,5 +279,13 @@ public class PaymentIntent {
         this.status = status;
         this.gatewayName = gatewayName;
         this.createdAt = createdAt;
+    }
+
+    public int getRetryCount() {
+        return this.retryCount;
+    }
+
+    public void setRetryCount(int retryCount) {
+        this.retryCount = retryCount;
     }
 }

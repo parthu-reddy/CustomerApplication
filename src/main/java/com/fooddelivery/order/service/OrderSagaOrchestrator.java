@@ -111,14 +111,18 @@ public class OrderSagaOrchestrator {
     @KafkaListener(topics = KafkaConstants.TOPIC_PAYMENT_EVENTS, groupId = KafkaConstants.GROUP_FOOD_DELIVERY)
     public void handlePaymentEvents(String payload, @org.springframework.messaging.handler.annotation.Headers java.util.Map<String, Object> headers) {
         log.info("Received Payment Event: {}", payload);
-        String eventId = com.fooddelivery.common.util.KafkaHeaderUtils.extractHeaderValue(headers, "eventId");
-        boolean isNew = false;
-        if (eventId != null) {
-            isNew = Boolean.TRUE.equals(redisTemplate.opsForValue().setIfAbsent("processed_event:" + eventId, "1", java.time.Duration.ofDays(7)));
-            if (!isNew) {
-                log.info("Duplicate event ignored: {}", eventId);
-                return;
-            }
+        String extractedEventId = com.fooddelivery.common.util.KafkaHeaderUtils.extractHeaderValue(headers, "eventId");
+        final String resolvedEventId;
+        if (extractedEventId == null) {
+            resolvedEventId = UUID.nameUUIDFromBytes(payload.getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString();
+            log.warn("eventId header missing. Using deterministic payload hash as eventId: {}", resolvedEventId);
+        } else {
+            resolvedEventId = extractedEventId;
+        }
+        boolean isNew = Boolean.TRUE.equals(redisTemplate.opsForValue().setIfAbsent("processed_event:" + resolvedEventId, "1", java.time.Duration.ofDays(7)));
+        if (!isNew) {
+            log.info("Duplicate event ignored: {}", resolvedEventId);
+            return;
         }
         try {
             int retries = 0;
@@ -143,9 +147,44 @@ public class OrderSagaOrchestrator {
                                     Order order = orderRepository.findById(intent.getInternalOrderId()).orElse(null);
                                     if (order != null) {
                                         order.setPaymentStatus(PaymentIntentStatus.REFUNDED);
-                                        orderRepository.save(order);
-                                        UUID refundTransferId = UUID.nameUUIDFromBytes((REFUND_TX_PREFIX + order.getId()).getBytes());
-                                        orderActionService.recordLedgerTransaction(refundTransferId, PLATFORM_ACCOUNT_ID, AccountType.PLATFORM, order.getCustomerId(), AccountType.CUSTOMER, order.getTotalAmount(), com.fooddelivery.common.enums.ChargeCategory.REFUND);
+                                        java.math.BigDecimal currentRefunded = order.getRefundedAmount() != null ? order.getRefundedAmount() : java.math.BigDecimal.ZERO;
+                                        java.math.BigDecimal remainingToRefund = order.getTotalAmount().subtract(currentRefunded);
+                                        if (remainingToRefund.compareTo(java.math.BigDecimal.ZERO) > 0) {
+                                            order.setRefundedAmount(order.getTotalAmount());
+                                            orderRepository.save(order);
+                                            UUID refundTransferId = UUID.nameUUIDFromBytes((REFUND_TX_PREFIX + order.getId() + "_FULL").getBytes());
+                                            orderActionService.recordLedgerTransaction(refundTransferId, PLATFORM_ACCOUNT_ID, AccountType.PLATFORM, order.getCustomerId(), AccountType.CUSTOMER, remainingToRefund, com.fooddelivery.common.enums.ChargeCategory.REFUND);
+                                            try {
+                                                Map<String, Object> notifPayload = new HashMap<>();
+                                                notifPayload.put("orderId", order.getId().toString());
+                                                notifPayload.put("customerId", order.getCustomerId().toString());
+                                                notifPayload.put("refundedAmount", remainingToRefund);
+                                                OutboxEventEntity outboxEvent = OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.NOTIFICATION).aggregateId(order.getId().toString()).eventType(com.fooddelivery.common.constants.EventType.NOTIFICATION_REQUEST).payload(objectMapper.writeValueAsString(Map.of("template", "ORDER_REFUNDED", "data", notifPayload))).createdAt(LocalDateTime.now()).build();
+                                                outboxEventRepository.save(outboxEvent);
+                                            } catch (Exception e) {
+                                                log.error("Failed to publish ORDER_REFUNDED notification", e);
+                                            }
+
+                                            if (rootNode.has("refundDestination") && "WALLET".equals(rootNode.get("refundDestination").asText())) {
+                                                try {
+                                                    com.fasterxml.jackson.databind.node.ObjectNode walletPayload = objectMapper.createObjectNode();
+                                                    walletPayload.put("entityId", order.getCustomerId().toString());
+                                                    walletPayload.put("entityType", "CUSTOMER");
+                                                    walletPayload.put("amount", remainingToRefund.toString());
+                                                    walletPayload.put("referenceId", "REFUND_" + order.getId());
+                                                    walletPayload.put("description", "Wallet refund for order " + order.getId());
+                                                    
+                                                    com.fasterxml.jackson.databind.node.ObjectNode walletEvent = objectMapper.createObjectNode();
+                                                    walletEvent.put("eventType", "REFUND_GENERATED");
+                                                    walletEvent.set("payload", walletPayload);
+                                                    
+                                                    OutboxEventEntity walletOutbox = OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.WALLET).aggregateId(order.getCustomerId().toString()).eventType(com.fooddelivery.common.constants.EventType.valueOf("REFUND_GENERATED")).payload(objectMapper.writeValueAsString(walletEvent)).createdAt(LocalDateTime.now()).build();
+                                                    outboxEventRepository.save(walletOutbox);
+                                                } catch (Exception e) {
+                                                    log.error("Failed to publish REFUND_GENERATED event", e);
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                                 return null;
@@ -159,11 +198,43 @@ public class OrderSagaOrchestrator {
                                     Order order = orderRepository.findById(intent.getInternalOrderId()).orElse(null);
                                     if (order != null) {
                                         order.setPaymentStatus(PaymentIntentStatus.PARTIALLY_REFUNDED);
-                                        orderRepository.save(order);
                                         java.math.BigDecimal partialAmount = rootNode.has("amountRefunded") ? new java.math.BigDecimal(rootNode.get("amountRefunded").asText()) : order.getTotalAmount();
-                                        String uniqueSuffix = eventId != null ? eventId : String.valueOf(System.currentTimeMillis());
+                                        java.math.BigDecimal currentRefunded = order.getRefundedAmount() != null ? order.getRefundedAmount() : java.math.BigDecimal.ZERO;
+                                        order.setRefundedAmount(currentRefunded.add(partialAmount));
+                                        orderRepository.save(order);
+                                        String uniqueSuffix = resolvedEventId != null ? resolvedEventId : String.valueOf(System.currentTimeMillis());
                                         UUID refundTransferId = UUID.nameUUIDFromBytes((REFUND_TX_PREFIX + "PARTIAL_" + order.getId() + "_" + uniqueSuffix).getBytes());
                                         orderActionService.recordLedgerTransaction(refundTransferId, PLATFORM_ACCOUNT_ID, AccountType.PLATFORM, order.getCustomerId(), AccountType.CUSTOMER, partialAmount, com.fooddelivery.common.enums.ChargeCategory.REFUND);
+                                        try {
+                                            Map<String, Object> notifPayload = new HashMap<>();
+                                            notifPayload.put("orderId", order.getId().toString());
+                                            notifPayload.put("customerId", order.getCustomerId().toString());
+                                            notifPayload.put("refundedAmount", partialAmount);
+                                            OutboxEventEntity outboxEvent = OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.NOTIFICATION).aggregateId(order.getId().toString()).eventType(com.fooddelivery.common.constants.EventType.NOTIFICATION_REQUEST).payload(objectMapper.writeValueAsString(Map.of("template", "ORDER_PARTIALLY_REFUNDED", "data", notifPayload))).createdAt(LocalDateTime.now()).build();
+                                            outboxEventRepository.save(outboxEvent);
+                                        } catch (Exception e) {
+                                            log.error("Failed to publish ORDER_PARTIALLY_REFUNDED notification", e);
+                                        }
+
+                                        if (rootNode.has("refundDestination") && "WALLET".equals(rootNode.get("refundDestination").asText())) {
+                                            try {
+                                                com.fasterxml.jackson.databind.node.ObjectNode walletPayload = objectMapper.createObjectNode();
+                                                walletPayload.put("entityId", order.getCustomerId().toString());
+                                                walletPayload.put("entityType", "CUSTOMER");
+                                                walletPayload.put("amount", partialAmount.toString());
+                                                walletPayload.put("referenceId", "REFUND_PARTIAL_" + order.getId() + "_" + uniqueSuffix);
+                                                walletPayload.put("description", "Partial wallet refund for order " + order.getId());
+                                                
+                                                com.fasterxml.jackson.databind.node.ObjectNode walletEvent = objectMapper.createObjectNode();
+                                                walletEvent.put("eventType", "REFUND_GENERATED");
+                                                walletEvent.set("payload", walletPayload);
+                                                
+                                                OutboxEventEntity walletOutbox = OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.WALLET).aggregateId(order.getCustomerId().toString()).eventType(com.fooddelivery.common.constants.EventType.valueOf("REFUND_GENERATED")).payload(objectMapper.writeValueAsString(walletEvent)).createdAt(LocalDateTime.now()).build();
+                                                outboxEventRepository.save(walletOutbox);
+                                            } catch (Exception e) {
+                                                log.error("Failed to publish REFUND_GENERATED event", e);
+                                            }
+                                        }
                                     }
                                 }
                                 return null;
@@ -202,30 +273,21 @@ public class OrderSagaOrchestrator {
                             throw new RuntimeException("Failed to process payment event", e);
                         }
                     });
-                    success = true;
                     if (orderToRefund != null) {
                         processRefund(orderToRefund);
                     }
+                    success = true;
                 } catch (org.springframework.orm.ObjectOptimisticLockingFailureException e) {
-                    retries++;
-                    if (retries >= AppConstants.MAX_OPTIMISTIC_LOCK_RETRIES) {
-                        log.error("Failed to process payment event after {} retries due to optimistic locking", AppConstants.MAX_OPTIMISTIC_LOCK_RETRIES, e);
-                        throw e;
-                    }
-                    log.warn("Optimistic locking failure in handlePaymentEvents. Retrying {}/{}", retries, AppConstants.MAX_OPTIMISTIC_LOCK_RETRIES);
-                    try {
-                        Thread.sleep((long) (Math.pow(2, retries) * 100));
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                    }
+                    log.warn("Optimistic locking failure in handlePaymentEvents, delegating to Kafka retry.");
+                    throw e;
                 } catch (Exception e) {
                     log.error("Error processing payment event payload", e);
                     throw new RuntimeException("Failed to process payment event", e);
                 }
             }
         } catch (Exception e) {
-            if (isNew && eventId != null) {
-                redisTemplate.delete("processed_event:" + eventId);
+            if (isNew && resolvedEventId != null) {
+                redisTemplate.delete("processed_event:" + resolvedEventId);
             }
             throw e;
         }
@@ -236,14 +298,18 @@ public class OrderSagaOrchestrator {
     @KafkaListener(topics = KafkaConstants.TOPIC_ORDER_EVENTS, groupId = KafkaConstants.GROUP_FOOD_DELIVERY)
     public void handleOrderEvents(String payload, @org.springframework.messaging.handler.annotation.Headers java.util.Map<String, Object> headers) {
         log.info("OrderSagaOrchestrator received event: {}", payload);
-        String eventId = com.fooddelivery.common.util.KafkaHeaderUtils.extractHeaderValue(headers, "eventId");
-        boolean isNew = false;
-        if (eventId != null) {
-            isNew = Boolean.TRUE.equals(redisTemplate.opsForValue().setIfAbsent("processed_event:" + eventId, "1", java.time.Duration.ofDays(7)));
-            if (!isNew) {
-                log.info("Duplicate event ignored: {}", eventId);
-                return;
-            }
+        String extractedEventId = com.fooddelivery.common.util.KafkaHeaderUtils.extractHeaderValue(headers, "eventId");
+        final String resolvedEventId;
+        if (extractedEventId == null) {
+            resolvedEventId = UUID.nameUUIDFromBytes(payload.getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString();
+            log.warn("eventId header missing in handleOrderEvents. Using deterministic payload hash as eventId: {}", resolvedEventId);
+        } else {
+            resolvedEventId = extractedEventId;
+        }
+        boolean isNew = Boolean.TRUE.equals(redisTemplate.opsForValue().setIfAbsent("processed_event:" + resolvedEventId, "1", java.time.Duration.ofDays(7)));
+        if (!isNew) {
+            log.info("Duplicate event ignored: {}", resolvedEventId);
+            return;
         }
         try {
             int retries = 0;
@@ -304,30 +370,21 @@ public class OrderSagaOrchestrator {
                             throw new RuntimeException("Failed to process order event inner", e);
                         }
                     });
-                    success = true;
                     if (orderToRefund != null) {
                         processRefund(orderToRefund);
                     }
+                    success = true;
                 } catch (org.springframework.orm.ObjectOptimisticLockingFailureException e) {
-                    retries++;
-                    if (retries >= AppConstants.MAX_OPTIMISTIC_LOCK_RETRIES) {
-                        log.error("Failed to process order event after {} retries due to optimistic locking", AppConstants.MAX_OPTIMISTIC_LOCK_RETRIES, e);
-                        throw e;
-                    }
-                    log.warn("Optimistic locking failure in handleOrderEvents. Retrying {}/{}", retries, AppConstants.MAX_OPTIMISTIC_LOCK_RETRIES);
-                    try {
-                        Thread.sleep((long) (Math.pow(2, retries) * 100));
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                    }
+                    log.warn("Optimistic locking failure in handleOrderEvents, delegating to Kafka retry.");
+                    throw e;
                 } catch (Exception e) {
                     log.error("Error processing order event", e);
                     throw new RuntimeException("Failed to process order event", e);
                 }
             }
         } catch (Exception e) {
-            if (isNew && eventId != null) {
-                redisTemplate.delete("processed_event:" + eventId);
+            if (isNew && resolvedEventId != null) {
+                redisTemplate.delete("processed_event:" + resolvedEventId);
             }
             throw e;
         }
@@ -375,105 +432,153 @@ public class OrderSagaOrchestrator {
         }
     }
 
-    // Run every 1 minute
-    @org.springframework.scheduling.annotation.Scheduled(fixedDelayString = "60000")
-    public void checkDelayApprovalTimeouts() {
-        java.time.LocalDateTime cutoffTime = java.time.LocalDateTime.now().minusMinutes(10);
-        java.util.List<Order> delayedOrders = transactionTemplate.execute(status -> {
-            return orderRepository.findByStatusAndUpdatedAtBefore(OrderStatus.AWAITING_DELAY_APPROVAL, cutoffTime);
-        });
-        if (delayedOrders == null || delayedOrders.isEmpty()) return;
-        for (Order order : delayedOrders) {
-            log.info("Order {} exceeded 10-minute delay approval timeout. Cancelling order.", order.getId());
-            boolean eventPublished = Boolean.TRUE.equals(transactionTemplate.execute(status -> {
-                Order dbOrder = orderRepository.findById(order.getId()).orElse(null);
-                if (dbOrder != null && dbOrder.getStatus() == OrderStatus.AWAITING_DELAY_APPROVAL) {
-                    publishDelayApprovalEvent(dbOrder, false, "Auto-cancelled: Customer did not respond to delay approval in 10 minutes");
-                    return true;
+    @io.micrometer.core.annotation.Timed(value = "order.saga.refund.process", description = "Time taken to process full refund")
+    public void processRefund(Order order) {
+        processRefund(order, com.fooddelivery.common.enums.RefundDestination.GATEWAY);
+    }
+
+    public void processRefund(Order order, com.fooddelivery.common.enums.RefundDestination refundDestination) {
+        log.info("Processing refund for Order {} to {}", order.getId(), refundDestination);
+        
+        try {
+            transactionTemplate.executeWithoutResult(status -> {
+                com.fooddelivery.order.entity.PaymentIntent intent = paymentIntentRepository.findByInternalOrderIdForUpdate(order.getId())
+                    .orElseThrow(() -> new IllegalStateException("PaymentIntent not found for internalOrderId " + order.getId() + ". Cannot process refund."));
+                    
+                java.math.BigDecimal currentRefunded = order.getRefundedAmount() != null ? order.getRefundedAmount() : java.math.BigDecimal.ZERO;
+                java.math.BigDecimal remainingRefundable = order.getTotalAmount().subtract(currentRefunded);
+                
+                if (remainingRefundable.compareTo(java.math.BigDecimal.ZERO) <= 0) {
+                    log.info("Order {} is already fully refunded. Skipping.", order.getId());
+                    return;
                 }
-                return false;
-            }));
-            if (eventPublished) {
-                log.info("Published ORDER_DELAY_REJECTED for order {} due to timeout.", order.getId());
-            }
+                
+                if (intent.getStatus() == PaymentIntentStatus.SUCCESS || intent.getStatus() == PaymentIntentStatus.CAPTURED || intent.getStatus() == PaymentIntentStatus.PARTIALLY_REFUNDED || intent.getStatus() == PaymentIntentStatus.REFUND_FAILED) {
+                    try {
+                        Map<String, Object> payloadMap = new HashMap<>();
+                        payloadMap.put("intentId", intent.getId().toString());
+                        payloadMap.put("gatewayOrderId", intent.getGatewayOrderId());
+                        payloadMap.put("amountInInr", remainingRefundable);
+                        payloadMap.put("gatewayName", intent.getGatewayName());
+                        payloadMap.put("orderId", order.getId().toString());
+                        payloadMap.put("refundDestination", refundDestination != null ? refundDestination.name() : "GATEWAY");
+                        String payloadStr = objectMapper.writeValueAsString(payloadMap);
+                        OutboxEventEntity outboxEvent = OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.PAYMENT).aggregateId(order.getId().toString()).eventType(com.fooddelivery.common.constants.EventType.PAYMENT_REFUND_REQUESTED).payload(payloadStr).createdAt(LocalDateTime.now()).build();
+                        outboxEventRepository.save(outboxEvent);
+                        
+                        // Handle Post-Delivery Reversals
+                        Order latestOrder = orderRepository.findById(order.getId()).orElse(order);
+                        if (latestOrder.getDeliveryStatus() == com.fooddelivery.common.enums.DeliveryStatus.DELIVERED) {
+                            UUID reversalId = UUID.randomUUID();
+                            Map<String, Object> reversalPayload = new HashMap<>();
+                            reversalPayload.put("reversalId", reversalId.toString());
+                            reversalPayload.put("orderId", order.getId().toString());
+                            reversalPayload.put("amount", remainingRefundable);
+                            String reversalStr = objectMapper.writeValueAsString(reversalPayload);
+                            OutboxEventEntity reversalEvent = OutboxEventEntity.builder()
+                                .id(reversalId)
+                                .aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER)
+                                .aggregateId(order.getId().toString())
+                                .eventType(com.fooddelivery.common.constants.EventType.valueOf("LEDGER_REVERSAL_REQUEST")) // Custom event type
+                                .payload(reversalStr)
+                                .createdAt(LocalDateTime.now())
+                                .build();
+                            outboxEventRepository.save(reversalEvent);
+                            log.info("Emitted LEDGER_REVERSAL_REQUEST for delivered order {}", order.getId());
+                        }
+
+                        latestOrder.setPaymentStatus(PaymentIntentStatus.REFUND_PENDING);
+                        orderRepository.save(latestOrder);
+                        
+                        intent.setStatus(PaymentIntentStatus.REFUND_PENDING);
+                        paymentIntentRepository.save(intent);
+                    } catch (Exception e) {
+                        log.error("Failed to enqueue payment refund event for order {}", order.getId(), e);
+                        markRefundFailedWithRetry(intent);
+                        throw new RuntimeException(e); // Rollback tx
+                    }
+                } else {
+                    log.warn("Cannot refund PaymentIntent {} in status {}", intent.getId(), intent.getStatus());
+                }
+            });
+        } catch (Exception e) {
+            log.error("Failed to process refund for order {}", order.getId(), e);
         }
     }
 
-    public void processRefund(Order order) {
-        log.info("Processing refund for Order {}", order.getId());
-        paymentIntentRepository.findByInternalOrderId(order.getId()).ifPresent(intent -> {
-            if (intent.getStatus() == PaymentIntentStatus.SUCCESS || intent.getStatus() == PaymentIntentStatus.CAPTURED || intent.getStatus() == PaymentIntentStatus.REFUND_FAILED) {
-                try {
-                    Map<String, Object> payloadMap = new HashMap<>();
-                    payloadMap.put("intentId", intent.getId().toString());
-                    payloadMap.put("gatewayOrderId", intent.getGatewayOrderId());
-                    payloadMap.put("amountInInr", order.getTotalAmount());
-                    payloadMap.put("gatewayName", intent.getGatewayName());
-                    payloadMap.put("orderId", order.getId().toString());
-                    String payloadStr = objectMapper.writeValueAsString(payloadMap);
-                    OutboxEventEntity outboxEvent = OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.PAYMENT).aggregateId(order.getId().toString()).eventType(com.fooddelivery.common.constants.EventType.PAYMENT_REFUND_REQUESTED).payload(payloadStr).createdAt(LocalDateTime.now()).build();
-                    transactionTemplate.executeWithoutResult(status -> {
-                        outboxEventRepository.save(outboxEvent);
-                        Order latestOrder = orderRepository.findById(order.getId()).orElse(null);
-                        if (latestOrder != null) {
-                            latestOrder.setPaymentStatus(PaymentIntentStatus.REFUND_PENDING);
-                            // Publish REFUND_GENERATED for WalletService
-                            Map<String, Object> walletPayload = new HashMap<>();
-                            walletPayload.put("entityId", order.getCustomerId().toString());
-                            walletPayload.put("entityType", "CUSTOMER");
-                            walletPayload.put("amount", order.getTotalAmount());
-                            walletPayload.put("referenceId", "REFUND_" + order.getId().toString());
-                            walletPayload.put("description", "Refund for Order " + order.getId().toString());
-                            try {
-                                String payloadString = objectMapper.writeValueAsString(walletPayload);
-                                OutboxEventEntity walletOutboxEvent =  // Requires REFUND_GENERATED in EventType
-                                OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.WALLET).aggregateId(order.getCustomerId().toString()).eventType(com.fooddelivery.common.constants.EventType.valueOf("REFUND_GENERATED")).payload(payloadString).createdAt(LocalDateTime.now()).build();
-                                outboxEventRepository.save(walletOutboxEvent);
-                            } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
-                                throw new RuntimeException("Failed to serialize wallet payload", e);
-                            }
-                            orderRepository.save(latestOrder);
-                        }
-                    });
-                } catch (Exception e) {
-                    log.error("Failed to enqueue payment refund event for order {}", order.getId(), e);
-                }
-            } else {
-                log.warn("Cannot refund PaymentIntent {} in status {}", intent.getId(), intent.getStatus());
-            }
-        });
+    @io.micrometer.core.annotation.Timed(value = "order.saga.refund.process.partial", description = "Time taken to process partial refund")
+    public void processPartialRefund(Order order, java.math.BigDecimal partialAmount) {
+        processPartialRefund(order, partialAmount, com.fooddelivery.common.enums.RefundDestination.GATEWAY);
     }
 
-    public void processPartialRefund(Order order, java.math.BigDecimal partialAmount) {
-        log.info("Processing partial refund for Order {}", order.getId());
-        paymentIntentRepository.findByInternalOrderId(order.getId()).ifPresent(intent -> {
-            if (intent.getStatus() == PaymentIntentStatus.SUCCESS || intent.getStatus() == PaymentIntentStatus.CAPTURED || intent.getStatus() == PaymentIntentStatus.PARTIALLY_REFUNDED || intent.getStatus() == PaymentIntentStatus.REFUND_FAILED) {
-                try {
-                    Map<String, Object> payloadMap = new HashMap<>();
-                    payloadMap.put("intentId", intent.getId().toString());
-                    payloadMap.put("gatewayOrderId", intent.getGatewayOrderId());
-                    payloadMap.put("amountInInr", partialAmount);
-                    payloadMap.put("gatewayName", intent.getGatewayName());
-                    payloadMap.put("orderId", order.getId().toString());
-                    String payloadStr = objectMapper.writeValueAsString(payloadMap);
-                    OutboxEventEntity outboxEvent = OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.PAYMENT).aggregateId(order.getId().toString()).eventType(com.fooddelivery.common.constants.EventType.PAYMENT_REFUND_REQUESTED).payload(payloadStr).createdAt(LocalDateTime.now()).build();
-                    transactionTemplate.executeWithoutResult(status -> {
-                        outboxEventRepository.save(outboxEvent);
-                        Order latestOrder = orderRepository.findById(order.getId()).orElse(null);
-                        if (latestOrder != null) {
-                            latestOrder.setPaymentStatus(PaymentIntentStatus.REFUND_PENDING);
-                            orderRepository.save(latestOrder);
-                        }
-                    });
-                    log.info("Refund requested event saved to outbox for intent: {}", intent.getId());
-                } catch (Exception e) {
-                    log.error("Failed to publish refund event for order {}", order.getId(), e);
-                    markRefundFailedWithRetry(intent);
+    public void processPartialRefund(Order order, java.math.BigDecimal partialAmount, com.fooddelivery.common.enums.RefundDestination refundDestination) {
+        log.info("Processing partial refund for Order {} to {}", order.getId(), refundDestination);
+        if (partialAmount == null || partialAmount.compareTo(java.math.BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Partial refund amount must be greater than zero");
+        }
+        
+        try {
+            transactionTemplate.executeWithoutResult(status -> {
+                com.fooddelivery.order.entity.PaymentIntent intent = paymentIntentRepository.findByInternalOrderIdForUpdate(order.getId())
+                    .orElseThrow(() -> new IllegalStateException("PaymentIntent not found for internalOrderId " + order.getId() + ". Cannot process partial refund."));
+
+                java.math.BigDecimal currentRefunded = order.getRefundedAmount() != null ? order.getRefundedAmount() : java.math.BigDecimal.ZERO;
+                java.math.BigDecimal remainingRefundable = order.getTotalAmount().subtract(currentRefunded);
+                if (partialAmount.compareTo(remainingRefundable) > 0) {
+                    throw new IllegalArgumentException("Partial refund amount " + partialAmount + " exceeds remaining refundable balance " + remainingRefundable);
                 }
-            } else {
-                log.info("PaymentIntent for Order {} is not in a refundable state: {}", order.getId(), intent.getStatus());
-            }
-        });
+
+                if (intent.getStatus() == PaymentIntentStatus.SUCCESS || intent.getStatus() == PaymentIntentStatus.CAPTURED || intent.getStatus() == PaymentIntentStatus.PARTIALLY_REFUNDED || intent.getStatus() == PaymentIntentStatus.REFUND_FAILED) {
+                    try {
+                        Map<String, Object> payloadMap = new HashMap<>();
+                        payloadMap.put("intentId", intent.getId().toString());
+                        payloadMap.put("gatewayOrderId", intent.getGatewayOrderId());
+                        payloadMap.put("amountInInr", partialAmount);
+                        payloadMap.put("gatewayName", intent.getGatewayName());
+                        payloadMap.put("orderId", order.getId().toString());
+                        payloadMap.put("refundDestination", refundDestination != null ? refundDestination.name() : "GATEWAY");
+                        String payloadStr = objectMapper.writeValueAsString(payloadMap);
+                        OutboxEventEntity outboxEvent = OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.PAYMENT).aggregateId(order.getId().toString()).eventType(com.fooddelivery.common.constants.EventType.PAYMENT_REFUND_REQUESTED).payload(payloadStr).createdAt(LocalDateTime.now()).build();
+                        outboxEventRepository.save(outboxEvent);
+
+                        // Handle Post-Delivery Reversals
+                        Order latestOrder = orderRepository.findById(order.getId()).orElse(order);
+                        if (latestOrder.getDeliveryStatus() == com.fooddelivery.common.enums.DeliveryStatus.DELIVERED) {
+                            UUID reversalId = UUID.randomUUID();
+                            Map<String, Object> reversalPayload = new HashMap<>();
+                            reversalPayload.put("reversalId", reversalId.toString());
+                            reversalPayload.put("orderId", order.getId().toString());
+                            reversalPayload.put("amount", partialAmount); // Reversing only the partial amount
+                            String reversalStr = objectMapper.writeValueAsString(reversalPayload);
+                            OutboxEventEntity reversalEvent = OutboxEventEntity.builder()
+                                .id(reversalId)
+                                .aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER)
+                                .aggregateId(order.getId().toString())
+                                .eventType(com.fooddelivery.common.constants.EventType.valueOf("LEDGER_REVERSAL_REQUEST")) 
+                                .payload(reversalStr)
+                                .createdAt(LocalDateTime.now())
+                                .build();
+                            outboxEventRepository.save(reversalEvent);
+                            log.info("Emitted partial LEDGER_REVERSAL_REQUEST for delivered order {}", order.getId());
+                        }
+
+                        latestOrder.setPaymentStatus(PaymentIntentStatus.REFUND_PENDING);
+                        orderRepository.save(latestOrder);
+                        
+                        intent.setStatus(PaymentIntentStatus.REFUND_PENDING);
+                        paymentIntentRepository.save(intent);
+                    } catch (Exception e) {
+                        log.error("Failed to enqueue payment refund event for order {}", order.getId(), e);
+                        markRefundFailedWithRetry(intent);
+                        throw new RuntimeException(e); // Rollback tx
+                    }
+                } else {
+                    log.warn("Cannot refund PaymentIntent {} in status {}", intent.getId(), intent.getStatus());
+                }
+            });
+        } catch (Exception e) {
+            log.error("Failed to process partial refund for order {}", order.getId(), e);
+        }
     }
 
     private void markRefundFailedWithRetry(com.fooddelivery.order.entity.PaymentIntent intent) {
@@ -572,6 +677,31 @@ public class OrderSagaOrchestrator {
         @java.lang.SuppressWarnings("all")
         public java.lang.String toString() {
             return "OrderSagaOrchestrator.WebhookPayloadDTO(event=" + this.getEvent() + ", payload=" + this.getPayload() + ")";
+        }
+    }
+
+    @org.springframework.scheduling.annotation.Scheduled(fixedDelay = 60000) // Runs every minute
+    public void sweepStuckOrders() {
+        LocalDateTime threshold = LocalDateTime.now().minusMinutes(15);
+        
+        java.util.List<Order> stuckCreated = orderRepository.findByStatusAndCreatedAtBefore(com.fooddelivery.common.enums.OrderStatus.CREATED, threshold);
+        for (Order order : stuckCreated) {
+            log.warn("Sweeper: Cancelling stuck order {} (in CREATED state > 15m)", order.getId());
+            try {
+                cancelOrderLocally(order, "Order stuck in CREATED state");
+            } catch (Exception e) {
+                log.error("Failed to cancel stuck CREATED order " + order.getId(), e);
+            }
+        }
+        
+        java.util.List<Order> stuckPending = orderRepository.findByStatusAndCreatedAtBefore(com.fooddelivery.common.enums.OrderStatus.PENDING_ACCEPTANCE, threshold);
+        for (Order order : stuckPending) {
+            log.warn("Sweeper: Cancelling stuck order {} (in PENDING_ACCEPTANCE state > 15m)", order.getId());
+            try {
+                cancelOrderLocally(order, "Order stuck in PENDING_ACCEPTANCE state");
+            } catch (Exception e) {
+                log.error("Failed to cancel stuck PENDING_ACCEPTANCE order " + order.getId(), e);
+            }
         }
     }
 

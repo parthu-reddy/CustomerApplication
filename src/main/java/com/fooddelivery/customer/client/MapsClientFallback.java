@@ -36,9 +36,6 @@ public class MapsClientFallback implements MapsClient {
 
     @Override
     public Map<String, Object> getDistance(String origin, String destination) {
-        Map<String, Object> fallback = new HashMap<>();
-        fallback.put("distance", 5.0); // 5km fallback
-        fallback.put("fallback", true);
-        return fallback;
+        throw new IllegalStateException("Maps routing service unavailable. Cannot compute delivery distance. No fallback defaults permitted for financial integrity.");
     }
 }

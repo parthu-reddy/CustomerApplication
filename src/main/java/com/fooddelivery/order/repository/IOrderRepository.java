@@ -33,6 +33,7 @@ public interface IOrderRepository extends JpaRepository<Order, UUID> {
     List<Order> findByStatusInAndDeliveryExecutiveIdIsNull(List<com.fooddelivery.common.enums.OrderStatus> statuses);
     
     List<Order> findByStatusIn(List<com.fooddelivery.common.enums.OrderStatus> statuses);
+    Page<Order> findByStatusIn(List<com.fooddelivery.common.enums.OrderStatus> statuses, Pageable pageable);
     
     @EntityGraph(attributePaths = {"orderItems"})
     java.util.Optional<Order> findByIdAndCustomerId(UUID id, UUID customerId);
