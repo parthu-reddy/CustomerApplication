@@ -3,6 +3,7 @@ package com.fooddelivery.customer.client;
 import com.fooddelivery.common.dto.ApiResponse;
 import com.fooddelivery.customer.service.CustomerOrderService.MenuItemDTO;
 import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -14,20 +15,24 @@ import java.util.UUID;
 @FeignClient(name = "restaurant-service", fallback = RestaurantClientFallback.class)
 public interface RestaurantClient {
 
+    @Cacheable(value = "nearbyRestaurants", key = "#lat + '-' + #lng + '-' + #radius", unless = "#result.data == null")
     @GetMapping("/api/v1/restaurants/nearby")
     ApiResponse<List<Object>> getNearbyRestaurants(@RequestParam("lat") double lat, 
                                                    @RequestParam("lng") double lng, 
                                                    @RequestParam("radius") double radius);
 
+    @Cacheable(value = "brandOutlets", key = "#brandId + '-' + #lat + '-' + #lng + '-' + #radius", unless = "#result.data == null")
     @GetMapping("/api/v1/restaurants/brands/{brandId}/outlets")
     ApiResponse<List<Object>> getBrandOutlets(@PathVariable("brandId") UUID brandId, 
                                               @RequestParam("lat") double lat, 
                                               @RequestParam("lng") double lng, 
                                               @RequestParam("radius") double radius);
 
+    @Cacheable(value = "restaurantDetails", key = "#id", unless = "#result == null")
     @GetMapping("/api/v1/restaurants/{id}")
     Map<String, Object> getRestaurantById(@PathVariable("id") UUID id);
 
+    @Cacheable(value = "menuItemsBatch", key = "#id + '-' + #ids", unless = "#result == null")
     @GetMapping("/api/v1/restaurants/{id}/menu/batch")
     List<MenuItemDTO> getMenuItemsBatch(@PathVariable("id") UUID id, @RequestParam("ids") String ids);
 

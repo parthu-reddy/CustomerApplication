@@ -58,23 +58,52 @@ public class DriverOrderController {
 
     @GetMapping("/active")
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
-    public ResponseEntity<ApiResponse<List<OrderResponse>>> getActiveOrders(java.security.Principal principal) {
+    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<OrderResponse>>> getActiveOrders(
+            java.security.Principal principal, 
+            @org.springframework.data.web.PageableDefault(size = 20) org.springframework.data.domain.Pageable pageable) {
         UUID driverId = UUID.fromString(principal.getName());
-        List<Order> activeOrders = orderRepository.findByDeliveryExecutiveId(driverId).stream().filter(o -> (o.getStatus() == com.fooddelivery.common.enums.OrderStatus.ACCEPTED || o.getStatus() == com.fooddelivery.common.enums.OrderStatus.PREPARING || o.getStatus() == com.fooddelivery.common.enums.OrderStatus.READY_FOR_PICKUP || o.getStatus() == com.fooddelivery.common.enums.OrderStatus.HANDED_OVER) && o.getDeliveryStatus() != com.fooddelivery.common.enums.DeliveryStatus.DELIVERED && o.getDeliveryStatus() != com.fooddelivery.common.enums.DeliveryStatus.FAILED && o.getDeliveryStatus() != com.fooddelivery.common.enums.DeliveryStatus.CANCELLED).collect(Collectors.toList());
-        List<OrderResponse> responses = activeOrders.stream().map(this::mapToResponse).collect(Collectors.toList());
+        
+        List<com.fooddelivery.common.enums.OrderStatus> cancelledStatuses = List.of(
+            com.fooddelivery.common.enums.OrderStatus.CANCELLED
+        );
+        List<com.fooddelivery.common.enums.DeliveryStatus> terminalStatuses = List.of(
+            com.fooddelivery.common.enums.DeliveryStatus.DELIVERED,
+            com.fooddelivery.common.enums.DeliveryStatus.FAILED,
+            com.fooddelivery.common.enums.DeliveryStatus.CANCELLED
+        );
+        
+        org.springframework.data.domain.Page<Order> activeOrders = orderRepository.findActiveOrdersForDriver(driverId, cancelledStatuses, terminalStatuses, pageable);
+        org.springframework.data.domain.Page<OrderResponse> responses = activeOrders.map(this::mapToResponse);
         return ResponseEntity.ok(ApiResponse.success(responses, "Active orders retrieved"));
     }
 
     @GetMapping("/history")
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
-    public ResponseEntity<ApiResponse<List<OrderResponse>>> getHistoryOrders(java.security.Principal principal, @org.springframework.web.bind.annotation.RequestParam(required = false) String date) {
+    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<OrderResponse>>> getHistoryOrders(
+            java.security.Principal principal, 
+            @org.springframework.web.bind.annotation.RequestParam(required = false) String date,
+            @org.springframework.data.web.PageableDefault(size = 20) org.springframework.data.domain.Pageable pageable) {
         UUID driverId = UUID.fromString(principal.getName());
-        List<Order> terminalOrders = orderRepository.findByDeliveryExecutiveId(driverId).stream().filter(o -> o.getDeliveryExecutiveId() != null && o.getDeliveryExecutiveId().equals(driverId) && (o.getDeliveryStatus() == com.fooddelivery.common.enums.DeliveryStatus.DELIVERED || o.getDeliveryStatus() == com.fooddelivery.common.enums.DeliveryStatus.FAILED || o.getDeliveryStatus() == com.fooddelivery.common.enums.DeliveryStatus.CANCELLED)).filter(o -> {
-            if (date == null || date.isEmpty()) return true;
-            if (o.getCreatedAt() == null) return true;
-            return o.getCreatedAt().toLocalDate().toString().equals(date);
-        }).collect(Collectors.toList());
-        List<OrderResponse> responses = terminalOrders.stream().map(this::mapToResponse).collect(Collectors.toList());
+        
+        List<com.fooddelivery.common.enums.OrderStatus> cancelledStatuses = List.of(
+            com.fooddelivery.common.enums.OrderStatus.CANCELLED
+        );
+        List<com.fooddelivery.common.enums.DeliveryStatus> terminalStatuses = List.of(
+            com.fooddelivery.common.enums.DeliveryStatus.DELIVERED,
+            com.fooddelivery.common.enums.DeliveryStatus.FAILED,
+            com.fooddelivery.common.enums.DeliveryStatus.CANCELLED
+        );
+
+        java.time.LocalDateTime start = java.time.LocalDateTime.now().minusYears(10);
+        java.time.LocalDateTime end = java.time.LocalDateTime.now().plusDays(1);
+        if (date != null && !date.isEmpty()) {
+            java.time.LocalDate parsedDate = java.time.LocalDate.parse(date);
+            start = parsedDate.atStartOfDay();
+            end = parsedDate.plusDays(1).atStartOfDay();
+        }
+
+        org.springframework.data.domain.Page<Order> terminalOrders = orderRepository.findHistoryOrdersForDriver(driverId, cancelledStatuses, terminalStatuses, start, end, pageable);
+        org.springframework.data.domain.Page<OrderResponse> responses = terminalOrders.map(this::mapToResponse);
         return ResponseEntity.ok(ApiResponse.success(responses, "History orders retrieved"));
     }
 

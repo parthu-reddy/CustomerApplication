@@ -20,6 +20,7 @@ public class RestaurantTimeoutSweeper {
     private final IOrderRepository orderRepository;
     private final OrderActionService orderActionService;
     private final OrderSagaOrchestrator orderSagaOrchestrator;
+    private final com.fooddelivery.order.service.OrderRefundService orderRefundService;
     private final TransactionTemplate transactionTemplate;
     private final StringRedisTemplate redisTemplate;
 
@@ -38,7 +39,24 @@ public class RestaurantTimeoutSweeper {
                 cancelStaleOrder(order, "Auto-cancelled: Restaurant did not respond within 10 minutes");
             }
         }
+    }
 
+    @Scheduled(fixedDelay = 60000)
+    public void sweepStuckRestaurantOrders() {
+        Boolean locked = redisTemplate.opsForValue().setIfAbsent(com.fooddelivery.common.constants.RedisKeyConstants.LOCK_SWEEP_RESTAURANT_TIMEOUTS + "_STUCK", "1", Duration.ofSeconds(50));
+        if (!Boolean.TRUE.equals(locked)) {
+            return;
+        }
+        LocalDateTime threshold = LocalDateTime.now().minusMinutes(60);
+        List<OrderStatus> stuckStatuses = List.of(OrderStatus.ACCEPTED, OrderStatus.PREPARING, OrderStatus.READY_FOR_PICKUP);
+        org.springframework.data.domain.Page<Order> stuckOrdersPage = orderRepository.findByStatusInAndUpdatedAtBefore(stuckStatuses, threshold, org.springframework.data.domain.PageRequest.of(0, 500));
+        List<Order> stuckOrders = stuckOrdersPage.getContent();
+        if (!stuckOrders.isEmpty()) {
+            log.info("Found {} orders stuck in restaurant states (ACCEPTED/PREPARING/READY) for > 60 mins. Cancelling them...", stuckOrders.size());
+            for (Order order : stuckOrders) {
+                cancelStuckOrder(order, "Auto-cancelled: Restaurant failed to process or handover the order in time (60 mins)");
+            }
+        }
     }
 
     @Scheduled(fixedDelay = 60000)
@@ -86,18 +104,43 @@ public class RestaurantTimeoutSweeper {
             }));
             if (refundNeeded) {
                 // Process refund outside the transaction lock to avoid hanging on HTTP calls
-                orderSagaOrchestrator.processRefund(order);
+                orderRefundService.processRefund(order);
             }
         } catch (Exception e) {
             log.error("Failed to auto-cancel timeout order {}", order.getId(), e);
         }
     }
 
+    private void cancelStuckOrder(Order order, String reason) {
+        try {
+            boolean refundNeeded = Boolean.TRUE.equals(transactionTemplate.execute(status -> {
+                Order currentOrder = orderRepository.findById(order.getId()).orElse(null);
+                if (currentOrder != null && (currentOrder.getStatus() == OrderStatus.ACCEPTED || 
+                                             currentOrder.getStatus() == OrderStatus.PREPARING || 
+                                             currentOrder.getStatus() == OrderStatus.READY_FOR_PICKUP)) {
+                    currentOrder.setStatus(OrderStatus.CANCELLED_BY_RESTAURANT); 
+                    currentOrder.setCancellationReason(reason);
+                    orderRepository.save(currentOrder);
+                    orderActionService.emitOrderCancelledByRestaurantEvent(currentOrder.getId(), currentOrder.getCancellationReason());
+                    log.info("Auto-cancelled stuck order {}", currentOrder.getId());
+                    return true;
+                }
+                return false;
+            }));
+            if (refundNeeded) {
+                orderRefundService.processRefund(order);
+            }
+        } catch (Exception e) {
+            log.error("Failed to auto-cancel stuck order {}", order.getId(), e);
+        }
+    }
+
     @java.lang.SuppressWarnings("all")
-    public RestaurantTimeoutSweeper(final IOrderRepository orderRepository, final OrderActionService orderActionService, final OrderSagaOrchestrator orderSagaOrchestrator, final TransactionTemplate transactionTemplate, final StringRedisTemplate redisTemplate) {
+    public RestaurantTimeoutSweeper(final IOrderRepository orderRepository, final OrderActionService orderActionService, final OrderSagaOrchestrator orderSagaOrchestrator, final com.fooddelivery.order.service.OrderRefundService orderRefundService, final TransactionTemplate transactionTemplate, final StringRedisTemplate redisTemplate) {
         this.orderRepository = orderRepository;
         this.orderActionService = orderActionService;
         this.orderSagaOrchestrator = orderSagaOrchestrator;
+        this.orderRefundService = orderRefundService;
         this.transactionTemplate = transactionTemplate;
         this.redisTemplate = redisTemplate;
     }

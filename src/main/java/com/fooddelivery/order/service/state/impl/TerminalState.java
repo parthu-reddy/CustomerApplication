@@ -34,6 +34,9 @@ public class TerminalState implements OrderState {
         if (order.getStatus() != com.fooddelivery.common.enums.OrderStatus.CANCELLED && order.getStatus() != com.fooddelivery.common.enums.OrderStatus.HANDED_OVER) {
             order.setStatus(com.fooddelivery.common.enums.OrderStatus.CANCELLED);
             ctx.getActionService().saveOrder(order);
+        }
+        
+        if (order.getStatus() != com.fooddelivery.common.enums.OrderStatus.HANDED_OVER) {
             // Do not refund if customer cancelled the order
             if (!"Cancelled by customer".equals(order.getCancellationReason())) {
                 ctx.setRequiresRefund(true);

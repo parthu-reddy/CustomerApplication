@@ -12,9 +12,14 @@ import java.util.List;
 import org.springframework.data.jpa.repository.EntityGraph;
 
 public interface IOrderRepository extends JpaRepository<Order, UUID> {
+    @EntityGraph(attributePaths = {"orderItems"})
     List<Order> findByStatusAndUpdatedAtBefore(com.fooddelivery.common.enums.OrderStatus status, LocalDateTime time);
+    @EntityGraph(attributePaths = {"orderItems"})
     Page<Order> findByStatusAndUpdatedAtBefore(com.fooddelivery.common.enums.OrderStatus status, LocalDateTime time, Pageable pageable);
+    @EntityGraph(attributePaths = {"orderItems"})
+    Page<Order> findByStatusInAndUpdatedAtBefore(List<com.fooddelivery.common.enums.OrderStatus> statuses, LocalDateTime time, Pageable pageable);
     
+    @EntityGraph(attributePaths = {"orderItems"})
     List<Order> findByStatusAndCreatedAtBefore(com.fooddelivery.common.enums.OrderStatus status, LocalDateTime time);
     
     @EntityGraph(attributePaths = {"orderItems"})
@@ -30,9 +35,11 @@ public interface IOrderRepository extends JpaRepository<Order, UUID> {
     List<Order> findByDeliveryExecutiveIdAndStatusAndCreatedAtBetween(UUID deliveryExecutiveId, com.fooddelivery.common.enums.OrderStatus status, LocalDateTime start, LocalDateTime end);
     
     @EntityGraph(attributePaths = {"orderItems"})
-    List<Order> findByStatusInAndDeliveryExecutiveIdIsNull(List<com.fooddelivery.common.enums.OrderStatus> statuses);
+    Page<Order> findByStatusInAndDeliveryExecutiveIdIsNull(List<com.fooddelivery.common.enums.OrderStatus> statuses, Pageable pageable);
     
+    @EntityGraph(attributePaths = {"orderItems"})
     List<Order> findByStatusIn(List<com.fooddelivery.common.enums.OrderStatus> statuses);
+    @EntityGraph(attributePaths = {"orderItems"})
     Page<Order> findByStatusIn(List<com.fooddelivery.common.enums.OrderStatus> statuses, Pageable pageable);
     
     @EntityGraph(attributePaths = {"orderItems"})
@@ -80,10 +87,11 @@ public interface IOrderRepository extends JpaRepository<Order, UUID> {
         "AND o.status NOT IN :cancelledStatuses " +
         "AND (o.deliveryStatus IS NULL OR o.deliveryStatus NOT IN :terminalDeliveryStatuses)"
     )
-    List<Order> findActiveOrdersForDriver(
+    Page<Order> findActiveOrdersForDriver(
         @org.springframework.data.repository.query.Param("driverId") UUID driverId,
         @org.springframework.data.repository.query.Param("cancelledStatuses") List<com.fooddelivery.common.enums.OrderStatus> cancelledStatuses,
-        @org.springframework.data.repository.query.Param("terminalDeliveryStatuses") List<com.fooddelivery.common.enums.DeliveryStatus> terminalDeliveryStatuses
+        @org.springframework.data.repository.query.Param("terminalDeliveryStatuses") List<com.fooddelivery.common.enums.DeliveryStatus> terminalDeliveryStatuses,
+        Pageable pageable
     );
 
     @EntityGraph(attributePaths = {"orderItems"})
@@ -93,12 +101,13 @@ public interface IOrderRepository extends JpaRepository<Order, UUID> {
         "AND (o.status IN :cancelledStatuses OR o.deliveryStatus IN :terminalDeliveryStatuses) " +
         "AND o.createdAt >= :start AND o.createdAt <= :end"
     )
-    List<Order> findHistoryOrdersForDriver(
+    Page<Order> findHistoryOrdersForDriver(
         @org.springframework.data.repository.query.Param("driverId") UUID driverId,
         @org.springframework.data.repository.query.Param("cancelledStatuses") List<com.fooddelivery.common.enums.OrderStatus> cancelledStatuses,
         @org.springframework.data.repository.query.Param("terminalDeliveryStatuses") List<com.fooddelivery.common.enums.DeliveryStatus> terminalDeliveryStatuses,
         @org.springframework.data.repository.query.Param("start") LocalDateTime start,
-        @org.springframework.data.repository.query.Param("end") LocalDateTime end
+        @org.springframework.data.repository.query.Param("end") LocalDateTime end,
+        Pageable pageable
     );
 
     @EntityGraph(attributePaths = {"orderItems"})

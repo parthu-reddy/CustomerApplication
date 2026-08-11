@@ -18,6 +18,7 @@ public class RefundRetrySweeper {
     private final IPaymentIntentRepository paymentIntentRepository;
     private final IOrderRepository orderRepository;
     private final OrderSagaOrchestrator orderSagaOrchestrator;
+    private final com.fooddelivery.order.service.OrderRefundService orderRefundService;
     private final StringRedisTemplate redisTemplate;
     private final com.fooddelivery.common.outbox.repository.OutboxEventRepository outboxEventRepository;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
@@ -39,6 +40,7 @@ public class RefundRetrySweeper {
                 try {
                     if (intent.getRetryCount() >= 5) {
                         log.error("PaymentIntent {} has reached max retries for refund. Manual intervention required.", intent.getId());
+                        io.micrometer.core.instrument.Metrics.counter("refund.retry.sweeper.max_limit_reached").increment();
                         
                         java.util.Map<String, Object> dlqPayload = new java.util.HashMap<>();
                         dlqPayload.put("intentId", intent.getId().toString());
@@ -61,6 +63,7 @@ public class RefundRetrySweeper {
                         continue;
                     }
 
+                    io.micrometer.core.instrument.Metrics.counter("refund.retry.sweeper.attempted").increment();
                     intent.setRetryCount(intent.getRetryCount() + 1);
                     paymentIntentRepository.save(intent);
 
@@ -69,7 +72,7 @@ public class RefundRetrySweeper {
                         if (order.getStatus() == com.fooddelivery.common.enums.OrderStatus.CANCELLED || 
                             order.getStatus() == com.fooddelivery.common.enums.OrderStatus.CANCELLED_BY_RESTAURANT) {
                             log.info("Retrying refund for Order {}", order.getId());
-                            orderSagaOrchestrator.processRefund(order);
+                            orderRefundService.processRefund(order);
                         } else {
                             log.warn("Skipping auto-retry for Order {}. Status is {} (likely a manual partial refund failure).", order.getId(), order.getStatus());
                         }
@@ -84,10 +87,11 @@ public class RefundRetrySweeper {
     }
 
     @java.lang.SuppressWarnings("all")
-    public RefundRetrySweeper(final IPaymentIntentRepository paymentIntentRepository, final IOrderRepository orderRepository, final OrderSagaOrchestrator orderSagaOrchestrator, final StringRedisTemplate redisTemplate, final com.fooddelivery.common.outbox.repository.OutboxEventRepository outboxEventRepository, final com.fasterxml.jackson.databind.ObjectMapper objectMapper) {
+    public RefundRetrySweeper(final IPaymentIntentRepository paymentIntentRepository, final IOrderRepository orderRepository, final OrderSagaOrchestrator orderSagaOrchestrator, final com.fooddelivery.order.service.OrderRefundService orderRefundService, final StringRedisTemplate redisTemplate, final com.fooddelivery.common.outbox.repository.OutboxEventRepository outboxEventRepository, final com.fasterxml.jackson.databind.ObjectMapper objectMapper) {
         this.paymentIntentRepository = paymentIntentRepository;
         this.orderRepository = orderRepository;
         this.orderSagaOrchestrator = orderSagaOrchestrator;
+        this.orderRefundService = orderRefundService;
         this.redisTemplate = redisTemplate;
         this.outboxEventRepository = outboxEventRepository;
         this.objectMapper = objectMapper;

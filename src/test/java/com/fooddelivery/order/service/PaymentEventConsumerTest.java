@@ -1,0 +1,100 @@
+package com.fooddelivery.order.service;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fooddelivery.common.enums.OrderStatus;
+import com.fooddelivery.order.entity.Order;
+import com.fooddelivery.order.repository.IOrderRepository;
+import com.fooddelivery.order.repository.IPaymentIntentRepository;
+import com.fooddelivery.common.outbox.repository.OutboxEventRepository;
+import com.fooddelivery.order.service.state.OrderActionService;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.transaction.support.TransactionTemplate;
+
+import java.util.Optional;
+import java.util.UUID;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+public class PaymentEventConsumerTest {
+
+    @Mock
+    private IOrderRepository orderRepository;
+    @Mock
+    private StringRedisTemplate redisTemplate;
+    @Mock
+    private TransactionTemplate transactionTemplate;
+    @Mock
+    private ObjectMapper objectMapper;
+    @Mock
+    private IPaymentIntentRepository paymentIntentRepository;
+    @Mock
+    private OrderActionService orderActionService;
+    @Mock
+    private OutboxEventRepository outboxEventRepository;
+    @Mock
+    private OrderRefundService orderRefundService;
+
+    private PaymentEventConsumer paymentEventConsumer;
+
+    @BeforeEach
+    void setUp() {
+        paymentEventConsumer = new PaymentEventConsumer(
+                redisTemplate,
+                transactionTemplate,
+                objectMapper,
+                paymentIntentRepository,
+                orderRepository,
+                orderActionService,
+                outboxEventRepository,
+                orderRefundService
+        );
+
+        lenient().doAnswer(invocation -> {
+            org.springframework.transaction.support.TransactionCallback<Object> action = invocation.getArgument(0);
+            return action.doInTransaction(null);
+        }).when(transactionTemplate).execute(any(org.springframework.transaction.support.TransactionCallback.class));
+
+        org.springframework.data.redis.core.ValueOperations<String, String> valueOperations = mock(org.springframework.data.redis.core.ValueOperations.class);
+        lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        lenient().when(valueOperations.setIfAbsent(anyString(), anyString(), any())).thenReturn(Boolean.TRUE);
+    }
+
+    @Test
+    void consumePaymentEvent_LatePaymentWhenOrderCancelled_TriggersRefund() throws Exception {
+        UUID orderId = UUID.randomUUID();
+        String message = "{\"eventType\":\"PAYMENT_SUCCESS\",\"orderId\":\"" + orderId + "\",\"gatewayOrderId\":\"GATEWAY_123\"}";
+
+        ObjectNode rootNode = new ObjectMapper().createObjectNode();
+        rootNode.put("eventType", "PAYMENT_SUCCESS");
+        rootNode.put("orderId", orderId.toString());
+        rootNode.put("gatewayOrderId", "GATEWAY_123");
+        rootNode.put("amount", "100.00");
+
+        when(objectMapper.readTree(message)).thenReturn(rootNode);
+
+        com.fooddelivery.order.entity.PaymentIntent intent = new com.fooddelivery.order.entity.PaymentIntent();
+        intent.setInternalOrderId(orderId);
+        when(paymentIntentRepository.findByGatewayOrderId("GATEWAY_123")).thenReturn(Optional.of(intent));
+
+        Order order = new Order();
+        order.setId(orderId);
+        order.setStatus(OrderStatus.CANCELLED);
+
+        when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+
+        java.util.Map<String, Object> headers = new java.util.HashMap<>();
+        paymentEventConsumer.handlePaymentEvents(message, headers);
+
+        // Verify that because order is CANCELLED, late payment triggers immediate refund
+        verify(orderRefundService).processRefund(order);
+    }
+}

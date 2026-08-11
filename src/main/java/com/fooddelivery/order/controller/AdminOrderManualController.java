@@ -26,6 +26,7 @@ public class AdminOrderManualController {
     private final IOrderRepository orderRepository;
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final com.fooddelivery.order.service.OrderSagaOrchestrator orderSagaOrchestrator;
+    private final com.fooddelivery.order.service.OrderRefundService orderRefundService;
 
     @GetMapping
     @PreAuthorize("hasRole(\'ADMIN\')")
@@ -122,7 +123,7 @@ public class AdminOrderManualController {
             order.setStatus(OrderStatus.CANCELLED);
             order.setCancellationReason(reason);
             orderRepository.save(order);
-            orderSagaOrchestrator.processRefund(order);
+            orderRefundService.processRefund(order);
             log.info("Admin forcefully cancelled order {}. Reason: {}", order.getId(), reason);
             return ResponseEntity.ok(ApiResponse.success("Order forcefully cancelled and refund requested", "Operation successful"));
         } catch (Exception e) {
@@ -140,7 +141,7 @@ public class AdminOrderManualController {
                 return ResponseEntity.notFound().build();
             }
             Order order = orderOpt.get();
-            orderSagaOrchestrator.processRefund(order);
+            orderRefundService.processRefund(order);
             log.info("Admin forcefully requested refund for order {}", order.getId());
             return ResponseEntity.ok(ApiResponse.success("Force refund requested successfully", "Operation successful"));
         } catch (Exception e) {
@@ -162,7 +163,7 @@ public class AdminOrderManualController {
                 return ResponseEntity.badRequest().body(ApiResponse.error("Amount is required"));
             }
             java.math.BigDecimal amount = new java.math.BigDecimal(amountObj.toString());
-            orderSagaOrchestrator.processPartialRefund(order, amount);
+            orderRefundService.processPartialRefund(order, amount);
             log.info("Admin requested partial refund of {} for order {}", amount, order.getId());
             return ResponseEntity.ok(ApiResponse.success("Partial refund requested successfully", "Operation successful"));
         } catch (Exception e) {
@@ -185,9 +186,47 @@ public class AdminOrderManualController {
                 return ResponseEntity.badRequest().body(ApiResponse.error("Amount is required"));
             }
             java.math.BigDecimal amount = new java.math.BigDecimal(amountObj.toString());
-            // Since the system defaults to Option A (Platform absorbs full loss), we just use GATEWAY destination.
-            orderSagaOrchestrator.processPartialRefund(order, amount, com.fooddelivery.common.enums.RefundDestination.GATEWAY);
-            log.info("Admin requested post-delivery refund of {} for order {}", amount, order.getId());
+            
+            Object faultAttributionObj = payload.get("faultAttribution");
+            String faultAttribution = faultAttributionObj != null ? faultAttributionObj.toString().toUpperCase() : "PLATFORM";
+            
+            if (!faultAttribution.equals("RESTAURANT") && !faultAttribution.equals("DRIVER") && !faultAttribution.equals("PLATFORM")) {
+                return ResponseEntity.badRequest().body(ApiResponse.error("Invalid faultAttribution. Must be RESTAURANT, DRIVER, or PLATFORM"));
+            }
+            
+            // Process the refund to the customer
+            orderRefundService.processPartialRefund(order, amount, com.fooddelivery.common.enums.RefundDestination.GATEWAY);
+            
+            // If fault lies with the restaurant or driver, publish a REVERSAL_GENERATED event to debit their earnings
+            if (!faultAttribution.equals("PLATFORM")) {
+                UUID entityId = null;
+                if (faultAttribution.equals("RESTAURANT") && order.getRestaurantId() != null) {
+                    entityId = order.getRestaurantId();
+                } else if (faultAttribution.equals("DRIVER") && order.getDeliveryExecutiveId() != null) {
+                    entityId = order.getDeliveryExecutiveId();
+                }
+                
+                if (entityId != null) {
+                    Map<String, Object> eventPayload = new HashMap<>();
+                    eventPayload.put("entityId", entityId.toString());
+                    eventPayload.put("entityType", faultAttribution);
+                    eventPayload.put("amount", amount.toString());
+                    eventPayload.put("referenceId", "REV_" + order.getId().toString() + "_" + System.currentTimeMillis());
+                    eventPayload.put("description", "Reversal for order " + order.getId() + " due to post-delivery refund");
+                    eventPayload.put("chargeCategory", com.fooddelivery.common.enums.ChargeCategory.REFUND.name());
+                    
+                    Map<String, Object> kafkaMessage = new HashMap<>();
+                    kafkaMessage.put("eventType", "REVERSAL_GENERATED");
+                    kafkaMessage.put("payload", eventPayload);
+                    
+                    com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                    String jsonMessage = mapper.writeValueAsString(kafkaMessage);
+                    kafkaTemplate.send(KafkaConstants.TOPIC_WALLET_EVENTS, order.getId().toString(), jsonMessage);
+                    log.info("Published REVERSAL_GENERATED event to Wallet for {} {} due to order {}", faultAttribution, entityId, order.getId());
+                }
+            }
+            
+            log.info("Admin requested post-delivery refund of {} for order {}. Fault: {}", amount, order.getId(), faultAttribution);
             return ResponseEntity.ok(ApiResponse.success("Post-delivery refund requested successfully", "Operation successful"));
         } catch (Exception e) {
             log.error("Error during post-delivery refund", e);
@@ -197,9 +236,10 @@ public class AdminOrderManualController {
 
 
     @java.lang.SuppressWarnings("all")
-    public AdminOrderManualController(final IOrderRepository orderRepository, final KafkaTemplate<String, String> kafkaTemplate, final com.fooddelivery.order.service.OrderSagaOrchestrator orderSagaOrchestrator) {
+    public AdminOrderManualController(final IOrderRepository orderRepository, final KafkaTemplate<String, String> kafkaTemplate, final com.fooddelivery.order.service.OrderSagaOrchestrator orderSagaOrchestrator, final com.fooddelivery.order.service.OrderRefundService orderRefundService) {
         this.orderRepository = orderRepository;
         this.kafkaTemplate = kafkaTemplate;
         this.orderSagaOrchestrator = orderSagaOrchestrator;
+        this.orderRefundService = orderRefundService;
     }
 }

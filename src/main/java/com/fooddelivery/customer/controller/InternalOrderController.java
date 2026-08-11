@@ -3,6 +3,7 @@ package com.fooddelivery.customer.controller;
 import com.fooddelivery.order.entity.Order;
 import com.fooddelivery.order.repository.IOrderRepository;
 import com.fooddelivery.order.service.OrderSagaOrchestrator;
+import com.fooddelivery.order.service.OrderRefundService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,10 +22,12 @@ public class InternalOrderController {
 
     private final IOrderRepository orderRepository;
     private final OrderSagaOrchestrator orderSagaOrchestrator;
+    private final OrderRefundService orderRefundService;
 
-    public InternalOrderController(IOrderRepository orderRepository, OrderSagaOrchestrator orderSagaOrchestrator) {
+    public InternalOrderController(IOrderRepository orderRepository, OrderSagaOrchestrator orderSagaOrchestrator, OrderRefundService orderRefundService) {
         this.orderRepository = orderRepository;
         this.orderSagaOrchestrator = orderSagaOrchestrator;
+        this.orderRefundService = orderRefundService;
     }
 
     @PostMapping("/{orderId}/partial-refund")
@@ -64,7 +67,7 @@ public class InternalOrderController {
         orderRepository.save(order);
         
         log.info("Processing internal partial refund of {} for order {}", refundAmount, orderId);
-        orderSagaOrchestrator.processPartialRefund(order, refundAmount);
+        orderRefundService.processPartialRefund(order, refundAmount);
 
         return ResponseEntity.ok(Map.of("message", "Partial refund initiated successfully"));
     }

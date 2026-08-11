@@ -23,9 +23,10 @@ public class AdminCustomerController {
 
     // @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/addresses")
-    public ResponseEntity<ApiResponse<List<CustomerAddressDto>>> getAllCustomerAddresses() {
-        List<CustomerAddress> addresses = addressRepository.findAll();
-        List<CustomerAddressDto> dtos = addresses.stream().map(this::toDto).collect(Collectors.toList());
+    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<CustomerAddressDto>>> getAllCustomerAddresses(
+            @org.springframework.data.web.PageableDefault(size = 50) org.springframework.data.domain.Pageable pageable) {
+        org.springframework.data.domain.Page<CustomerAddress> addresses = addressRepository.findAll(pageable);
+        org.springframework.data.domain.Page<CustomerAddressDto> dtos = addresses.map(this::toDto);
         return ResponseEntity.ok(ApiResponse.success(dtos, "All customer addresses retrieved"));
     }
 

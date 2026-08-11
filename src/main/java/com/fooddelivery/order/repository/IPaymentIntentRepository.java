@@ -22,6 +22,8 @@ public interface IPaymentIntentRepository extends JpaRepository<PaymentIntent, U
 
     Optional<PaymentIntent> findByGatewayOrderId(String gatewayOrderId);
     
+    org.springframework.data.domain.Page<PaymentIntent> findByStatus(PaymentIntentStatus status, org.springframework.data.domain.Pageable pageable);
+    
     @Query("SELECT p FROM PaymentIntent p WHERE p.status = :status AND p.createdAt < :cutoffTime")
     List<PaymentIntent> findByStatusAndCreatedAtBefore(@Param("status") PaymentIntentStatus status, @Param("cutoffTime") LocalDateTime cutoffTime);
 

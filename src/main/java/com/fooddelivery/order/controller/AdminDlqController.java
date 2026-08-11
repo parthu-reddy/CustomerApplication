@@ -16,6 +16,7 @@ public class AdminDlqController {
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final com.fooddelivery.order.repository.IPaymentIntentRepository paymentIntentRepository;
     private final com.fooddelivery.order.service.OrderSagaOrchestrator orderSagaOrchestrator;
+    private final com.fooddelivery.order.service.OrderRefundService orderRefundService;
     private final com.fooddelivery.order.repository.IOrderRepository orderRepository;
 
     /**
@@ -76,7 +77,7 @@ public class AdminDlqController {
                     
             if (order.getStatus() == com.fooddelivery.common.enums.OrderStatus.CANCELLED || 
                 order.getStatus() == com.fooddelivery.common.enums.OrderStatus.CANCELLED_BY_RESTAURANT) {
-                orderSagaOrchestrator.processRefund(order);
+                orderRefundService.processRefund(order);
                 return ResponseEntity.ok(ApiResponse.success("Refund process initiated successfully", "Successfully queued for retry"));
             } else if (order.getDeliveryStatus() == com.fooddelivery.common.enums.DeliveryStatus.DELIVERED) {
                 // Determine if it was a partial refund or full post-delivery refund
@@ -86,7 +87,7 @@ public class AdminDlqController {
                 // If it's a partial refund, processPartialRefund takes an amount. We don't have the amount here easily.
                 // But for now, we just reset retryCount and let Sweeper or manual trigger handle it if we know the amount.
                 // For full refunds, processRefund(order) works for delivered too.
-                orderSagaOrchestrator.processRefund(order);
+                orderRefundService.processRefund(order);
                 return ResponseEntity.ok(ApiResponse.success("Post-delivery refund process initiated successfully", "Successfully queued for retry"));
             } else {
                 return ResponseEntity.badRequest().body(ApiResponse.error("Cannot auto-retry refund for order in status: " + order.getStatus()));
@@ -97,11 +98,46 @@ public class AdminDlqController {
         }
     }
 
+    @GetMapping("/refunds")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<org.springframework.data.domain.Page<Map<String, Object>>> getFailedRefunds(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
+        org.springframework.data.domain.Page<com.fooddelivery.order.entity.PaymentIntent> intentsPage = 
+            paymentIntentRepository.findByStatus(com.fooddelivery.common.constants.PaymentIntentStatus.REFUND_FAILED, pageable);
+        
+        org.springframework.data.domain.Page<Map<String, Object>> response = intentsPage.map(intent -> {
+            Map<String, Object> map = new java.util.HashMap<>();
+            map.put("paymentIntentId", intent.getId());
+            map.put("orderId", intent.getInternalOrderId());
+            map.put("amount", intent.getAmount());
+            map.put("status", intent.getStatus());
+            map.put("retryCount", intent.getRetryCount());
+            map.put("createdAt", intent.getCreatedAt());
+
+            
+            // Try to fetch order details
+            orderRepository.findById(intent.getInternalOrderId()).ifPresent(order -> {
+                map.put("customerName", order.getCustomerId()); // Fallback customer name logic
+                map.put("restaurantId", order.getRestaurantId());
+                map.put("orderStatus", order.getStatus());
+                map.put("totalAmount", order.getTotalAmount());
+                map.put("refundedAmount", order.getRefundedAmount());
+            });
+            return map;
+        });
+        
+        return ResponseEntity.ok(response);
+    }
+
     @java.lang.SuppressWarnings("all")
-    public AdminDlqController(final KafkaTemplate<String, String> kafkaTemplate, final com.fooddelivery.order.repository.IPaymentIntentRepository paymentIntentRepository, final com.fooddelivery.order.service.OrderSagaOrchestrator orderSagaOrchestrator, final com.fooddelivery.order.repository.IOrderRepository orderRepository) {
+    public AdminDlqController(final KafkaTemplate<String, String> kafkaTemplate, final com.fooddelivery.order.repository.IPaymentIntentRepository paymentIntentRepository, final com.fooddelivery.order.service.OrderSagaOrchestrator orderSagaOrchestrator, final com.fooddelivery.order.service.OrderRefundService orderRefundService, final com.fooddelivery.order.repository.IOrderRepository orderRepository) {
         this.kafkaTemplate = kafkaTemplate;
         this.paymentIntentRepository = paymentIntentRepository;
         this.orderSagaOrchestrator = orderSagaOrchestrator;
+        this.orderRefundService = orderRefundService;
         this.orderRepository = orderRepository;
     }
 }

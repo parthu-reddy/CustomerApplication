@@ -3,8 +3,18 @@ spring:
     name: customer-service
   config:
     import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
+  cache:
+    type: redis
+    redis:
+      time-to-live: 10m
+      cache-null-values: false
   cloud:
     openfeign:
+      client:
+        config:
+          default:
+            connectTimeout: 2000
+            readTimeout: 3000
       circuitbreaker:
         enabled: true
         alphanumeric-ids: true

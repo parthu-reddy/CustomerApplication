@@ -127,7 +127,7 @@ public class CustomerMcpService {
     @Tool(description = "Admin: Get active orders for user. Provide userId.")
     public String getActiveOrdersForUser(String userId) {
         try {
-            return objectMapper.writeValueAsString(adminOrderController.getActiveOrdersForUser(UUID.fromString(userId)).getBody());
+            return objectMapper.writeValueAsString(adminOrderController.getActiveOrdersForUser(UUID.fromString(userId), org.springframework.data.domain.PageRequest.of(0, 50)).getBody());
         } catch (Exception e) {
             return "Error: " + e.getMessage();
         }
@@ -136,7 +136,7 @@ public class CustomerMcpService {
     @Tool(description = "Admin: Get unassigned orders.")
     public String getUnassignedOrders() {
         try {
-            return objectMapper.writeValueAsString(adminOrderController.getUnassignedOrders().getBody());
+            return objectMapper.writeValueAsString(adminOrderController.getUnassignedOrders(org.springframework.data.domain.PageRequest.of(0, 50)).getBody());
         } catch (Exception e) {
             return "Error: " + e.getMessage();
         }
@@ -174,7 +174,7 @@ public class CustomerMcpService {
     @Tool(description = "Admin: Get all customer addresses.")
     public String getAllCustomerAddresses() {
         try {
-            return objectMapper.writeValueAsString(adminCustomerController.getAllCustomerAddresses().getBody());
+            return objectMapper.writeValueAsString(adminCustomerController.getAllCustomerAddresses(org.springframework.data.domain.PageRequest.of(0, 50)).getBody());
         } catch (Exception e) {
             return "Error: " + e.getMessage();
         }
@@ -193,7 +193,7 @@ public class CustomerMcpService {
     @Tool(description = "Driver: Get active orders. Provide driverId.")
     public String getActiveOrders(String driverId) {
         try {
-            return objectMapper.writeValueAsString(driverOrderController.getActiveOrders(createMockPrincipal(driverId)).getBody());
+            return objectMapper.writeValueAsString(driverOrderController.getActiveOrders(createMockPrincipal(driverId), org.springframework.data.domain.PageRequest.of(0, 50)).getBody());
         } catch (Exception e) {
             return "Error: " + e.getMessage();
         }
@@ -202,7 +202,7 @@ public class CustomerMcpService {
     @Tool(description = "Driver: Get history orders. Provide driverId and date (optional).")
     public String getHistoryOrders(String driverId, String date) {
         try {
-            return objectMapper.writeValueAsString(driverOrderController.getHistoryOrders(createMockPrincipal(driverId), date).getBody());
+            return objectMapper.writeValueAsString(driverOrderController.getHistoryOrders(createMockPrincipal(driverId), date, org.springframework.data.domain.PageRequest.of(0, 50)).getBody());
         } catch (Exception e) {
             return "Error: " + e.getMessage();
         }

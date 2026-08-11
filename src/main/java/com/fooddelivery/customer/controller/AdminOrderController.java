@@ -27,19 +27,30 @@ public class AdminOrderController {
     private final IOrderRepository orderRepository;
     private final RestaurantClient restaurantClient;
     private final com.fooddelivery.order.service.OrderSagaOrchestrator orderSagaOrchestrator;
+    private final com.fooddelivery.order.service.OrderRefundService orderRefundService;
     private final com.fooddelivery.order.service.state.OrderActionService orderActionService;
 
     @GetMapping("/user/{userId}/active")
-    @PreAuthorize("hasRole(\'ADMIN\')")
-    public ResponseEntity<List<Order>> getActiveOrdersForUser(@org.springframework.web.bind.annotation.PathVariable java.util.UUID userId) {
-        List<Order> activeOrders = orderRepository.findByCustomerId(userId).stream().filter(order -> List.of(OrderStatus.CREATED, OrderStatus.ACCEPTED, OrderStatus.READY_FOR_PICKUP, OrderStatus.HANDED_OVER).contains(order.getStatus())).sorted((o1, o2) -> o2.getCreatedAt().compareTo(o1.getCreatedAt())).toList();
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<org.springframework.data.domain.Page<Order>> getActiveOrdersForUser(
+            @org.springframework.web.bind.annotation.PathVariable java.util.UUID userId,
+            @org.springframework.data.web.PageableDefault(size = 20) org.springframework.data.domain.Pageable pageable) {
+        org.springframework.data.domain.Page<Order> activeOrders = orderRepository.findByCustomerIdAndStatusInOrderByCreatedAtDesc(
+            userId, 
+            List.of(OrderStatus.CREATED, OrderStatus.ACCEPTED, OrderStatus.READY_FOR_PICKUP, OrderStatus.HANDED_OVER), 
+            pageable
+        );
         return ResponseEntity.ok(activeOrders);
     }
 
     @GetMapping("/unassigned")
-    @PreAuthorize("hasRole(\'ADMIN\')")
-    public ResponseEntity<List<Order>> getUnassignedOrders() {
-        List<Order> unassignedOrders = orderRepository.findByStatusInAndDeliveryExecutiveIdIsNull(List.of(OrderStatus.ACCEPTED, OrderStatus.READY_FOR_PICKUP));
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<org.springframework.data.domain.Page<Order>> getUnassignedOrders(
+            @org.springframework.data.web.PageableDefault(size = 50) org.springframework.data.domain.Pageable pageable) {
+        org.springframework.data.domain.Page<Order> unassignedOrders = orderRepository.findByStatusInAndDeliveryExecutiveIdIsNull(
+            List.of(OrderStatus.ACCEPTED, OrderStatus.READY_FOR_PICKUP), 
+            pageable
+        );
         return ResponseEntity.ok(unassignedOrders);
     }
 
@@ -116,7 +127,7 @@ public class AdminOrderController {
         }
         order.setRefundedAmount(alreadyRefunded.add(request.getAmount()));
         orderRepository.save(order);
-        orderSagaOrchestrator.processPartialRefund(order, request.getAmount());
+        orderRefundService.processPartialRefund(order, request.getAmount());
         return ResponseEntity.ok(Map.of("message", "Partial refund initiated successfully"));
     }
 
@@ -172,15 +183,16 @@ public class AdminOrderController {
         }
         order.setRefundedAmount(alreadyRefunded.add(request.getAmount()));
         orderRepository.save(order);
-        orderSagaOrchestrator.processPartialRefund(order, request.getAmount());
+        orderRefundService.processPartialRefund(order, request.getAmount());
         return ResponseEntity.ok(Map.of("message", "Post-delivery refund initiated successfully"));
     }
 
     @java.lang.SuppressWarnings("all")
-    public AdminOrderController(final IOrderRepository orderRepository, final RestaurantClient restaurantClient, final com.fooddelivery.order.service.OrderSagaOrchestrator orderSagaOrchestrator, final com.fooddelivery.order.service.state.OrderActionService orderActionService) {
+    public AdminOrderController(final IOrderRepository orderRepository, final RestaurantClient restaurantClient, final com.fooddelivery.order.service.OrderSagaOrchestrator orderSagaOrchestrator, final com.fooddelivery.order.service.OrderRefundService orderRefundService, final com.fooddelivery.order.service.state.OrderActionService orderActionService) {
         this.orderRepository = orderRepository;
         this.restaurantClient = restaurantClient;
         this.orderSagaOrchestrator = orderSagaOrchestrator;
+        this.orderRefundService = orderRefundService;
         this.orderActionService = orderActionService;
     }
 }
