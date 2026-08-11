@@ -109,6 +109,9 @@ public class Order {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    @Column(name = "delivered_at")
+    private LocalDateTime deliveredAt;
+
     @java.lang.SuppressWarnings("all")
     private static Set<OrderCharge> $default$charges() {
         return new HashSet<>();
@@ -178,6 +181,8 @@ public class Order {
         private LocalDateTime createdAt;
         @java.lang.SuppressWarnings("all")
         private LocalDateTime updatedAt;
+        @java.lang.SuppressWarnings("all")
+        private LocalDateTime deliveredAt;
 
         @java.lang.SuppressWarnings("all")
         OrderBuilder() {
@@ -416,8 +421,17 @@ public class Order {
          * @return {@code this}.
          */
         @java.lang.SuppressWarnings("all")
-        public Order.OrderBuilder updatedAt(final LocalDateTime updatedAt) {
+        public Order.OrderBuilder updatedAt(final LocalDateTime updatedAt, final LocalDateTime deliveredAt) {
             this.updatedAt = updatedAt;
+            return this;
+        }
+
+        /**
+         * @return {@code this}.
+         */
+        @java.lang.SuppressWarnings("all")
+        public Order.OrderBuilder deliveredAt(final LocalDateTime deliveredAt) {
+            this.deliveredAt = deliveredAt;
             return this;
         }
 
@@ -427,7 +441,7 @@ public class Order {
             if (!this.charges$set) charges$value = Order.$default$charges();
             Set<OrderItem> orderItems$value = this.orderItems$value;
             if (!this.orderItems$set) orderItems$value = Order.$default$orderItems();
-            return new Order(this.id, this.customerId, this.customerName, this.restaurantId, this.restaurantName, this.status, this.deliveryStatus, this.paymentStatus, this.totalAmount, this.refundedAmount, this.distanceKm, charges$value, this.deliveryExecutiveId, this.deliveryAddressId, this.deliveryLat, this.deliveryLng, this.deliveryAddress, this.pickupOtp, this.otp, this.estimatedPrepTimeMinutes, this.estimatedCompletionTime, this.cancellationReason, this.version, orderItems$value, this.createdAt, this.updatedAt);
+            return new Order(this.id, this.customerId, this.customerName, this.restaurantId, this.restaurantName, this.status, this.deliveryStatus, this.paymentStatus, this.totalAmount, this.refundedAmount, this.distanceKm, charges$value, this.deliveryExecutiveId, this.deliveryAddressId, this.deliveryLat, this.deliveryLng, this.deliveryAddress, this.pickupOtp, this.otp, this.estimatedPrepTimeMinutes, this.estimatedCompletionTime, this.cancellationReason, this.version, orderItems$value, this.createdAt, this.updatedAt, this.deliveredAt);
         }
 
         @java.lang.Override
@@ -695,8 +709,19 @@ public class Order {
     }
 
     @java.lang.SuppressWarnings("all")
-    public void setUpdatedAt(final LocalDateTime updatedAt) {
+    public void setUpdatedAt(final LocalDateTime updatedAt, final LocalDateTime deliveredAt) {
         this.updatedAt = updatedAt;
+        this.deliveredAt = deliveredAt;
+    }
+
+    @java.lang.SuppressWarnings("all")
+    public LocalDateTime getDeliveredAt() {
+        return this.deliveredAt;
+    }
+
+    @java.lang.SuppressWarnings("all")
+    public void setDeliveredAt(final LocalDateTime deliveredAt) {
+        this.deliveredAt = deliveredAt;
     }
 
     @java.lang.SuppressWarnings("all")
@@ -706,7 +731,7 @@ public class Order {
     }
 
     @java.lang.SuppressWarnings("all")
-    public Order(final UUID id, final UUID customerId, final String customerName, final UUID restaurantId, final String restaurantName, final OrderStatus status, final com.fooddelivery.common.enums.DeliveryStatus deliveryStatus, final PaymentIntentStatus paymentStatus, final BigDecimal totalAmount, final BigDecimal refundedAmount, final BigDecimal distanceKm, final Set<OrderCharge> charges, final UUID deliveryExecutiveId, final UUID deliveryAddressId, final Double deliveryLat, final Double deliveryLng, final String deliveryAddress, final String pickupOtp, final String otp, final Integer estimatedPrepTimeMinutes, final Long estimatedCompletionTime, final String cancellationReason, final Integer version, final Set<OrderItem> orderItems, final LocalDateTime createdAt, final LocalDateTime updatedAt) {
+    public Order(final UUID id, final UUID customerId, final String customerName, final UUID restaurantId, final String restaurantName, final OrderStatus status, final com.fooddelivery.common.enums.DeliveryStatus deliveryStatus, final PaymentIntentStatus paymentStatus, final BigDecimal totalAmount, final BigDecimal refundedAmount, final BigDecimal distanceKm, final Set<OrderCharge> charges, final UUID deliveryExecutiveId, final UUID deliveryAddressId, final Double deliveryLat, final Double deliveryLng, final String deliveryAddress, final String pickupOtp, final String otp, final Integer estimatedPrepTimeMinutes, final Long estimatedCompletionTime, final String cancellationReason, final Integer version, final Set<OrderItem> orderItems, final LocalDateTime createdAt, final LocalDateTime updatedAt, final LocalDateTime deliveredAt) {
         this.id = id;
         this.customerId = customerId;
         this.customerName = customerName;
@@ -733,5 +758,6 @@ public class Order {
         this.orderItems = orderItems;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
+        this.deliveredAt = deliveredAt;
     }
 }
