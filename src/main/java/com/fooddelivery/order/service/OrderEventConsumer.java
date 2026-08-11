@@ -151,4 +151,10 @@ public class OrderEventConsumer {
             throw e;
         }
     }
+
+    @org.springframework.kafka.annotation.DltHandler
+    public void handleDlt(String message, @org.springframework.messaging.handler.annotation.Headers java.util.Map<String, Object> headers) {
+        log.error("DLT processing: Message exhausted all retries in CustomerApplication. Message: {}, Headers: {}", message, headers);
+        // You could also publish a metric here if meterRegistry was injected
+    }
 }

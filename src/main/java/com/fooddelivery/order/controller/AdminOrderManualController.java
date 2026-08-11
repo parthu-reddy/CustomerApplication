@@ -5,7 +5,9 @@ import com.fooddelivery.common.constants.KafkaConstants;
 import com.fooddelivery.common.dto.ApiResponse;
 import com.fooddelivery.common.enums.OrderStatus;
 import com.fooddelivery.order.entity.Order;
+import com.fooddelivery.order.entity.SupportTicket;
 import com.fooddelivery.order.repository.IOrderRepository;
+import com.fooddelivery.order.repository.SupportTicketRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -13,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -27,6 +30,7 @@ public class AdminOrderManualController {
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final com.fooddelivery.order.service.OrderSagaOrchestrator orderSagaOrchestrator;
     private final com.fooddelivery.order.service.OrderRefundService orderRefundService;
+    private final SupportTicketRepository supportTicketRepository;
 
     @GetMapping
     @PreAuthorize("hasRole(\'ADMIN\')")
@@ -235,11 +239,62 @@ public class AdminOrderManualController {
     }
 
 
+    // ==================== SUPPORT TICKET MANAGEMENT ====================
+
+    @GetMapping("/support-tickets")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Page<SupportTicket>> getOpenSupportTickets(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "OPEN") String status) {
+        Pageable pageable = PageRequest.of(page, size);
+        try {
+            SupportTicket.TicketStatus ticketStatus = SupportTicket.TicketStatus.valueOf(status.toUpperCase());
+            Page<SupportTicket> tickets = supportTicketRepository.findByStatusOrderByCreatedAtDesc(ticketStatus, pageable);
+            return ResponseEntity.ok(tickets);
+        } catch (IllegalArgumentException e) {
+            Page<SupportTicket> tickets = supportTicketRepository.findAllByOrderByCreatedAtDesc(pageable);
+            return ResponseEntity.ok(tickets);
+        }
+    }
+
+    @PostMapping("/support-tickets/{ticketId}/resolve")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<String>> resolveSupportTicket(
+            @PathVariable UUID ticketId,
+            java.security.Principal principal,
+            @RequestBody Map<String, String> payload) {
+        Optional<SupportTicket> ticketOpt = supportTicketRepository.findById(ticketId);
+        if (ticketOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        SupportTicket ticket = ticketOpt.get();
+        if (ticket.getStatus() != SupportTicket.TicketStatus.OPEN && ticket.getStatus() != SupportTicket.TicketStatus.IN_REVIEW) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("Ticket is already " + ticket.getStatus()));
+        }
+        String action = payload.getOrDefault("action", "RESOLVED").toUpperCase();
+        String notes = payload.get("notes");
+
+        if ("REJECTED".equals(action)) {
+            ticket.setStatus(SupportTicket.TicketStatus.REJECTED);
+        } else {
+            ticket.setStatus(SupportTicket.TicketStatus.RESOLVED);
+        }
+        ticket.setResolutionNotes(notes);
+        ticket.setResolvedBy(UUID.fromString(principal.getName()));
+        ticket.setResolvedAt(LocalDateTime.now());
+        supportTicketRepository.save(ticket);
+
+        log.info("Admin {} {} support ticket {} for order {}. Notes: {}", principal.getName(), action, ticketId, ticket.getOrderId(), notes);
+        return ResponseEntity.ok(ApiResponse.success("Support ticket " + action.toLowerCase() + " successfully", "Operation successful"));
+    }
+
     @java.lang.SuppressWarnings("all")
-    public AdminOrderManualController(final IOrderRepository orderRepository, final KafkaTemplate<String, String> kafkaTemplate, final com.fooddelivery.order.service.OrderSagaOrchestrator orderSagaOrchestrator, final com.fooddelivery.order.service.OrderRefundService orderRefundService) {
+    public AdminOrderManualController(final IOrderRepository orderRepository, final KafkaTemplate<String, String> kafkaTemplate, final com.fooddelivery.order.service.OrderSagaOrchestrator orderSagaOrchestrator, final com.fooddelivery.order.service.OrderRefundService orderRefundService, final SupportTicketRepository supportTicketRepository) {
         this.orderRepository = orderRepository;
         this.kafkaTemplate = kafkaTemplate;
         this.orderSagaOrchestrator = orderSagaOrchestrator;
         this.orderRefundService = orderRefundService;
+        this.supportTicketRepository = supportTicketRepository;
     }
 }
