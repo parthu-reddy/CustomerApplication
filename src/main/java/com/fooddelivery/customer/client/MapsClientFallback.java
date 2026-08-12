@@ -7,7 +7,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-@Component
+@Component("customerMapsClientFallback")
 public class MapsClientFallback implements MapsClient {
 
     @Override

@@ -4,7 +4,7 @@ import org.springframework.stereotype.Component;
 import java.util.Map;
 import java.util.List;
 
-@Component
+@Component("customerAdvertisementClientFallback")
 public class AdvertisementClientFallback implements AdvertisementClient {
 
     @Override

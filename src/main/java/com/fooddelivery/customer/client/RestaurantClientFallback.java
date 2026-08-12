@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-@Component
+@Component("customerRestaurantClientFallback")
 public class RestaurantClientFallback implements RestaurantClient {
 
     @Override
