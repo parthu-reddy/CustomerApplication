@@ -23,6 +23,7 @@ public class TerminalState implements OrderState {
         java.util.UUID paymentTransferId = java.util.UUID.nameUUIDFromBytes(("PAYMENT_" + order.getId()).getBytes());
         ctx.getActionService().recordLedgerTransaction(
                 paymentTransferId, 
+                order.getId(),
                 order.getCustomerId(), 
                 AccountType.CUSTOMER, 
                 OrderActionService.PLATFORM_ACCOUNT_ID, 

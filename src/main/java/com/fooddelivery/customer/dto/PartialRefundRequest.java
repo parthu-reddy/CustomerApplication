@@ -5,6 +5,7 @@ import java.math.BigDecimal;
 public class PartialRefundRequest {
     private BigDecimal amount;
     private String reason;
+    private com.fooddelivery.common.enums.FaultType faultType = com.fooddelivery.common.enums.FaultType.UNKNOWN;
 
     @java.lang.SuppressWarnings("all")
     public PartialRefundRequest() {
@@ -21,6 +22,11 @@ public class PartialRefundRequest {
     }
 
     @java.lang.SuppressWarnings("all")
+    public com.fooddelivery.common.enums.FaultType getFaultType() {
+        return this.faultType;
+    }
+
+    @java.lang.SuppressWarnings("all")
     public void setAmount(final BigDecimal amount) {
         this.amount = amount;
     }
@@ -28,6 +34,11 @@ public class PartialRefundRequest {
     @java.lang.SuppressWarnings("all")
     public void setReason(final String reason) {
         this.reason = reason;
+    }
+
+    @java.lang.SuppressWarnings("all")
+    public void setFaultType(final com.fooddelivery.common.enums.FaultType faultType) {
+        this.faultType = faultType;
     }
 
     @java.lang.Override

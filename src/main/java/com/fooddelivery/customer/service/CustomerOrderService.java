@@ -79,6 +79,10 @@ public class CustomerOrderService {
         return orderRepository.findByIdAndCustomerId(orderId, customerId).orElseThrow(() -> new RuntimeException("Order not found or access denied"));
     }
 
+    public Order getOrderById(UUID orderId) {
+        return orderRepository.findById(orderId).orElseThrow(() -> new RuntimeException("Order not found"));
+    }
+
     public List<Order> getOrdersByIdsAndCustomer(List<UUID> orderIds, UUID customerId) {
         return orderRepository.findByIdInAndCustomerId(orderIds, customerId);
     }
@@ -331,6 +335,19 @@ public class CustomerOrderService {
                     // We should overwrite totalAmount here so the customer pays exactly Food Cost + Customer Delivery Fee + Taxes
                     totalAmount = totalAmount.add(pricing.getTotalCustomerDeliveryFee()).add(pricing.getSgst()).add(pricing.getCgst());
                     order.setTotalAmount(totalAmount);
+                    order.setItemTotal(pricing.getItemTotal());
+                    order.setCustomerPlatformFee(pricing.getCustomerPlatformFee());
+                    order.setRestaurantPlatformFee(pricing.getRestaurantPlatformFee());
+                    order.setPlatformBonus(pricing.getPlatformBonus());
+                    order.setRestaurantDeliveryContribution(pricing.getRestaurantDeliveryContribution());
+                    order.setRestaurantPayout(pricing.getRestaurantPayout());
+                    order.setDeliveryFee(pricing.getDeliveryFee());
+                    order.setDriverGrossPayout(pricing.getDriverGrossPayout());
+                    order.setDriverTaxes(pricing.getDriverTaxes());
+                    order.setDriverNetPayout(pricing.getDriverNetPayout());
+                    order.setSgst(pricing.getSgst());
+                    order.setCgst(pricing.getCgst());
+                    
                     order.setDistanceKm(new BigDecimal(String.valueOf(distance)));
                     for (com.fooddelivery.order.entity.OrderCharge charge : pricing.getCharges()) {
                         charge.setOrder(order);

@@ -102,7 +102,7 @@ public class PaymentEventConsumer {
                                             order.setRefundedAmount(order.getTotalAmount());
                                             orderRepository.save(order);
                                             UUID refundTransferId = UUID.nameUUIDFromBytes((REFUND_TX_PREFIX + order.getId() + "_FULL").getBytes());
-                                            orderActionService.recordLedgerTransaction(refundTransferId, PLATFORM_ACCOUNT_ID, AccountType.PLATFORM, order.getCustomerId(), AccountType.CUSTOMER, remainingToRefund, com.fooddelivery.common.enums.ChargeCategory.REFUND);
+                                            orderActionService.recordLedgerTransaction(refundTransferId, order.getId(), PLATFORM_ACCOUNT_ID, AccountType.PLATFORM, order.getCustomerId(), AccountType.CUSTOMER, remainingToRefund, com.fooddelivery.common.enums.ChargeCategory.REFUND);
                                             try {
                                                 Map<String, Object> notifPayload = new HashMap<>();
                                                 notifPayload.put("orderId", order.getId().toString());
@@ -153,7 +153,7 @@ public class PaymentEventConsumer {
                                         orderRepository.save(order);
                                         String uniqueSuffix = resolvedEventId != null ? resolvedEventId : String.valueOf(System.currentTimeMillis());
                                         UUID refundTransferId = UUID.nameUUIDFromBytes((REFUND_TX_PREFIX + "PARTIAL_" + order.getId() + "_" + uniqueSuffix).getBytes());
-                                        orderActionService.recordLedgerTransaction(refundTransferId, PLATFORM_ACCOUNT_ID, AccountType.PLATFORM, order.getCustomerId(), AccountType.CUSTOMER, partialAmount, com.fooddelivery.common.enums.ChargeCategory.REFUND);
+                                        orderActionService.recordLedgerTransaction(refundTransferId, order.getId(), PLATFORM_ACCOUNT_ID, AccountType.PLATFORM, order.getCustomerId(), AccountType.CUSTOMER, partialAmount, com.fooddelivery.common.enums.ChargeCategory.REFUND);
                                         try {
                                             Map<String, Object> notifPayload = new HashMap<>();
                                             notifPayload.put("orderId", order.getId().toString());

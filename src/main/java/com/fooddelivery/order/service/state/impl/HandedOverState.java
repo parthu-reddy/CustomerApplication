@@ -36,7 +36,7 @@ public class HandedOverState implements OrderState {
                 
                 if (fromId != null && toId != null) {
                     UUID transferId = UUID.nameUUIDFromBytes(("CHARGE_" + charge.getId()).getBytes());
-                    ctx.getActionService().recordLedgerTransaction(transferId, fromId, fromType, toId, toType, charge.getAmount(), charge.getCategory());
+                    ctx.getActionService().recordLedgerTransaction(transferId, order.getId(), fromId, fromType, toId, toType, charge.getAmount(), charge.getCategory());
                 }
                 
                 // Aggregate charges for earnings metadata
@@ -76,6 +76,7 @@ public class HandedOverState implements OrderState {
         if (type == com.fooddelivery.order.enums.ChargeEntityType.PLATFORM) return isPayee ? OrderActionService.PLATFORM_PROFIT_ACCOUNT_ID : OrderActionService.PLATFORM_ACCOUNT_ID;
         if (type == com.fooddelivery.order.enums.ChargeEntityType.RESTAURANT) return order.getRestaurantId();
         if (type == com.fooddelivery.order.enums.ChargeEntityType.DRIVER) return order.getDeliveryExecutiveId();
+        if (type == com.fooddelivery.order.enums.ChargeEntityType.GOVERNMENT) return OrderActionService.PLATFORM_TAX_ACCOUNT_ID;
         return null;
     }
 
@@ -84,6 +85,7 @@ public class HandedOverState implements OrderState {
         if (type == com.fooddelivery.order.enums.ChargeEntityType.PLATFORM) return AccountType.PLATFORM;
         if (type == com.fooddelivery.order.enums.ChargeEntityType.RESTAURANT) return AccountType.RESTAURANT;
         if (type == com.fooddelivery.order.enums.ChargeEntityType.DRIVER) return AccountType.DRIVER;
+        if (type == com.fooddelivery.order.enums.ChargeEntityType.GOVERNMENT) return AccountType.GOVERNMENT;
         return AccountType.PLATFORM;
     }
 

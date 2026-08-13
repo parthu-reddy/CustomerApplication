@@ -46,15 +46,46 @@ public class DynamicPricingService {
         }
         BigDecimal sgstAmount = foodCost.multiply(config.getSgstPercent());
         BigDecimal cgstAmount = foodCost.multiply(config.getCgstPercent());
-        // 6. Customer pays SGST to Restaurant
+        // 6. Customer pays SGST to Government
         if (sgstAmount.compareTo(BigDecimal.ZERO) > 0) {
-            charges.add(createCharge(com.fooddelivery.common.enums.ChargeCategory.SGST, com.fooddelivery.order.enums.ChargeEntityType.CUSTOMER, com.fooddelivery.order.enums.ChargeEntityType.RESTAURANT, sgstAmount));
+            charges.add(createCharge(com.fooddelivery.common.enums.ChargeCategory.SGST, com.fooddelivery.order.enums.ChargeEntityType.CUSTOMER, com.fooddelivery.order.enums.ChargeEntityType.GOVERNMENT, sgstAmount));
         }
-        // 7. Customer pays CGST to Restaurant
+        // 7. Customer pays CGST to Government
         if (cgstAmount.compareTo(BigDecimal.ZERO) > 0) {
-            charges.add(createCharge(com.fooddelivery.common.enums.ChargeCategory.CGST, com.fooddelivery.order.enums.ChargeEntityType.CUSTOMER, com.fooddelivery.order.enums.ChargeEntityType.RESTAURANT, cgstAmount));
+            charges.add(createCharge(com.fooddelivery.common.enums.ChargeCategory.CGST, com.fooddelivery.order.enums.ChargeEntityType.CUSTOMER, com.fooddelivery.order.enums.ChargeEntityType.GOVERNMENT, cgstAmount));
         }
-        return PricingBreakdown.builder().totalCustomerDeliveryFee(totalCustomerDeliveryFee.setScale(2, RoundingMode.HALF_UP)).sgst(sgstAmount.setScale(2, RoundingMode.HALF_UP)).cgst(cgstAmount.setScale(2, RoundingMode.HALF_UP)).charges(charges).build();
+        
+        BigDecimal driverSgstAmount = driverPayout.multiply(config.getDeliverySgstPercent());
+        BigDecimal driverCgstAmount = driverPayout.multiply(config.getDeliveryCgstPercent());
+        // 8. Driver pays SGST to Government
+        if (driverSgstAmount.compareTo(BigDecimal.ZERO) > 0) {
+            charges.add(createCharge(com.fooddelivery.common.enums.ChargeCategory.SGST, com.fooddelivery.order.enums.ChargeEntityType.DRIVER, com.fooddelivery.order.enums.ChargeEntityType.GOVERNMENT, driverSgstAmount));
+        }
+        // 9. Driver pays CGST to Government
+        if (driverCgstAmount.compareTo(BigDecimal.ZERO) > 0) {
+            charges.add(createCharge(com.fooddelivery.common.enums.ChargeCategory.CGST, com.fooddelivery.order.enums.ChargeEntityType.DRIVER, com.fooddelivery.order.enums.ChargeEntityType.GOVERNMENT, driverCgstAmount));
+        }
+
+        BigDecimal driverTaxes = driverSgstAmount.add(driverCgstAmount);
+        BigDecimal driverNetPayout = driverPayout.subtract(driverTaxes);
+        BigDecimal restaurantPayout = foodCost.subtract(config.getFixedPlatformFee()).subtract(restPaysDe).subtract(platformBonus).max(BigDecimal.ZERO);
+
+        return PricingBreakdown.builder()
+            .totalCustomerDeliveryFee(totalCustomerDeliveryFee.setScale(2, RoundingMode.HALF_UP))
+            .itemTotal(foodCost.setScale(2, RoundingMode.HALF_UP))
+            .customerPlatformFee(config.getFixedPlatformFee().setScale(2, RoundingMode.HALF_UP))
+            .restaurantPlatformFee(config.getFixedPlatformFee().setScale(2, RoundingMode.HALF_UP))
+            .platformBonus(platformBonus.setScale(2, RoundingMode.HALF_UP))
+            .restaurantDeliveryContribution(restPaysDe.setScale(2, RoundingMode.HALF_UP))
+            .restaurantPayout(restaurantPayout.setScale(2, RoundingMode.HALF_UP))
+            .deliveryFee(custPaysDe.setScale(2, RoundingMode.HALF_UP))
+            .driverGrossPayout(driverPayout.setScale(2, RoundingMode.HALF_UP))
+            .driverTaxes(driverTaxes.setScale(2, RoundingMode.HALF_UP))
+            .driverNetPayout(driverNetPayout.setScale(2, RoundingMode.HALF_UP))
+            .sgst(sgstAmount.setScale(2, RoundingMode.HALF_UP))
+            .cgst(cgstAmount.setScale(2, RoundingMode.HALF_UP))
+            .charges(charges)
+            .build();
     }
 
     private com.fooddelivery.order.entity.OrderCharge createCharge(com.fooddelivery.common.enums.ChargeCategory category, com.fooddelivery.order.enums.ChargeEntityType payer, com.fooddelivery.order.enums.ChargeEntityType payee, BigDecimal amount) {

@@ -32,6 +32,8 @@ class DynamicPricingServiceTest {
         config.setPlatformExcessCutPercent(new BigDecimal("0.50"));
         config.setSgstPercent(new BigDecimal("0.025"));
         config.setCgstPercent(new BigDecimal("0.025"));
+        config.setDeliverySgstPercent(new BigDecimal("0.09"));
+        config.setDeliveryCgstPercent(new BigDecimal("0.09"));
         
         pricingService = new DynamicPricingService(config);
     }
@@ -49,8 +51,10 @@ class DynamicPricingServiceTest {
         assertChargeExists(charges, ChargeCategory.DELIVERY_FEE, ChargeEntityType.CUSTOMER, ChargeEntityType.DRIVER, "25.00");
         assertChargeExists(charges, ChargeCategory.PLATFORM_FIXED_FEE, ChargeEntityType.RESTAURANT, ChargeEntityType.PLATFORM, "5.00");
         assertChargeExists(charges, ChargeCategory.DELIVERY_FEE, ChargeEntityType.RESTAURANT, ChargeEntityType.DRIVER, "30.00");
-        assertChargeExists(charges, ChargeCategory.SGST, ChargeEntityType.CUSTOMER, ChargeEntityType.RESTAURANT, "5.00");
-        assertChargeExists(charges, ChargeCategory.CGST, ChargeEntityType.CUSTOMER, ChargeEntityType.RESTAURANT, "5.00");
+        assertChargeExists(charges, ChargeCategory.SGST, ChargeEntityType.CUSTOMER, ChargeEntityType.GOVERNMENT, "5.00");
+        assertChargeExists(charges, ChargeCategory.CGST, ChargeEntityType.CUSTOMER, ChargeEntityType.GOVERNMENT, "5.00");
+        assertChargeExists(charges, ChargeCategory.SGST, ChargeEntityType.DRIVER, ChargeEntityType.GOVERNMENT, "4.95");
+        assertChargeExists(charges, ChargeCategory.CGST, ChargeEntityType.DRIVER, ChargeEntityType.GOVERNMENT, "4.95");
     }
 
     @Test
@@ -66,8 +70,10 @@ class DynamicPricingServiceTest {
         assertChargeExists(charges, ChargeCategory.PLATFORM_FIXED_FEE, ChargeEntityType.RESTAURANT, ChargeEntityType.PLATFORM, "5.00");
         assertChargeExists(charges, ChargeCategory.DELIVERY_FEE, ChargeEntityType.RESTAURANT, ChargeEntityType.DRIVER, "39.00");
         assertChargeExists(charges, ChargeCategory.PLATFORM_BONUS, ChargeEntityType.RESTAURANT, ChargeEntityType.PLATFORM, "18.00");
-        assertChargeExists(charges, ChargeCategory.SGST, ChargeEntityType.CUSTOMER, ChargeEntityType.RESTAURANT, "12.50");
-        assertChargeExists(charges, ChargeCategory.CGST, ChargeEntityType.CUSTOMER, ChargeEntityType.RESTAURANT, "12.50");
+        assertChargeExists(charges, ChargeCategory.SGST, ChargeEntityType.CUSTOMER, ChargeEntityType.GOVERNMENT, "12.50");
+        assertChargeExists(charges, ChargeCategory.CGST, ChargeEntityType.CUSTOMER, ChargeEntityType.GOVERNMENT, "12.50");
+        assertChargeExists(charges, ChargeCategory.SGST, ChargeEntityType.DRIVER, ChargeEntityType.GOVERNMENT, "3.51");
+        assertChargeExists(charges, ChargeCategory.CGST, ChargeEntityType.DRIVER, ChargeEntityType.GOVERNMENT, "3.51");
     }
 
     @Test
@@ -83,8 +89,10 @@ class DynamicPricingServiceTest {
         assertChargeExists(charges, ChargeCategory.PLATFORM_FIXED_FEE, ChargeEntityType.RESTAURANT, ChargeEntityType.PLATFORM, "5.00");
         assertChargeExists(charges, ChargeCategory.DELIVERY_FEE, ChargeEntityType.RESTAURANT, ChargeEntityType.DRIVER, "31.00");
         assertChargeExists(charges, ChargeCategory.PLATFORM_BONUS, ChargeEntityType.RESTAURANT, ChargeEntityType.PLATFORM, "59.50");
-        assertChargeExists(charges, ChargeCategory.SGST, ChargeEntityType.CUSTOMER, ChargeEntityType.RESTAURANT, "25.00");
-        assertChargeExists(charges, ChargeCategory.CGST, ChargeEntityType.CUSTOMER, ChargeEntityType.RESTAURANT, "25.00");
+        assertChargeExists(charges, ChargeCategory.SGST, ChargeEntityType.CUSTOMER, ChargeEntityType.GOVERNMENT, "25.00");
+        assertChargeExists(charges, ChargeCategory.CGST, ChargeEntityType.CUSTOMER, ChargeEntityType.GOVERNMENT, "25.00");
+        assertChargeExists(charges, ChargeCategory.SGST, ChargeEntityType.DRIVER, ChargeEntityType.GOVERNMENT, "2.79");
+        assertChargeExists(charges, ChargeCategory.CGST, ChargeEntityType.DRIVER, ChargeEntityType.GOVERNMENT, "2.79");
     }
     
     private void assertChargeExists(Set<OrderCharge> charges, ChargeCategory category, ChargeEntityType payer, ChargeEntityType payee, String amount) {

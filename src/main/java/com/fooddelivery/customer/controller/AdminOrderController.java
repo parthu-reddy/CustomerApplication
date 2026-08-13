@@ -47,7 +47,7 @@ public class AdminOrderController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<org.springframework.data.domain.Page<Order>> getUnassignedOrders(
             @org.springframework.data.web.PageableDefault(size = 50) org.springframework.data.domain.Pageable pageable) {
-        org.springframework.data.domain.Page<Order> unassignedOrders = orderRepository.findByStatusInAndDeliveryExecutiveIdIsNull(
+        org.springframework.data.domain.Page<Order> unassignedOrders = orderRepository.findByStatusInAndDeliveryExecutiveIdIsNullOrderByCreatedAtDesc(
             List.of(OrderStatus.ACCEPTED, OrderStatus.READY_FOR_PICKUP), 
             pageable
         );
@@ -127,7 +127,7 @@ public class AdminOrderController {
         }
         order.setRefundedAmount(alreadyRefunded.add(request.getAmount()));
         orderRepository.save(order);
-        orderRefundService.processPartialRefund(order, request.getAmount());
+        orderRefundService.processPartialRefund(order, request.getAmount(), com.fooddelivery.common.enums.RefundDestination.GATEWAY, request.getFaultType());
         return ResponseEntity.ok(Map.of("message", "Partial refund initiated successfully"));
     }
 
@@ -183,7 +183,7 @@ public class AdminOrderController {
         }
         order.setRefundedAmount(alreadyRefunded.add(request.getAmount()));
         orderRepository.save(order);
-        orderRefundService.processPartialRefund(order, request.getAmount());
+        orderRefundService.processPartialRefund(order, request.getAmount(), com.fooddelivery.common.enums.RefundDestination.GATEWAY, request.getFaultType());
         return ResponseEntity.ok(Map.of("message", "Post-delivery refund initiated successfully"));
     }
 

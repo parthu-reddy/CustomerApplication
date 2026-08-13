@@ -25,10 +25,12 @@ import jakarta.persistence.Column;
 
 @Entity
 @Table(name = "orders", indexes = {
-    @jakarta.persistence.Index(name = "idx_order_customer", columnList = "customerId"), 
-    @jakarta.persistence.Index(name = "idx_order_delivery_exec", columnList = "deliveryExecutiveId"), 
+    @jakarta.persistence.Index(name = "idx_order_customer", columnList = "customer_id"), 
+    @jakarta.persistence.Index(name = "idx_order_delivery_exec", columnList = "delivery_executive_id"), 
     @jakarta.persistence.Index(name = "idx_order_status", columnList = "status"),
-    @jakarta.persistence.Index(name = "idx_order_restaurant", columnList = "restaurantId")
+    @jakarta.persistence.Index(name = "idx_order_restaurant", columnList = "restaurant_id"),
+    @jakarta.persistence.Index(name = "idx_order_delivery_status", columnList = "delivery_status"),
+    @jakarta.persistence.Index(name = "idx_order_composite_del_exec", columnList = "delivery_executive_id, delivery_status")
 })
 public class Order {
     @java.lang.SuppressWarnings("all")
@@ -69,6 +71,32 @@ public class Order {
 
     @Column(name = "total_amount")
     private BigDecimal totalAmount;
+
+    @Column(name = "item_total")
+    private BigDecimal itemTotal;
+    @Column(name = "customer_platform_fee")
+    private BigDecimal customerPlatformFee;
+    @Column(name = "restaurant_platform_fee")
+    private BigDecimal restaurantPlatformFee;
+    @Column(name = "platform_bonus")
+    private BigDecimal platformBonus;
+    @Column(name = "restaurant_delivery_contribution")
+    private BigDecimal restaurantDeliveryContribution;
+    @Column(name = "restaurant_payout")
+    private BigDecimal restaurantPayout;
+    @Column(name = "sgst")
+    private BigDecimal sgst;
+    @Column(name = "cgst")
+    private BigDecimal cgst;
+    @Column(name = "delivery_fee")
+    private BigDecimal deliveryFee;
+    @Column(name = "driver_gross_payout")
+    private BigDecimal driverGrossPayout;
+    @Column(name = "driver_taxes")
+    private BigDecimal driverTaxes;
+    @Column(name = "driver_net_payout")
+    private BigDecimal driverNetPayout;
+
     @Column(name = "refunded_amount")
     private BigDecimal refundedAmount;
     @Column(name = "distance_km")
@@ -143,6 +171,32 @@ public class Order {
         private PaymentIntentStatus paymentStatus;
         @java.lang.SuppressWarnings("all")
         private BigDecimal totalAmount;
+
+        @java.lang.SuppressWarnings("all")
+        private BigDecimal itemTotal;
+        @java.lang.SuppressWarnings("all")
+        private BigDecimal customerPlatformFee;
+        @java.lang.SuppressWarnings("all")
+        private BigDecimal restaurantPlatformFee;
+        @java.lang.SuppressWarnings("all")
+        private BigDecimal platformBonus;
+        @java.lang.SuppressWarnings("all")
+        private BigDecimal restaurantDeliveryContribution;
+        @java.lang.SuppressWarnings("all")
+        private BigDecimal restaurantPayout;
+        @java.lang.SuppressWarnings("all")
+        private BigDecimal sgst;
+        @java.lang.SuppressWarnings("all")
+        private BigDecimal cgst;
+        @java.lang.SuppressWarnings("all")
+        private BigDecimal deliveryFee;
+        @java.lang.SuppressWarnings("all")
+        private BigDecimal driverGrossPayout;
+        @java.lang.SuppressWarnings("all")
+        private BigDecimal driverTaxes;
+        @java.lang.SuppressWarnings("all")
+        private BigDecimal driverNetPayout;
+
         @java.lang.SuppressWarnings("all")
         private BigDecimal refundedAmount;
         @java.lang.SuppressWarnings("all")
@@ -264,8 +318,92 @@ public class Order {
          * @return {@code this}.
          */
         @java.lang.SuppressWarnings("all")
+public Order.OrderBuilder itemTotal(final BigDecimal itemTotal) {
+            this.itemTotal = itemTotal;
+            return this;
+        }
+
+        @java.lang.SuppressWarnings("all")
+        public Order.OrderBuilder customerPlatformFee(final BigDecimal customerPlatformFee) {
+            this.customerPlatformFee = customerPlatformFee;
+            return this;
+        }
+
+        @java.lang.SuppressWarnings("all")
+        public Order.OrderBuilder restaurantPlatformFee(final BigDecimal restaurantPlatformFee) {
+            this.restaurantPlatformFee = restaurantPlatformFee;
+            return this;
+        }
+
+        @java.lang.SuppressWarnings("all")
+        public Order.OrderBuilder platformBonus(final BigDecimal platformBonus) {
+            this.platformBonus = platformBonus;
+            return this;
+        }
+
+        @java.lang.SuppressWarnings("all")
+        public Order.OrderBuilder restaurantDeliveryContribution(final BigDecimal restaurantDeliveryContribution) {
+            this.restaurantDeliveryContribution = restaurantDeliveryContribution;
+            return this;
+        }
+
+        @java.lang.SuppressWarnings("all")
+        public Order.OrderBuilder restaurantPayout(final BigDecimal restaurantPayout) {
+            this.restaurantPayout = restaurantPayout;
+            return this;
+        }
+
+        @java.lang.SuppressWarnings("all")
+        public Order.OrderBuilder sgst(final BigDecimal sgst) {
+            this.sgst = sgst;
+            return this;
+        }
+
+        @java.lang.SuppressWarnings("all")
+        public Order.OrderBuilder cgst(final BigDecimal cgst) {
+            this.cgst = cgst;
+            return this;
+        }
+
+        @java.lang.SuppressWarnings("all")
+        public Order.OrderBuilder deliveryFee(final BigDecimal deliveryFee) {
+            this.deliveryFee = deliveryFee;
+            return this;
+        }
+
+        @java.lang.SuppressWarnings("all")
+        public Order.OrderBuilder driverGrossPayout(final BigDecimal driverGrossPayout) {
+            this.driverGrossPayout = driverGrossPayout;
+            return this;
+        }
+
+        @java.lang.SuppressWarnings("all")
+        public Order.OrderBuilder driverTaxes(final BigDecimal driverTaxes) {
+            this.driverTaxes = driverTaxes;
+            return this;
+        }
+
+        @java.lang.SuppressWarnings("all")
+        public Order.OrderBuilder driverNetPayout(final BigDecimal driverNetPayout) {
+            this.driverNetPayout = driverNetPayout;
+            return this;
+        }
+
         public Order.OrderBuilder totalAmount(final BigDecimal totalAmount) {
             this.totalAmount = totalAmount;
+        this.itemTotal = itemTotal;
+        this.customerPlatformFee = customerPlatformFee;
+        this.restaurantPlatformFee = restaurantPlatformFee;
+        this.platformBonus = platformBonus;
+        this.restaurantDeliveryContribution = restaurantDeliveryContribution;
+        this.restaurantPayout = restaurantPayout;
+        this.sgst = sgst;
+        this.cgst = cgst;
+        this.deliveryFee = deliveryFee;
+        this.driverGrossPayout = driverGrossPayout;
+        this.driverTaxes = driverTaxes;
+        this.driverNetPayout = driverNetPayout;
+
             return this;
         }
 
@@ -441,7 +579,7 @@ public class Order {
             if (!this.charges$set) charges$value = Order.$default$charges();
             Set<OrderItem> orderItems$value = this.orderItems$value;
             if (!this.orderItems$set) orderItems$value = Order.$default$orderItems();
-            return new Order(this.id, this.customerId, this.customerName, this.restaurantId, this.restaurantName, this.status, this.deliveryStatus, this.paymentStatus, this.totalAmount, this.refundedAmount, this.distanceKm, charges$value, this.deliveryExecutiveId, this.deliveryAddressId, this.deliveryLat, this.deliveryLng, this.deliveryAddress, this.pickupOtp, this.otp, this.estimatedPrepTimeMinutes, this.estimatedCompletionTime, this.cancellationReason, this.version, orderItems$value, this.createdAt, this.updatedAt, this.deliveredAt);
+            return new Order(this.id, this.customerId, this.customerName, this.restaurantId, this.restaurantName, this.status, this.deliveryStatus, this.paymentStatus, this.totalAmount, this.itemTotal, this.customerPlatformFee, this.restaurantPlatformFee, this.platformBonus, this.restaurantDeliveryContribution, this.restaurantPayout, this.sgst, this.cgst, this.deliveryFee, this.driverGrossPayout, this.driverTaxes, this.driverNetPayout, this.refundedAmount, this.distanceKm, charges$value, this.deliveryExecutiveId, this.deliveryAddressId, this.deliveryLat, this.deliveryLng, this.deliveryAddress, this.pickupOtp, this.otp, this.estimatedPrepTimeMinutes, this.estimatedCompletionTime, this.cancellationReason, this.version, orderItems$value, this.createdAt, this.updatedAt, this.deliveredAt);
         }
 
         @java.lang.Override
@@ -497,6 +635,125 @@ public class Order {
     }
 
     @java.lang.SuppressWarnings("all")
+public BigDecimal getItemTotal() {
+        return this.itemTotal;
+    }
+
+    @java.lang.SuppressWarnings("all")
+    public void setItemTotal(final BigDecimal itemTotal) {
+        this.itemTotal = itemTotal;
+    }
+
+    @java.lang.SuppressWarnings("all")
+    public BigDecimal getCustomerPlatformFee() {
+        return this.customerPlatformFee;
+    }
+
+    @java.lang.SuppressWarnings("all")
+    public void setCustomerPlatformFee(final BigDecimal customerPlatformFee) {
+        this.customerPlatformFee = customerPlatformFee;
+    }
+
+    @java.lang.SuppressWarnings("all")
+    public BigDecimal getRestaurantPlatformFee() {
+        return this.restaurantPlatformFee;
+    }
+
+    @java.lang.SuppressWarnings("all")
+    public void setRestaurantPlatformFee(final BigDecimal restaurantPlatformFee) {
+        this.restaurantPlatformFee = restaurantPlatformFee;
+    }
+
+    @java.lang.SuppressWarnings("all")
+    public BigDecimal getPlatformBonus() {
+        return this.platformBonus;
+    }
+
+    @java.lang.SuppressWarnings("all")
+    public void setPlatformBonus(final BigDecimal platformBonus) {
+        this.platformBonus = platformBonus;
+    }
+
+    @java.lang.SuppressWarnings("all")
+    public BigDecimal getRestaurantDeliveryContribution() {
+        return this.restaurantDeliveryContribution;
+    }
+
+    @java.lang.SuppressWarnings("all")
+    public void setRestaurantDeliveryContribution(final BigDecimal restaurantDeliveryContribution) {
+        this.restaurantDeliveryContribution = restaurantDeliveryContribution;
+    }
+
+    @java.lang.SuppressWarnings("all")
+    public BigDecimal getRestaurantPayout() {
+        return this.restaurantPayout;
+    }
+
+    @java.lang.SuppressWarnings("all")
+    public void setRestaurantPayout(final BigDecimal restaurantPayout) {
+        this.restaurantPayout = restaurantPayout;
+    }
+
+    @java.lang.SuppressWarnings("all")
+    public BigDecimal getSgst() {
+        return this.sgst;
+    }
+
+    @java.lang.SuppressWarnings("all")
+    public void setSgst(final BigDecimal sgst) {
+        this.sgst = sgst;
+    }
+
+    @java.lang.SuppressWarnings("all")
+    public BigDecimal getCgst() {
+        return this.cgst;
+    }
+
+    @java.lang.SuppressWarnings("all")
+    public void setCgst(final BigDecimal cgst) {
+        this.cgst = cgst;
+    }
+
+    @java.lang.SuppressWarnings("all")
+    public BigDecimal getDeliveryFee() {
+        return this.deliveryFee;
+    }
+
+    @java.lang.SuppressWarnings("all")
+    public void setDeliveryFee(final BigDecimal deliveryFee) {
+        this.deliveryFee = deliveryFee;
+    }
+
+    @java.lang.SuppressWarnings("all")
+    public BigDecimal getDriverGrossPayout() {
+        return this.driverGrossPayout;
+    }
+
+    @java.lang.SuppressWarnings("all")
+    public void setDriverGrossPayout(final BigDecimal driverGrossPayout) {
+        this.driverGrossPayout = driverGrossPayout;
+    }
+
+    @java.lang.SuppressWarnings("all")
+    public BigDecimal getDriverTaxes() {
+        return this.driverTaxes;
+    }
+
+    @java.lang.SuppressWarnings("all")
+    public void setDriverTaxes(final BigDecimal driverTaxes) {
+        this.driverTaxes = driverTaxes;
+    }
+
+    @java.lang.SuppressWarnings("all")
+    public BigDecimal getDriverNetPayout() {
+        return this.driverNetPayout;
+    }
+
+    @java.lang.SuppressWarnings("all")
+    public void setDriverNetPayout(final BigDecimal driverNetPayout) {
+        this.driverNetPayout = driverNetPayout;
+    }
+
     public BigDecimal getTotalAmount() {
         return this.totalAmount;
     }
@@ -624,6 +881,19 @@ public class Order {
     @java.lang.SuppressWarnings("all")
     public void setTotalAmount(final BigDecimal totalAmount) {
         this.totalAmount = totalAmount;
+        this.itemTotal = itemTotal;
+        this.customerPlatformFee = customerPlatformFee;
+        this.restaurantPlatformFee = restaurantPlatformFee;
+        this.platformBonus = platformBonus;
+        this.restaurantDeliveryContribution = restaurantDeliveryContribution;
+        this.restaurantPayout = restaurantPayout;
+        this.sgst = sgst;
+        this.cgst = cgst;
+        this.deliveryFee = deliveryFee;
+        this.driverGrossPayout = driverGrossPayout;
+        this.driverTaxes = driverTaxes;
+        this.driverNetPayout = driverNetPayout;
+
     }
 
     @java.lang.SuppressWarnings("all")
@@ -731,7 +1001,7 @@ public class Order {
     }
 
     @java.lang.SuppressWarnings("all")
-    public Order(final UUID id, final UUID customerId, final String customerName, final UUID restaurantId, final String restaurantName, final OrderStatus status, final com.fooddelivery.common.enums.DeliveryStatus deliveryStatus, final PaymentIntentStatus paymentStatus, final BigDecimal totalAmount, final BigDecimal refundedAmount, final BigDecimal distanceKm, final Set<OrderCharge> charges, final UUID deliveryExecutiveId, final UUID deliveryAddressId, final Double deliveryLat, final Double deliveryLng, final String deliveryAddress, final String pickupOtp, final String otp, final Integer estimatedPrepTimeMinutes, final Long estimatedCompletionTime, final String cancellationReason, final Integer version, final Set<OrderItem> orderItems, final LocalDateTime createdAt, final LocalDateTime updatedAt, final LocalDateTime deliveredAt) {
+    public Order(final UUID id, final UUID customerId, final String customerName, final UUID restaurantId, final String restaurantName, final OrderStatus status, final com.fooddelivery.common.enums.DeliveryStatus deliveryStatus, final PaymentIntentStatus paymentStatus, final BigDecimal totalAmount, final BigDecimal itemTotal, final BigDecimal customerPlatformFee, final BigDecimal restaurantPlatformFee, final BigDecimal platformBonus, final BigDecimal restaurantDeliveryContribution, final BigDecimal restaurantPayout, final BigDecimal sgst, final BigDecimal cgst, final BigDecimal deliveryFee, final BigDecimal driverGrossPayout, final BigDecimal driverTaxes, final BigDecimal driverNetPayout, final BigDecimal refundedAmount, final BigDecimal distanceKm, final Set<OrderCharge> charges, final UUID deliveryExecutiveId, final UUID deliveryAddressId, final Double deliveryLat, final Double deliveryLng, final String deliveryAddress, final String pickupOtp, final String otp, final Integer estimatedPrepTimeMinutes, final Long estimatedCompletionTime, final String cancellationReason, final Integer version, final Set<OrderItem> orderItems, final LocalDateTime createdAt, final LocalDateTime updatedAt, final LocalDateTime deliveredAt) {
         this.id = id;
         this.customerId = customerId;
         this.customerName = customerName;
@@ -741,6 +1011,19 @@ public class Order {
         this.deliveryStatus = deliveryStatus;
         this.paymentStatus = paymentStatus;
         this.totalAmount = totalAmount;
+        this.itemTotal = itemTotal;
+        this.customerPlatformFee = customerPlatformFee;
+        this.restaurantPlatformFee = restaurantPlatformFee;
+        this.platformBonus = platformBonus;
+        this.restaurantDeliveryContribution = restaurantDeliveryContribution;
+        this.restaurantPayout = restaurantPayout;
+        this.sgst = sgst;
+        this.cgst = cgst;
+        this.deliveryFee = deliveryFee;
+        this.driverGrossPayout = driverGrossPayout;
+        this.driverTaxes = driverTaxes;
+        this.driverNetPayout = driverNetPayout;
+
         this.refundedAmount = refundedAmount;
         this.distanceKm = distanceKm;
         this.charges = charges;

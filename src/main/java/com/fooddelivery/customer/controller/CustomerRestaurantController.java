@@ -66,7 +66,29 @@ public class CustomerRestaurantController {
 
     @GetMapping("/brands/{brandId}/outlets")
     public ResponseEntity<ApiResponse<List<Object>>> getBrandOutlets(@org.springframework.web.bind.annotation.PathVariable java.util.UUID brandId, @RequestParam double lat, @RequestParam double lng, @RequestParam(defaultValue = "5.0") double radius) {
-        return ResponseEntity.ok(restaurantClient.getBrandOutlets(brandId, lat, lng, radius));
+        ApiResponse<List<Object>> response = restaurantClient.getBrandOutlets(brandId, lat, lng, radius);
+        if (response.getData() != null) {
+            String origin = lat + "," + lng;
+            for (Object obj : response.getData()) {
+                if (obj instanceof Map) {
+                    Map<String, Object> outlet = (Map<String, Object>) obj;
+                    Object oLat = outlet.get("lat");
+                    Object oLng = outlet.get("lng");
+                    if (oLat != null && oLng != null) {
+                        try {
+                            String destination = oLat.toString() + "," + oLng.toString();
+                            Map<String, Object> distanceMap = mapsClient.getDistance(origin, destination);
+                            if (distanceMap != null && distanceMap.containsKey("distance")) {
+                                outlet.put("distance", distanceMap.get("distance"));
+                            }
+                        } catch (Exception e) {
+                            log.warn("Failed to get actual distance for outlet {}: {}", outlet.get("id"), e.getMessage());
+                        }
+                    }
+                }
+            }
+        }
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/{id}/delivery-availability")
@@ -116,18 +138,17 @@ public class CustomerRestaurantController {
         if (principal == null || principal.getName() == null || !address.getCustomerId().toString().equals(principal.getName())) {
             throw new org.springframework.security.access.AccessDeniedException("Access denied");
         }
-        // RATE LIMITING: 5 requests per minute per user per restaurant using Redis
+        // RATE LIMITING: 5 requests per minute per user per restaurant using Redis Lua Script for atomic increment + expire
         String rateLimitKey = "rate_limit:delivery_pricing:" + principal.getName() + ":" + id;
-        Long count = redisTemplate.opsForValue().increment(rateLimitKey);
-        if (count != null && count == 1) {
-            redisTemplate.expire(rateLimitKey, java.time.Duration.ofMinutes(1));
-        }
-        // Anti-pattern fix: If application crashed between increment and expire, 
-        // TTL will be -1 (infinite). Set it to 1 min to prevent permanent lockout.
-        Long ttl = redisTemplate.getExpire(rateLimitKey);
-        if (ttl != null && ttl == -1) {
-            redisTemplate.expire(rateLimitKey, java.time.Duration.ofMinutes(1));
-        }
+        String luaScript = "local current = redis.call('incr', KEYS[1]) " +
+                           "if tonumber(current) == 1 then " +
+                           "  redis.call('expire', KEYS[1], ARGV[1]) " +
+                           "end " +
+                           "return tonumber(current)";
+        org.springframework.data.redis.core.script.DefaultRedisScript<Long> redisScript = new org.springframework.data.redis.core.script.DefaultRedisScript<>(luaScript, Long.class);
+        
+        Long count = redisTemplate.execute(redisScript, java.util.Collections.singletonList(rateLimitKey), "60");
+        
         if (count != null && count > 5) {
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.TOO_MANY_REQUESTS, "Rate limit exceeded. Please wait a minute before requesting delivery pricing again.");
         }
@@ -157,7 +178,7 @@ public class CustomerRestaurantController {
                 distance = Double.parseDouble(cachedDistance);
                 cacheHit = true;
             } catch (NumberFormatException e) {
-                log.warn("Corrupted distance cache value for key {}: \'{}\'. Deleting and re-fetching.", distanceCacheKey, cachedDistance);
+                log.warn("Corrupted distance cache value for key {}: '{}'. Deleting and re-fetching.", distanceCacheKey, cachedDistance);
                 redisTemplate.delete(distanceCacheKey);
                 cachedDistance = null; // fall through to API call
             }
@@ -183,12 +204,22 @@ public class CustomerRestaurantController {
             }
             redisTemplate.opsForValue().set(distanceCacheKey, String.valueOf(distance), 1, java.util.concurrent.TimeUnit.HOURS);
         }
-        java.math.BigDecimal minAmount = dynamicPricingService.getMinAmountForFreeDelivery(new java.math.BigDecimal(String.valueOf(distance)));
+        
         Map<String, Object> data = new java.util.HashMap<>();
-        data.put("minimumOrderForFreeDelivery", minAmount);
         data.put("distanceKm", distance);
-        data.put("fixedPlatformFee", dynamicPricingConfig.getFixedPlatformFee());
-        return ResponseEntity.ok(ApiResponse.success(data, "Delivery pricing calculated"));
+        
+        Map<String, Object> configData = new java.util.HashMap<>();
+        configData.put("basePrice", dynamicPricingConfig.getBasePrice());
+        configData.put("perKmRate", dynamicPricingConfig.getPerKmRate());
+        configData.put("restMaxContributionPercent", dynamicPricingConfig.getRestMaxContributionPercent());
+        configData.put("fixedPlatformFee", dynamicPricingConfig.getFixedPlatformFee());
+        configData.put("platformExcessCutPercent", dynamicPricingConfig.getPlatformExcessCutPercent());
+        configData.put("sgstPercent", dynamicPricingConfig.getSgstPercent());
+        configData.put("cgstPercent", dynamicPricingConfig.getCgstPercent());
+        
+        data.put("config", configData);
+        
+        return ResponseEntity.ok(ApiResponse.success(data, "Delivery pricing config retrieved"));
     }
 
     @java.lang.SuppressWarnings("all")

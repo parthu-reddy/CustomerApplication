@@ -25,6 +25,7 @@ public class CreatedState implements OrderState {
         UUID paymentTransferId = UUID.nameUUIDFromBytes(("PAYMENT_" + order.getId()).getBytes());
         ctx.getActionService().recordLedgerTransaction(
                 paymentTransferId, 
+                order.getId(),
                 order.getCustomerId(), 
                 AccountType.CUSTOMER, 
                 OrderActionService.PLATFORM_ACCOUNT_ID, 

@@ -50,6 +50,10 @@ public class OrderRefundService {
     }
 
     public void processRefund(Order order, com.fooddelivery.common.enums.RefundDestination refundDestination) {
+        processRefund(order, refundDestination, com.fooddelivery.common.enums.FaultType.UNKNOWN);
+    }
+
+    public void processRefund(Order order, com.fooddelivery.common.enums.RefundDestination refundDestination, com.fooddelivery.common.enums.FaultType faultType) {
         log.info("Processing refund for Order {} to {}", order.getId(), refundDestination);
         
         try {
@@ -86,6 +90,7 @@ public class OrderRefundService {
                             reversalPayload.put("reversalId", reversalId.toString());
                             reversalPayload.put("orderId", order.getId().toString());
                             reversalPayload.put("amount", remainingRefundable);
+                            reversalPayload.put("faultType", faultType != null ? faultType.name() : "UNKNOWN");
                             String reversalStr = objectMapper.writeValueAsString(reversalPayload);
                             OutboxEventEntity reversalEvent = OutboxEventEntity.builder()
                                 .id(reversalId)
@@ -127,6 +132,10 @@ public class OrderRefundService {
     }
 
     public void processPartialRefund(Order order, java.math.BigDecimal partialAmount, com.fooddelivery.common.enums.RefundDestination refundDestination) {
+        processPartialRefund(order, partialAmount, refundDestination, com.fooddelivery.common.enums.FaultType.UNKNOWN);
+    }
+
+    public void processPartialRefund(Order order, java.math.BigDecimal partialAmount, com.fooddelivery.common.enums.RefundDestination refundDestination, com.fooddelivery.common.enums.FaultType faultType) {
         log.info("Processing partial refund for Order {} to {}", order.getId(), refundDestination);
         if (partialAmount == null || partialAmount.compareTo(java.math.BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Partial refund amount must be greater than zero");
@@ -163,6 +172,7 @@ public class OrderRefundService {
                             reversalPayload.put("reversalId", reversalId.toString());
                             reversalPayload.put("orderId", order.getId().toString());
                             reversalPayload.put("amount", partialAmount); 
+                            reversalPayload.put("faultType", faultType != null ? faultType.name() : "UNKNOWN");
                             String reversalStr = objectMapper.writeValueAsString(reversalPayload);
                             OutboxEventEntity reversalEvent = OutboxEventEntity.builder()
                                 .id(reversalId)

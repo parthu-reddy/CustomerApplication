@@ -27,6 +27,7 @@ public class OrderActionService {
     private final ObjectMapper objectMapper;
     public static final UUID PLATFORM_ACCOUNT_ID = UUID.fromString("00000000-0000-0000-0000-000000000000");
     public static final UUID PLATFORM_PROFIT_ACCOUNT_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
+    public static final UUID PLATFORM_TAX_ACCOUNT_ID = UUID.fromString("22222222-2222-2222-2222-222222222222");
 
     public void saveOrder(Order order) {
         orderRepository.save(order);
@@ -42,7 +43,7 @@ public class OrderActionService {
         });
     }
 
-    public void recordLedgerTransaction(UUID transferId, UUID fromId, AccountType fromType, UUID toId, AccountType toType, BigDecimal amount, com.fooddelivery.common.enums.ChargeCategory category) {
+    public void recordLedgerTransaction(UUID transferId, UUID referenceId, UUID fromId, AccountType fromType, UUID toId, AccountType toType, BigDecimal amount, com.fooddelivery.common.enums.ChargeCategory category) {
         if (amount == null) {
             log.error("Failed to save LEDGER_TRANSACTION_REQUEST: amount is null for transfer {}", transferId);
             throw new IllegalArgumentException("Ledger transaction amount cannot be null. Strict policy requires valid amounts.");
@@ -50,6 +51,9 @@ public class OrderActionService {
         try {
             com.fasterxml.jackson.databind.node.ObjectNode payloadNode = objectMapper.createObjectNode();
             payloadNode.put("transferId", transferId.toString());
+            if (referenceId != null) {
+                payloadNode.put("referenceId", referenceId.toString());
+            }
             payloadNode.put("fromId", fromId.toString());
             payloadNode.put("fromType", fromType.name());
             payloadNode.put("toId", toId.toString());

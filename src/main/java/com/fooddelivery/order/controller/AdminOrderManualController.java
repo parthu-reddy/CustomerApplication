@@ -27,7 +27,7 @@ public class AdminOrderManualController {
     @java.lang.SuppressWarnings("all")
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AdminOrderManualController.class);
     private final IOrderRepository orderRepository;
-    private final KafkaTemplate<String, String> kafkaTemplate;
+    private final com.fooddelivery.common.outbox.repository.OutboxEventRepository outboxEventRepository;
     private final com.fooddelivery.order.service.OrderSagaOrchestrator orderSagaOrchestrator;
     private final com.fooddelivery.order.service.OrderRefundService orderRefundService;
     private final SupportTicketRepository supportTicketRepository;
@@ -70,7 +70,15 @@ public class AdminOrderManualController {
             kafkaMessage.put("payload", eventPayload);
             com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
             String jsonMessage = mapper.writeValueAsString(kafkaMessage);
-            kafkaTemplate.send(KafkaConstants.TOPIC_ORDER_EVENTS, order.getId().toString(), jsonMessage);
+            com.fooddelivery.common.outbox.entity.OutboxEventEntity outboxEvent = com.fooddelivery.common.outbox.entity.OutboxEventEntity.builder()
+                .id(java.util.UUID.randomUUID())
+                .aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER)
+                .aggregateId(order.getId().toString())
+                .eventType(com.fooddelivery.common.constants.EventType.FORCE_ASSIGN_DRIVER)
+                .payload(jsonMessage)
+                .createdAt(java.time.LocalDateTime.now())
+                .build();
+            outboxEventRepository.save(outboxEvent);
             log.info("Admin successfully requested manual assignment of driver {} to order {}", driverId, order.getId());
             return ResponseEntity.ok(ApiResponse.success("Driver assignment requested successfully", "Operation successful"));
         } catch (IllegalArgumentException e) {
@@ -105,7 +113,15 @@ public class AdminOrderManualController {
             kafkaMessage.put("payload", eventPayload);
             com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
             String jsonMessage = mapper.writeValueAsString(kafkaMessage);
-            kafkaTemplate.send(KafkaConstants.TOPIC_ORDER_EVENTS, order.getId().toString(), jsonMessage);
+            com.fooddelivery.common.outbox.entity.OutboxEventEntity outboxEvent = com.fooddelivery.common.outbox.entity.OutboxEventEntity.builder()
+                .id(java.util.UUID.randomUUID())
+                .aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER)
+                .aggregateId(order.getId().toString())
+                .eventType(com.fooddelivery.common.constants.EventType.ORDER_CANCELLED_BY_ADMIN)
+                .payload(jsonMessage)
+                .createdAt(java.time.LocalDateTime.now())
+                .build();
+            outboxEventRepository.save(outboxEvent);
             log.info("Admin successfully requested manual cancellation for order {}. Reason: {}", order.getId(), reason);
             return ResponseEntity.ok(ApiResponse.success("Order cancellation requested successfully", "Operation successful"));
         } catch (Exception e) {
@@ -223,10 +239,21 @@ public class AdminOrderManualController {
                     kafkaMessage.put("eventType", "REVERSAL_GENERATED");
                     kafkaMessage.put("payload", eventPayload);
                     
-                    com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-                    String jsonMessage = mapper.writeValueAsString(kafkaMessage);
-                    kafkaTemplate.send(KafkaConstants.TOPIC_WALLET_EVENTS, order.getId().toString(), jsonMessage);
-                    log.info("Published REVERSAL_GENERATED event to Wallet for {} {} due to order {}", faultAttribution, entityId, order.getId());
+                    try {
+                        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                        String jsonMessage = mapper.writeValueAsString(kafkaMessage);
+                        com.fooddelivery.common.outbox.entity.OutboxEventEntity outboxEvent = com.fooddelivery.common.outbox.entity.OutboxEventEntity.builder()
+                            .id(java.util.UUID.randomUUID())
+                            .aggregateType(com.fooddelivery.common.constants.AggregateType.WALLET)
+                            .aggregateId(order.getId().toString())
+                            .eventType(com.fooddelivery.common.constants.EventType.REFUND_GENERATED)
+                            .payload(jsonMessage)
+                            .createdAt(java.time.LocalDateTime.now())
+                            .build();
+                        outboxEventRepository.save(outboxEvent);
+                    } catch (Exception ex) {
+                        log.info("Published REVERSAL_GENERATED event to Wallet for {} {} due to order {}", faultAttribution, entityId, order.getId());
+                    }
                 }
             }
             
@@ -290,9 +317,9 @@ public class AdminOrderManualController {
     }
 
     @java.lang.SuppressWarnings("all")
-    public AdminOrderManualController(final IOrderRepository orderRepository, final KafkaTemplate<String, String> kafkaTemplate, final com.fooddelivery.order.service.OrderSagaOrchestrator orderSagaOrchestrator, final com.fooddelivery.order.service.OrderRefundService orderRefundService, final SupportTicketRepository supportTicketRepository) {
+    public AdminOrderManualController(final IOrderRepository orderRepository, final com.fooddelivery.common.outbox.repository.OutboxEventRepository outboxEventRepository, final com.fooddelivery.order.service.OrderSagaOrchestrator orderSagaOrchestrator, final com.fooddelivery.order.service.OrderRefundService orderRefundService, final SupportTicketRepository supportTicketRepository) {
         this.orderRepository = orderRepository;
-        this.kafkaTemplate = kafkaTemplate;
+        this.outboxEventRepository = outboxEventRepository;
         this.orderSagaOrchestrator = orderSagaOrchestrator;
         this.orderRefundService = orderRefundService;
         this.supportTicketRepository = supportTicketRepository;

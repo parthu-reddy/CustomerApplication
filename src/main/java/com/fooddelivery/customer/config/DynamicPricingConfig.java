@@ -16,6 +16,8 @@ public class DynamicPricingConfig {
     private BigDecimal platformExcessCutPercent = new BigDecimal("0.50");
     private BigDecimal sgstPercent = new BigDecimal("0.025");
     private BigDecimal cgstPercent = new BigDecimal("0.025");
+    private BigDecimal deliverySgstPercent = new BigDecimal("0.09");
+    private BigDecimal deliveryCgstPercent = new BigDecimal("0.09");
 
     @java.lang.SuppressWarnings("all")
     public DynamicPricingConfig() {
@@ -57,8 +59,28 @@ public class DynamicPricingConfig {
     }
 
     @java.lang.SuppressWarnings("all")
+    public BigDecimal getDeliverySgstPercent() {
+        return this.deliverySgstPercent;
+    }
+
+    @java.lang.SuppressWarnings("all")
+    public BigDecimal getDeliveryCgstPercent() {
+        return this.deliveryCgstPercent;
+    }
+
+    @java.lang.SuppressWarnings("all")
     public void setBasePrice(final BigDecimal basePrice) {
         this.basePrice = basePrice;
+    }
+
+    @java.lang.SuppressWarnings("all")
+    public void setDeliverySgstPercent(final BigDecimal deliverySgstPercent) {
+        this.deliverySgstPercent = deliverySgstPercent;
+    }
+
+    @java.lang.SuppressWarnings("all")
+    public void setDeliveryCgstPercent(final BigDecimal deliveryCgstPercent) {
+        this.deliveryCgstPercent = deliveryCgstPercent;
     }
 
     @java.lang.SuppressWarnings("all")

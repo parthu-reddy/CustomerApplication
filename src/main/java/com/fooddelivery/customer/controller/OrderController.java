@@ -105,33 +105,55 @@ public class OrderController {
         return ResponseEntity.ok(ApiResponse.success(mapToResponse(order), "Order retrieved"));
     }
 
-    private OrderResponse mapToResponse(Order order) {
+    public OrderResponse mapToResponse(Order order) {
         List<OrderItemResponse> itemResponses = order.getOrderItems().stream().map(item -> OrderItemResponse.builder().id(item.getId()).menuItemId(item.getMenuItemId()).name(item.getName()).quantity(item.getQuantity()).price(item.getPrice()).build()).collect(Collectors.toList());
-        BigDecimal itemTotal = BigDecimal.ZERO;
-        BigDecimal sgst = BigDecimal.ZERO;
-        BigDecimal cgst = BigDecimal.ZERO;
-        BigDecimal deliveryFee = BigDecimal.ZERO;
-        if (order.getCharges() != null) {
-            for (com.fooddelivery.order.entity.OrderCharge charge : order.getCharges()) {
-                if (com.fooddelivery.order.enums.ChargeEntityType.CUSTOMER.equals(charge.getPayerType())) {
-                    if (com.fooddelivery.common.enums.ChargeCategory.FOOD_COST.name().equals(charge.getCategory().name())) {
-                        itemTotal = itemTotal.add(charge.getAmount());
-                    } else if (com.fooddelivery.common.enums.ChargeCategory.SGST.name().equals(charge.getCategory().name())) {
-                        sgst = sgst.add(charge.getAmount());
-                    } else if (com.fooddelivery.common.enums.ChargeCategory.CGST.name().equals(charge.getCategory().name())) {
-                        cgst = cgst.add(charge.getAmount());
-                    } else if (com.fooddelivery.common.enums.ChargeCategory.DELIVERY_FEE.name().equals(charge.getCategory().name()) || com.fooddelivery.common.enums.ChargeCategory.PLATFORM_FIXED_FEE.name().equals(charge.getCategory().name())) {
-                        deliveryFee = deliveryFee.add(charge.getAmount());
-                    }
-                }
-            }
-        }
-        // If items exist, use item array to sum up food cost as a fallback or primary
         BigDecimal calculatedItemTotal = itemResponses.stream().map(item -> item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity()))).reduce(BigDecimal.ZERO, BigDecimal::add);
-        if (itemTotal.compareTo(BigDecimal.ZERO) == 0) {
-            itemTotal = calculatedItemTotal;
-        }
-        return OrderResponse.builder().id(order.getId()).customerId(order.getCustomerId()).restaurantId(order.getRestaurantId()).restaurantName(order.getRestaurantName()).status(order.getStatus()).deliveryStatus(order.getDeliveryStatus()).totalAmount(order.getTotalAmount()).itemTotal(itemTotal).sgst(sgst).cgst(cgst).deliveryFee(deliveryFee).deliveryAddress(order.getDeliveryAddress()).deliveryLat(order.getDeliveryLat()).deliveryLng(order.getDeliveryLng()).distanceKm(order.getDistanceKm()).items(itemResponses).createdAt(order.getCreatedAt()).updatedAt(order.getUpdatedAt()).otp(order.getOtp()).pickupOtp(order.getPickupOtp()).estimatedCompletionTime(order.getEstimatedCompletionTime()).build();
+        // Directly map denormalized metrics from the Order entity
+        BigDecimal itemTotal = order.getItemTotal() != null ? order.getItemTotal() : calculatedItemTotal;
+        BigDecimal sgst = order.getSgst() != null ? order.getSgst() : BigDecimal.ZERO;
+        BigDecimal cgst = order.getCgst() != null ? order.getCgst() : BigDecimal.ZERO;
+        BigDecimal deliveryFee = order.getDeliveryFee() != null ? order.getDeliveryFee() : BigDecimal.ZERO;
+        BigDecimal customerPlatformFee = order.getCustomerPlatformFee() != null ? order.getCustomerPlatformFee() : BigDecimal.ZERO;
+        BigDecimal restaurantPlatformFee = order.getRestaurantPlatformFee() != null ? order.getRestaurantPlatformFee() : BigDecimal.ZERO;
+        BigDecimal platformBonus = order.getPlatformBonus() != null ? order.getPlatformBonus() : BigDecimal.ZERO;
+        BigDecimal restaurantDeliveryContribution = order.getRestaurantDeliveryContribution() != null ? order.getRestaurantDeliveryContribution() : BigDecimal.ZERO;
+        BigDecimal restaurantPayout = order.getRestaurantPayout() != null ? order.getRestaurantPayout() : BigDecimal.ZERO;
+        BigDecimal driverGrossPayout = order.getDriverGrossPayout() != null ? order.getDriverGrossPayout() : BigDecimal.ZERO;
+        BigDecimal driverTaxes = order.getDriverTaxes() != null ? order.getDriverTaxes() : BigDecimal.ZERO;
+        BigDecimal driverNetPayout = order.getDriverNetPayout() != null ? order.getDriverNetPayout() : BigDecimal.ZERO;
+
+        return OrderResponse.builder()
+            .id(order.getId())
+            .customerId(order.getCustomerId())
+            .restaurantId(order.getRestaurantId())
+            .restaurantName(order.getRestaurantName())
+            .status(order.getStatus())
+            .deliveryStatus(order.getDeliveryStatus())
+            .totalAmount(order.getTotalAmount())
+            .itemTotal(itemTotal)
+            .foodCost(calculatedItemTotal)
+            .customerPlatformFee(customerPlatformFee)
+            .restaurantPlatformFee(restaurantPlatformFee)
+            .platformBonus(platformBonus)
+            .restaurantDeliveryContribution(restaurantDeliveryContribution)
+            .restaurantPayout(restaurantPayout)
+            .sgst(sgst)
+            .cgst(cgst)
+            .deliveryFee(deliveryFee)
+            .driverGrossPayout(driverGrossPayout)
+            .driverTaxes(driverTaxes)
+            .driverNetPayout(driverNetPayout)
+            .deliveryAddress(order.getDeliveryAddress())
+            .deliveryLat(order.getDeliveryLat())
+            .deliveryLng(order.getDeliveryLng())
+            .distanceKm(order.getDistanceKm())
+            .items(itemResponses)
+            .createdAt(order.getCreatedAt())
+            .updatedAt(order.getUpdatedAt())
+            .otp(order.getOtp())
+            .pickupOtp(order.getPickupOtp())
+            .estimatedCompletionTime(order.getEstimatedCompletionTime())
+            .build();
     }
 
     @java.lang.SuppressWarnings("all")
