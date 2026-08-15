@@ -21,9 +21,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 
 @RestController
 @RequestMapping("/api/v1/internal/admin/orders")
+@lombok.extern.slf4j.Slf4j
 public class AdminOrderController {
     @java.lang.SuppressWarnings("all")
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AdminOrderController.class);
+
     private final IOrderRepository orderRepository;
     private final RestaurantClient restaurantClient;
     private final com.fooddelivery.order.service.OrderSagaOrchestrator orderSagaOrchestrator;

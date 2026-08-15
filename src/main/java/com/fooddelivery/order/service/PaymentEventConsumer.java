@@ -21,8 +21,9 @@ import java.util.Map;
 import java.util.UUID;
 
 @Service
+@lombok.extern.slf4j.Slf4j
 public class PaymentEventConsumer {
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(PaymentEventConsumer.class);
+
     private static final String FIELD_ORDER_ID = "orderId";
     private static final String FIELD_GATEWAY_ORDER_ID = "gatewayOrderId";
     private static final String FIELD_EVENT_TYPE = "eventType";

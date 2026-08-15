@@ -1,0 +1,143 @@
+package com.fooddelivery.order.controller;
+
+import com.fooddelivery.order.entity.Order;
+import com.fooddelivery.order.entity.SupportTicket;
+import com.fooddelivery.order.repository.IOrderRepository;
+import com.fooddelivery.order.repository.SupportTicketRepository;
+import com.fooddelivery.order.service.OrderRefundService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.transaction.annotation.Transactional;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fooddelivery.order.entity.OrderItem;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/v1/admin/refunds")
+public class AdminRefundController {
+
+    private final SupportTicketRepository supportTicketRepository;
+    private final OrderRefundService orderRefundService;
+    private final IOrderRepository orderRepository;
+    private final ObjectMapper objectMapper;
+
+    public AdminRefundController(SupportTicketRepository supportTicketRepository,
+                                 OrderRefundService orderRefundService,
+                                 IOrderRepository orderRepository,
+                                 ObjectMapper objectMapper) {
+        this.supportTicketRepository = supportTicketRepository;
+        this.orderRefundService = orderRefundService;
+        this.orderRepository = orderRepository;
+        this.objectMapper = objectMapper;
+    }
+
+    @GetMapping
+    public ResponseEntity<Page<SupportTicket>> getTickets(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String status) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<SupportTicket> tickets;
+        if (status != null && !status.isEmpty()) {
+            tickets = supportTicketRepository.findByStatusOrderByCreatedAtDesc(SupportTicket.TicketStatus.valueOf(status), pageable);
+        } else {
+            tickets = supportTicketRepository.findAllByOrderByCreatedAtDesc(pageable);
+        }
+        return ResponseEntity.ok(tickets);
+    }
+
+    @PostMapping("/{ticketId}/review")
+    @Transactional
+    public ResponseEntity<SupportTicket> addReviewNotes(
+            @PathVariable UUID ticketId,
+            @RequestBody ReviewRequest request) {
+        SupportTicket ticket = supportTicketRepository.findById(ticketId)
+                .orElseThrow(() -> new IllegalArgumentException("Ticket not found"));
+        
+        if (request.notes() != null) {
+            ticket.setResolutionNotes(ticket.getResolutionNotes() != null ? ticket.getResolutionNotes() + "\n" + request.notes() : request.notes());
+        }
+        ticket.setStatus(SupportTicket.TicketStatus.IN_REVIEW);
+        supportTicketRepository.save(ticket);
+        return ResponseEntity.ok(ticket);
+    }
+
+    @PostMapping("/{ticketId}/resolve")
+    @Transactional
+    public ResponseEntity<SupportTicket> resolveTicket(
+            @PathVariable UUID ticketId,
+            @RequestBody ResolveRequest request,
+            @RequestHeader("X-Admin-Id") UUID adminId) {
+        SupportTicket ticket = supportTicketRepository.findById(ticketId)
+                .orElseThrow(() -> new IllegalArgumentException("Ticket not found"));
+
+        if (ticket.getStatus() == SupportTicket.TicketStatus.RESOLVED || ticket.getStatus() == SupportTicket.TicketStatus.REJECTED) {
+            throw new IllegalStateException("Ticket already processed");
+        }
+
+        ticket.setResolvedBy(adminId);
+        ticket.setResolvedAt(LocalDateTime.now());
+        ticket.setResolutionNotes(request.notes());
+
+        if (request.approved()) {
+            ticket.setStatus(SupportTicket.TicketStatus.RESOLVED);
+            Order order = orderRepository.findById(ticket.getOrderId()).orElseThrow(() -> new IllegalArgumentException("Order not found"));
+            BigDecimal refundAmount = BigDecimal.valueOf(ticket.getRefundAmount());
+            
+            com.fooddelivery.common.enums.FaultType faultType = request.faultType() != null 
+                    ? com.fooddelivery.common.enums.FaultType.valueOf(request.faultType()) 
+                    : com.fooddelivery.common.enums.FaultType.UNKNOWN;
+
+            // Increment refundedQuantity for items in the request
+            if (ticket.getRequestedRefundItems() != null && !ticket.getRequestedRefundItems().isBlank()) {
+                try {
+                    JsonNode itemsNode = objectMapper.readTree(ticket.getRequestedRefundItems());
+                    if (itemsNode.isArray()) {
+                        for (JsonNode itemNode : itemsNode) {
+                            UUID itemId = UUID.fromString(itemNode.get("itemId").asText());
+                            int quantityToRefund = itemNode.get("quantity").asInt();
+                            
+                            order.getOrderItems().stream()
+                                    .filter(item -> item.getId().equals(itemId))
+                                    .findFirst()
+                                    .ifPresent(item -> {
+                                        int currentRefunded = item.getRefundedQuantity() != null ? item.getRefundedQuantity() : 0;
+                                        item.setRefundedQuantity(currentRefunded + quantityToRefund);
+                                    });
+                        }
+                        orderRepository.save(order);
+                    }
+                } catch (Exception e) {
+                    throw new IllegalStateException("Failed to parse requested refund items", e);
+                }
+            }
+
+            if (refundAmount.compareTo(order.getTotalAmount()) >= 0) {
+                orderRefundService.processRefund(order, com.fooddelivery.common.enums.RefundDestination.GATEWAY, faultType);
+            } else {
+                orderRefundService.processPartialRefund(order, refundAmount, com.fooddelivery.common.enums.RefundDestination.GATEWAY, faultType);
+            }
+        } else {
+            ticket.setStatus(SupportTicket.TicketStatus.REJECTED);
+        }
+
+        supportTicketRepository.save(ticket);
+        return ResponseEntity.ok(ticket);
+    }
+
+    public record ReviewRequest(String notes) {}
+    public record ResolveRequest(boolean approved, String notes, String faultType) {}
+
+    @ExceptionHandler(org.springframework.orm.ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<String> handleOptimisticLockingFailure(org.springframework.orm.ObjectOptimisticLockingFailureException ex) {
+        return ResponseEntity.status(org.springframework.http.HttpStatus.CONFLICT)
+                .body("This ticket was recently updated by another administrator. Please refresh and try again.");
+    }
+}

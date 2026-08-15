@@ -35,9 +35,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
 @Service
+@lombok.extern.slf4j.Slf4j
 public class OrderSagaOrchestrator {
     @java.lang.SuppressWarnings("all")
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(OrderSagaOrchestrator.class);
+
     private static final String REFUND_TX_PREFIX = "REFUND_";
     private static final String FIELD_ORDER_ID = "orderId";
     private static final String FIELD_GATEWAY_ORDER_ID = "gatewayOrderId";
@@ -49,7 +50,7 @@ public class OrderSagaOrchestrator {
     private final ObjectMapper objectMapper;
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
-    private final com.fooddelivery.customer.client.PaymentClient paymentClient;
+    private final com.fooddelivery.common.client.PaymentServiceClient paymentClient;
     private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
     private final com.fooddelivery.order.service.state.OrderActionService orderActionService;
     private final StringRedisTemplate redisTemplate;
@@ -442,7 +443,7 @@ public class OrderSagaOrchestrator {
     @java.lang.SuppressWarnings("all")
     private final OrderRefundService orderRefundService;
 
-    public OrderSagaOrchestrator(final IOrderRepository orderRepository, final OutboxEventRepository outboxEventRepository, final IPaymentIntentRepository paymentIntentRepository, final ObjectMapper objectMapper, final KafkaTemplate<String, String> kafkaTemplate, final com.fooddelivery.customer.client.PaymentClient paymentClient, final org.springframework.transaction.support.TransactionTemplate transactionTemplate, final com.fooddelivery.order.service.state.OrderActionService orderActionService, final StringRedisTemplate redisTemplate, final OrderRefundService orderRefundService) {
+    public OrderSagaOrchestrator(final IOrderRepository orderRepository, final OutboxEventRepository outboxEventRepository, final IPaymentIntentRepository paymentIntentRepository, final ObjectMapper objectMapper, final KafkaTemplate<String, String> kafkaTemplate, final com.fooddelivery.common.client.PaymentServiceClient paymentClient, final org.springframework.transaction.support.TransactionTemplate transactionTemplate, final com.fooddelivery.order.service.state.OrderActionService orderActionService, final StringRedisTemplate redisTemplate, final OrderRefundService orderRefundService) {
         this.orderRepository = orderRepository;
         this.outboxEventRepository = outboxEventRepository;
         this.paymentIntentRepository = paymentIntentRepository;

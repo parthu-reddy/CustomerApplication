@@ -12,9 +12,10 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import java.util.List;
 
 @Component
+@lombok.extern.slf4j.Slf4j
 public class RefundRetrySweeper {
     @java.lang.SuppressWarnings("all")
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(RefundRetrySweeper.class);
+
     private final IPaymentIntentRepository paymentIntentRepository;
     private final IOrderRepository orderRepository;
     private final OrderSagaOrchestrator orderSagaOrchestrator;
@@ -22,6 +23,7 @@ public class RefundRetrySweeper {
     private final StringRedisTemplate redisTemplate;
     private final com.fooddelivery.common.outbox.repository.OutboxEventRepository outboxEventRepository;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+    private final com.fooddelivery.order.repository.SupportTicketRepository supportTicketRepository;
 
     // Runs every 5 minutes
     @Scheduled(fixedDelay = 300000)
@@ -73,8 +75,22 @@ public class RefundRetrySweeper {
                             order.getStatus() == com.fooddelivery.common.enums.OrderStatus.CANCELLED_BY_RESTAURANT) {
                             log.info("Retrying refund for Order {}", order.getId());
                             orderRefundService.processRefund(order);
+                        } else if (order.getStatus() == com.fooddelivery.common.enums.OrderStatus.HANDED_OVER) {
+                            log.info("Checking for partial refund to retry for HANDED_OVER Order {}", order.getId());
+                            java.util.List<com.fooddelivery.order.entity.SupportTicket> tickets = supportTicketRepository.findByOrderId(order.getId());
+                            com.fooddelivery.order.entity.SupportTicket resolvedTicket = tickets.stream()
+                                    .filter(t -> t.getStatus() == com.fooddelivery.order.entity.SupportTicket.TicketStatus.RESOLVED && t.getRefundAmount() != null)
+                                    .findFirst()
+                                    .orElse(null);
+                            
+                            if (resolvedTicket != null) {
+                                log.info("Retrying partial refund of {} for Order {}", resolvedTicket.getRefundAmount(), order.getId());
+                                orderRefundService.processPartialRefund(order, java.math.BigDecimal.valueOf(resolvedTicket.getRefundAmount()));
+                            } else {
+                                log.warn("Skipping auto-retry for Order {}. Status is HANDED_OVER but no resolved SupportTicket found.", order.getId());
+                            }
                         } else {
-                            log.warn("Skipping auto-retry for Order {}. Status is {} (likely a manual partial refund failure).", order.getId(), order.getStatus());
+                            log.warn("Skipping auto-retry for Order {}. Status is {}.", order.getId(), order.getStatus());
                         }
                     } else {
                         log.warn("Order {} not found for PaymentIntent {}. Skipping.", intent.getInternalOrderId(), intent.getId());
@@ -87,7 +103,7 @@ public class RefundRetrySweeper {
     }
 
     @java.lang.SuppressWarnings("all")
-    public RefundRetrySweeper(final IPaymentIntentRepository paymentIntentRepository, final IOrderRepository orderRepository, final OrderSagaOrchestrator orderSagaOrchestrator, final com.fooddelivery.order.service.OrderRefundService orderRefundService, final StringRedisTemplate redisTemplate, final com.fooddelivery.common.outbox.repository.OutboxEventRepository outboxEventRepository, final com.fasterxml.jackson.databind.ObjectMapper objectMapper) {
+    public RefundRetrySweeper(final IPaymentIntentRepository paymentIntentRepository, final IOrderRepository orderRepository, final OrderSagaOrchestrator orderSagaOrchestrator, final com.fooddelivery.order.service.OrderRefundService orderRefundService, final StringRedisTemplate redisTemplate, final com.fooddelivery.common.outbox.repository.OutboxEventRepository outboxEventRepository, final com.fasterxml.jackson.databind.ObjectMapper objectMapper, final com.fooddelivery.order.repository.SupportTicketRepository supportTicketRepository) {
         this.paymentIntentRepository = paymentIntentRepository;
         this.orderRepository = orderRepository;
         this.orderSagaOrchestrator = orderSagaOrchestrator;
@@ -95,5 +111,6 @@ public class RefundRetrySweeper {
         this.redisTemplate = redisTemplate;
         this.outboxEventRepository = outboxEventRepository;
         this.objectMapper = objectMapper;
+        this.supportTicketRepository = supportTicketRepository;
     }
 }

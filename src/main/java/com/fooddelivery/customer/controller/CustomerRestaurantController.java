@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import com.fooddelivery.customer.client.RestaurantClient;
-import com.fooddelivery.customer.client.MapsClient;
+import com.fooddelivery.common.client.MapsServiceClient;
 import java.util.List;
 import java.util.Map;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -17,11 +17,12 @@ import org.springframework.security.access.prepost.PreAuthorize;
 @RestController
 @RequestMapping("/api/v1/restaurants")
 @PreAuthorize("hasRole(\'CUSTOMER\')")
+@lombok.extern.slf4j.Slf4j
 public class CustomerRestaurantController {
     @java.lang.SuppressWarnings("all")
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(CustomerRestaurantController.class);
+
     private final RestaurantClient restaurantClient;
-    private final MapsClient mapsClient;
+    private final MapsServiceClient mapsClient;
     private final com.fooddelivery.customer.service.DynamicPricingService dynamicPricingService;
     private final com.fooddelivery.customer.config.DynamicPricingConfig dynamicPricingConfig;
     private final com.fooddelivery.customer.repository.CustomerAddressRepository customerAddressRepository;
@@ -223,7 +224,7 @@ public class CustomerRestaurantController {
     }
 
     @java.lang.SuppressWarnings("all")
-    public CustomerRestaurantController(final RestaurantClient restaurantClient, final MapsClient mapsClient, final com.fooddelivery.customer.service.DynamicPricingService dynamicPricingService, final com.fooddelivery.customer.config.DynamicPricingConfig dynamicPricingConfig, final com.fooddelivery.customer.repository.CustomerAddressRepository customerAddressRepository, final com.fooddelivery.customer.client.AdvertisementClient advertisementClient, final org.springframework.data.redis.core.StringRedisTemplate redisTemplate) {
+    public CustomerRestaurantController(final RestaurantClient restaurantClient, final MapsServiceClient mapsClient, final com.fooddelivery.customer.service.DynamicPricingService dynamicPricingService, final com.fooddelivery.customer.config.DynamicPricingConfig dynamicPricingConfig, final com.fooddelivery.customer.repository.CustomerAddressRepository customerAddressRepository, final com.fooddelivery.customer.client.AdvertisementClient advertisementClient, final org.springframework.data.redis.core.StringRedisTemplate redisTemplate) {
         this.restaurantClient = restaurantClient;
         this.mapsClient = mapsClient;
         this.dynamicPricingService = dynamicPricingService;

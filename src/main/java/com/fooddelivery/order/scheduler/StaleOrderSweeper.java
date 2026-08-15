@@ -11,9 +11,10 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Component
+@lombok.extern.slf4j.Slf4j
 public class StaleOrderSweeper {
     @java.lang.SuppressWarnings("all")
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(StaleOrderSweeper.class);
+
     private final IOrderRepository orderRepository;
     private final OrderActionService orderActionService;
     private final TransactionTemplate transactionTemplate;

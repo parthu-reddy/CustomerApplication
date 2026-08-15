@@ -10,10 +10,10 @@ import com.fooddelivery.common.constants.AppConstants;
 import com.fooddelivery.order.service.state.OrderActionService;
 import java.math.BigDecimal;
 import java.util.UUID;
+@lombok.extern.slf4j.Slf4j
 
 public class ReadyForPickupState implements OrderState {
     @java.lang.SuppressWarnings("all")
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ReadyForPickupState.class);
 
     @Override
     public void handleDriverAssigned(OrderContext ctx) {

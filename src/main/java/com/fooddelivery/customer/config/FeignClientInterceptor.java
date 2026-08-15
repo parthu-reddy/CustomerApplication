@@ -9,9 +9,8 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 @Component
+@lombok.extern.slf4j.Slf4j
 public class FeignClientInterceptor implements RequestInterceptor {
-
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(FeignClientInterceptor.class);
 
     @Override
     public void apply(RequestTemplate template) {

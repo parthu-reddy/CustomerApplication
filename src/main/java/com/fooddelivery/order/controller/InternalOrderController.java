@@ -15,8 +15,9 @@ import java.util.Arrays;
 
 @RestController("orderInternalController")
 @RequestMapping("/api/v1/internal/orders")
+@lombok.extern.slf4j.Slf4j
 public class InternalOrderController {
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(InternalOrderController.class);
+
     private final IOrderRepository orderRepository;
     private final com.fooddelivery.order.service.OrderSagaOrchestrator orderSagaOrchestrator;
     private final com.fooddelivery.order.service.OrderRefundService orderRefundService;

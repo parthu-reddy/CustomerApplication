@@ -24,9 +24,10 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
+@lombok.extern.slf4j.Slf4j
 public class CustomerOrderService {
     @java.lang.SuppressWarnings("all")
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(CustomerOrderService.class);
+
     private final IOrderRepository orderRepository;
     private final OrderSagaOrchestrator orderSagaOrchestrator;
     private final java.util.concurrent.ExecutorService executorService = java.util.concurrent.Executors.newFixedThreadPool(50);
@@ -40,7 +41,7 @@ public class CustomerOrderService {
     private final PaymentGatewayOrchestrator paymentGatewayOrchestrator;
     private final com.fooddelivery.customer.repository.CustomerAddressRepository addressRepository;
     private final com.fooddelivery.customer.client.RestaurantClient restaurantClient;
-    private final com.fooddelivery.customer.client.MapsClient mapsClient;
+    private final com.fooddelivery.common.client.MapsServiceClient mapsClient;
     private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
     private final com.fooddelivery.common.outbox.repository.OutboxEventRepository outboxEventRepository;
     private final DynamicPricingService dynamicPricingService;
@@ -414,7 +415,7 @@ public class CustomerOrderService {
     }
 
     @java.lang.SuppressWarnings("all")
-    public CustomerOrderService(final IOrderRepository orderRepository, final OrderSagaOrchestrator orderSagaOrchestrator, final StringRedisTemplate redisTemplate, final PaymentGatewayOrchestrator paymentGatewayOrchestrator, final com.fooddelivery.customer.repository.CustomerAddressRepository addressRepository, final com.fooddelivery.customer.client.RestaurantClient restaurantClient, final com.fooddelivery.customer.client.MapsClient mapsClient, final org.springframework.transaction.support.TransactionTemplate transactionTemplate, final com.fooddelivery.common.outbox.repository.OutboxEventRepository outboxEventRepository, final DynamicPricingService dynamicPricingService) {
+    public CustomerOrderService(final IOrderRepository orderRepository, final OrderSagaOrchestrator orderSagaOrchestrator, final StringRedisTemplate redisTemplate, final PaymentGatewayOrchestrator paymentGatewayOrchestrator, final com.fooddelivery.customer.repository.CustomerAddressRepository addressRepository, final com.fooddelivery.customer.client.RestaurantClient restaurantClient, final com.fooddelivery.common.client.MapsServiceClient mapsClient, final org.springframework.transaction.support.TransactionTemplate transactionTemplate, final com.fooddelivery.common.outbox.repository.OutboxEventRepository outboxEventRepository, final DynamicPricingService dynamicPricingService) {
         this.orderRepository = orderRepository;
         this.orderSagaOrchestrator = orderSagaOrchestrator;
         this.redisTemplate = redisTemplate;

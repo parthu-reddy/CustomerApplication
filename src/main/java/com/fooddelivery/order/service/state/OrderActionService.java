@@ -18,9 +18,10 @@ import java.util.UUID;
 import com.fooddelivery.common.constants.PaymentIntentStatus;
 
 @Service
+@lombok.extern.slf4j.Slf4j
 public class OrderActionService {
     @java.lang.SuppressWarnings("all")
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(OrderActionService.class);
+
     private final IOrderRepository orderRepository;
     private final OutboxEventRepository outboxEventRepository;
     private final IPaymentIntentRepository paymentIntentRepository;

@@ -7,10 +7,9 @@ import com.fooddelivery.order.service.state.OrderActionService;
 import com.fooddelivery.common.enums.AccountType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+@lombok.extern.slf4j.Slf4j
 
 public class TerminalState implements OrderState {
-
-    private static final Logger log = LoggerFactory.getLogger(TerminalState.class);
 
     @Override
     public void handlePaymentSuccess(OrderContext ctx) {

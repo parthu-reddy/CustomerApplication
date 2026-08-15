@@ -18,9 +18,10 @@ import jakarta.validation.Valid;
 @RestController
 @RequestMapping("/api/v1/customers/{customerId}/addresses")
 @PreAuthorize("hasRole(\'CUSTOMER\') and #customerId.toString() == authentication.principal")
+@lombok.extern.slf4j.Slf4j
 public class CustomerAddressController {
     @java.lang.SuppressWarnings("all")
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(CustomerAddressController.class);
+
     private final CustomerAddressRepository addressRepository;
     private final ICustomerRepository customerRepository;
 

@@ -11,9 +11,9 @@ import org.springframework.stereotype.Service;
 import java.util.UUID;
 
 @Service
+@lombok.extern.slf4j.Slf4j
 public class MenuCacheInvalidationListener {
 
-    private static final Logger log = LoggerFactory.getLogger(MenuCacheInvalidationListener.class);
     private final CacheManager cacheManager;
     private final ObjectMapper objectMapper;
 

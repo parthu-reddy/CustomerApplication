@@ -17,8 +17,9 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/customer/orders")
+@lombok.extern.slf4j.Slf4j
 public class CustomerOrderController {
-    private static final Logger log = LoggerFactory.getLogger(CustomerOrderController.class);
+
     private final IOrderRepository orderRepository;
     private final SupportTicketRepository supportTicketRepository;
 

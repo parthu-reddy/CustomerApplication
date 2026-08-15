@@ -6,11 +6,14 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "support_tickets", indexes = {
-    @Index(name = "idx_support_ticket_order", columnList = "order_id"),
-    @Index(name = "idx_support_ticket_customer", columnList = "customer_id"),
-    @Index(name = "idx_support_ticket_status", columnList = "status")
+    @Index(name = "idx_support_ticket_status_created", columnList = "status, created_at"),
+    @Index(name = "idx_support_ticket_order_customer_status", columnList = "order_id, customer_id, status")
 })
 public class SupportTicket {
+
+    @Version
+    @Column(name = "version")
+    private Long version;
 
     public enum TicketStatus {
         OPEN, IN_REVIEW, RESOLVED, REJECTED
@@ -45,6 +48,21 @@ public class SupportTicket {
     @Column(name = "resolved_at")
     private LocalDateTime resolvedAt;
 
+    @Column(name = "chat_session_id")
+    private UUID chatSessionId;
+
+    @Column(name = "requested_refund_items", columnDefinition = "TEXT")
+    private String requestedRefundItems;
+
+    @Column(name = "refund_amount")
+    private Double refundAmount;
+
+    @Column(name = "restaurant_comments", length = 2000)
+    private String restaurantComments;
+
+    @Column(name = "rider_comments", length = 2000)
+    private String riderComments;
+
     @PrePersist
     public void prePersist() {
         if (id == null) id = UUID.randomUUID();
@@ -78,4 +96,22 @@ public class SupportTicket {
 
     public LocalDateTime getResolvedAt() { return resolvedAt; }
     public void setResolvedAt(LocalDateTime resolvedAt) { this.resolvedAt = resolvedAt; }
+
+    public UUID getChatSessionId() { return chatSessionId; }
+    public void setChatSessionId(UUID chatSessionId) { this.chatSessionId = chatSessionId; }
+
+    public String getRequestedRefundItems() { return requestedRefundItems; }
+    public void setRequestedRefundItems(String requestedRefundItems) { this.requestedRefundItems = requestedRefundItems; }
+
+    public Double getRefundAmount() { return refundAmount; }
+    public void setRefundAmount(Double refundAmount) { this.refundAmount = refundAmount; }
+
+    public String getRestaurantComments() { return restaurantComments; }
+    public void setRestaurantComments(String restaurantComments) { this.restaurantComments = restaurantComments; }
+
+    public String getRiderComments() { return riderComments; }
+    public void setRiderComments(String riderComments) { this.riderComments = riderComments; }
+
+    public Long getVersion() { return version; }
+    public void setVersion(Long version) { this.version = version; }
 }

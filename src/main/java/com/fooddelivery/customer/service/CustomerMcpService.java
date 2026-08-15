@@ -11,9 +11,10 @@ import java.util.UUID;
 import java.util.List;
 
 @Service
+@lombok.extern.slf4j.Slf4j
 public class CustomerMcpService {
     @java.lang.SuppressWarnings("all")
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(CustomerMcpService.class);
+
     private final CustomerAddressController addressController;
     private final CustomerRestaurantController restaurantController;
     private final OrderController orderController;

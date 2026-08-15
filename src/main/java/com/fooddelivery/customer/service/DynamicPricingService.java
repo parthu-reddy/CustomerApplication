@@ -7,9 +7,10 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 
 @Service
+@lombok.extern.slf4j.Slf4j
 public class DynamicPricingService {
     @java.lang.SuppressWarnings("all")
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(DynamicPricingService.class);
+
     private final DynamicPricingConfig config;
 
     public PricingBreakdown calculatePricing(BigDecimal foodCost, BigDecimal distanceKm) {

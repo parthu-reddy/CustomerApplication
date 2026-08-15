@@ -15,9 +15,10 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/internal/admin/customers")
+@lombok.extern.slf4j.Slf4j
 public class AdminCustomerController {
     @java.lang.SuppressWarnings("all")
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AdminCustomerController.class);
+
     private final CustomerAddressRepository addressRepository;
     private final ICustomerRepository customerRepository;
 

@@ -6,10 +6,10 @@ import com.fooddelivery.common.enums.OrderStatus;
 import com.fooddelivery.order.entity.Order;
 import com.fooddelivery.order.service.state.OrderContext;
 import com.fooddelivery.order.service.state.OrderState;
+@lombok.extern.slf4j.Slf4j
 
 public class PendingAcceptanceState implements OrderState {
     @java.lang.SuppressWarnings("all")
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(PendingAcceptanceState.class);
 
     @Override
     public void handleOrderAccepted(OrderContext ctx) {

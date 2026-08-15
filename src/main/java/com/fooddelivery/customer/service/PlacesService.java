@@ -1,16 +1,17 @@
 package com.fooddelivery.customer.service;
 
 import org.springframework.stereotype.Service;
-import com.fooddelivery.customer.client.MapsClient;
+import com.fooddelivery.common.client.MapsServiceClient;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
 @Service
+@lombok.extern.slf4j.Slf4j
 public class PlacesService {
     @java.lang.SuppressWarnings("all")
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(PlacesService.class);
-    private final MapsClient mapsClient;
+
+    private final MapsServiceClient mapsClient;
 
     public List<Map<String, Object>> autocomplete(String input) {
         log.info("Requesting autocomplete for input: {} from MapsIntegration", input);
@@ -33,7 +34,7 @@ public class PlacesService {
     }
 
     @java.lang.SuppressWarnings("all")
-    public PlacesService(final MapsClient mapsClient) {
+    public PlacesService(final MapsServiceClient mapsClient) {
         this.mapsClient = mapsClient;
     }
 }

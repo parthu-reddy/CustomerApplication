@@ -6,10 +6,10 @@ import com.fooddelivery.order.entity.Order;
 import com.fooddelivery.order.service.state.OrderContext;
 import com.fooddelivery.order.service.state.OrderState;
 import java.util.UUID;
+@lombok.extern.slf4j.Slf4j
 
 public class PreparingState implements OrderState {
     @java.lang.SuppressWarnings("all")
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(PreparingState.class);
 
     @Override
     public void handleOrderReady(OrderContext ctx) {

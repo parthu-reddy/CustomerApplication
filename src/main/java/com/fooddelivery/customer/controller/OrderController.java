@@ -22,9 +22,10 @@ import jakarta.validation.Valid;
 @RestController
 @RequestMapping("/api/v1/orders")
 @PreAuthorize("hasRole(\'CUSTOMER\')")
+@lombok.extern.slf4j.Slf4j
 public class OrderController {
     @java.lang.SuppressWarnings("all")
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(OrderController.class);
+
     private final CustomerOrderService customerOrderService;
 
     @PostMapping

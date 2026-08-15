@@ -10,10 +10,10 @@ import com.fooddelivery.order.service.state.OrderState;
 import com.fooddelivery.common.enums.AccountType;
 import java.math.BigDecimal;
 import java.util.UUID;
+@lombok.extern.slf4j.Slf4j
 
 public class HandedOverState implements OrderState {
     @java.lang.SuppressWarnings("all")
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(HandedOverState.class);
 
     @Override
     public void handleOrderDelivered(OrderContext ctx) {

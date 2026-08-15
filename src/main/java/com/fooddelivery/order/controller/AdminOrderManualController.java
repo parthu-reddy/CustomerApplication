@@ -23,9 +23,10 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/internal/admin/orders/intervention")
+@lombok.extern.slf4j.Slf4j
 public class AdminOrderManualController {
     @java.lang.SuppressWarnings("all")
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AdminOrderManualController.class);
+
     private final IOrderRepository orderRepository;
     private final com.fooddelivery.common.outbox.repository.OutboxEventRepository outboxEventRepository;
     private final com.fooddelivery.order.service.OrderSagaOrchestrator orderSagaOrchestrator;

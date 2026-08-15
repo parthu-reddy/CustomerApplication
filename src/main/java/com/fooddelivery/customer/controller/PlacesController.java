@@ -14,9 +14,10 @@ import org.springframework.security.access.prepost.PreAuthorize;
 @RestController
 @RequestMapping("/api/v1/places")
 @PreAuthorize("hasRole(\'CUSTOMER\')")
+@lombok.extern.slf4j.Slf4j
 public class PlacesController {
     @java.lang.SuppressWarnings("all")
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(PlacesController.class);
+
     private final PlacesService placesService;
 
     @GetMapping("/autocomplete")

@@ -10,9 +10,10 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/internal/admin/orders/dlq")
+@lombok.extern.slf4j.Slf4j
 public class AdminDlqController {
     @java.lang.SuppressWarnings("all")
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AdminDlqController.class);
+
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final com.fooddelivery.order.repository.IPaymentIntentRepository paymentIntentRepository;
     private final com.fooddelivery.order.service.OrderSagaOrchestrator orderSagaOrchestrator;

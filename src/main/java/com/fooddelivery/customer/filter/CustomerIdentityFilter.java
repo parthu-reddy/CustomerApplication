@@ -11,9 +11,10 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 
 @Component
+@lombok.extern.slf4j.Slf4j
 public class CustomerIdentityFilter extends OncePerRequestFilter {
     @java.lang.SuppressWarnings("all")
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(CustomerIdentityFilter.class);
+
     private final ICustomerRepository customerRepository;
 
     @Override

@@ -35,6 +35,8 @@ public class OrderItem {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+    @Column(name = "refunded_quantity")
+    private Integer refundedQuantity = 0;
 
 
     @java.lang.SuppressWarnings("all")
@@ -55,6 +57,8 @@ public class OrderItem {
         private LocalDateTime createdAt;
         @java.lang.SuppressWarnings("all")
         private LocalDateTime updatedAt;
+        @java.lang.SuppressWarnings("all")
+        private Integer refundedQuantity;
 
         @java.lang.SuppressWarnings("all")
         OrderItemBuilder() {
@@ -132,15 +136,24 @@ public class OrderItem {
             return this;
         }
 
+        /**
+         * @return {@code this}.
+         */
+        @java.lang.SuppressWarnings("all")
+        public OrderItem.OrderItemBuilder refundedQuantity(final Integer refundedQuantity) {
+            this.refundedQuantity = refundedQuantity;
+            return this;
+        }
+
         @java.lang.SuppressWarnings("all")
         public OrderItem build() {
-            return new OrderItem(this.id, this.order, this.menuItemId, this.name, this.quantity, this.price, this.createdAt, this.updatedAt);
+            return new OrderItem(this.id, this.order, this.menuItemId, this.name, this.quantity, this.price, this.createdAt, this.updatedAt, this.refundedQuantity);
         }
 
         @java.lang.Override
         @java.lang.SuppressWarnings("all")
         public java.lang.String toString() {
-            return "OrderItem.OrderItemBuilder(id=" + this.id + ", order=" + this.order + ", menuItemId=" + this.menuItemId + ", name=" + this.name + ", quantity=" + this.quantity + ", price=" + this.price + ", createdAt=" + this.createdAt + ", updatedAt=" + this.updatedAt + ")";
+            return "OrderItem.OrderItemBuilder(id=" + this.id + ", order=" + this.order + ", menuItemId=" + this.menuItemId + ", name=" + this.name + ", quantity=" + this.quantity + ", price=" + this.price + ", createdAt=" + this.createdAt + ", updatedAt=" + this.updatedAt + ", refundedQuantity=" + this.refundedQuantity + ")";
         }
     }
 
@@ -190,6 +203,11 @@ public class OrderItem {
     }
 
     @java.lang.SuppressWarnings("all")
+    public Integer getRefundedQuantity() {
+        return this.refundedQuantity;
+    }
+
+    @java.lang.SuppressWarnings("all")
     public void setId(final UUID id) {
         this.id = id;
     }
@@ -230,11 +248,16 @@ public class OrderItem {
     }
 
     @java.lang.SuppressWarnings("all")
+    public void setRefundedQuantity(final Integer refundedQuantity) {
+        this.refundedQuantity = refundedQuantity;
+    }
+
+    @java.lang.SuppressWarnings("all")
     public OrderItem() {
     }
 
     @java.lang.SuppressWarnings("all")
-    public OrderItem(final UUID id, final Order order, final UUID menuItemId, final String name, final Integer quantity, final BigDecimal price, final LocalDateTime createdAt, final LocalDateTime updatedAt) {
+    public OrderItem(final UUID id, final Order order, final UUID menuItemId, final String name, final Integer quantity, final BigDecimal price, final LocalDateTime createdAt, final LocalDateTime updatedAt, final Integer refundedQuantity) {
         this.id = id;
         this.order = order;
         this.menuItemId = menuItemId;
@@ -243,5 +266,6 @@ public class OrderItem {
         this.price = price;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
+        this.refundedQuantity = refundedQuantity;
     }
 }

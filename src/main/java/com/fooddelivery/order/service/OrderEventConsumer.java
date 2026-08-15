@@ -16,8 +16,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.util.UUID;
 
 @Service
+@lombok.extern.slf4j.Slf4j
 public class OrderEventConsumer {
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(OrderEventConsumer.class);
 
     private static final java.util.Map<String, java.util.function.BiConsumer<com.fooddelivery.order.service.state.OrderState, com.fooddelivery.order.service.state.OrderContext>> EVENT_HANDLERS = new java.util.HashMap<>();
     static {

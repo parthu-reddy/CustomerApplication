@@ -32,9 +32,10 @@ import jakarta.persistence.Column;
     @jakarta.persistence.Index(name = "idx_order_delivery_status", columnList = "delivery_status"),
     @jakarta.persistence.Index(name = "idx_order_composite_del_exec", columnList = "delivery_executive_id, delivery_status")
 })
+@lombok.extern.slf4j.Slf4j
 public class Order {
     @java.lang.SuppressWarnings("all")
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(Order.class);
+
     @Id
     @Column(name = "id")
     private UUID id;

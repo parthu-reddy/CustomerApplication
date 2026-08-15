@@ -18,8 +18,9 @@ import java.util.Map;
 import java.util.UUID;
 
 @Service
+@lombok.extern.slf4j.Slf4j
 public class OrderRefundService {
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(OrderRefundService.class);
+
     private static final String REFUND_TX_PREFIX = "REFUND_";
     private static final UUID PLATFORM_ACCOUNT_ID = UUID.fromString("00000000-0000-0000-0000-000000000000");
 
@@ -86,22 +87,21 @@ public class OrderRefundService {
                         Order latestOrder = orderRepository.findById(order.getId()).orElse(order);
                         if (latestOrder.getDeliveryStatus() == com.fooddelivery.common.enums.DeliveryStatus.DELIVERED) {
                             UUID reversalId = UUID.randomUUID();
-                            Map<String, Object> reversalPayload = new HashMap<>();
-                            reversalPayload.put("reversalId", reversalId.toString());
-                            reversalPayload.put("orderId", order.getId().toString());
-                            reversalPayload.put("amount", remainingRefundable);
-                            reversalPayload.put("faultType", faultType != null ? faultType.name() : "UNKNOWN");
-                            String reversalStr = objectMapper.writeValueAsString(reversalPayload);
+                            
+                            java.util.List<com.fooddelivery.common.dto.LedgerEntryCommand> commands = buildLedgerReversalCommands(latestOrder, remainingRefundable, faultType);
+                            com.fooddelivery.common.dto.LedgerBulkTransactionRequest bulkReq = new com.fooddelivery.common.dto.LedgerBulkTransactionRequest(originalTransactionIdForReversal(latestOrder.getId()), commands);
+                            
+                            String reversalStr = objectMapper.writeValueAsString(bulkReq);
                             OutboxEventEntity reversalEvent = OutboxEventEntity.builder()
                                 .id(reversalId)
                                 .aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER)
                                 .aggregateId(order.getId().toString())
-                                .eventType(com.fooddelivery.common.constants.EventType.valueOf("LEDGER_REVERSAL_REQUEST")) 
+                                .eventType(com.fooddelivery.common.constants.EventType.LEDGER_BULK_TRANSACTION_REQUEST) 
                                 .payload(reversalStr)
                                 .createdAt(LocalDateTime.now())
                                 .build();
                             outboxEventRepository.save(reversalEvent);
-                            log.info("Emitted LEDGER_REVERSAL_REQUEST for delivered order {}", order.getId());
+                            log.info("Emitted LEDGER_BULK_TRANSACTION_REQUEST for delivered order {}", order.getId());
                         }
 
                         latestOrder.setPaymentStatus(PaymentIntentStatus.REFUND_PENDING);
@@ -168,22 +168,21 @@ public class OrderRefundService {
                         Order latestOrder = orderRepository.findById(order.getId()).orElse(order);
                         if (latestOrder.getDeliveryStatus() == com.fooddelivery.common.enums.DeliveryStatus.DELIVERED) {
                             UUID reversalId = UUID.randomUUID();
-                            Map<String, Object> reversalPayload = new HashMap<>();
-                            reversalPayload.put("reversalId", reversalId.toString());
-                            reversalPayload.put("orderId", order.getId().toString());
-                            reversalPayload.put("amount", partialAmount); 
-                            reversalPayload.put("faultType", faultType != null ? faultType.name() : "UNKNOWN");
-                            String reversalStr = objectMapper.writeValueAsString(reversalPayload);
+                            
+                            java.util.List<com.fooddelivery.common.dto.LedgerEntryCommand> commands = buildLedgerReversalCommands(latestOrder, partialAmount, faultType);
+                            com.fooddelivery.common.dto.LedgerBulkTransactionRequest bulkReq = new com.fooddelivery.common.dto.LedgerBulkTransactionRequest(originalTransactionIdForReversal(latestOrder.getId()), commands);
+                            
+                            String reversalStr = objectMapper.writeValueAsString(bulkReq);
                             OutboxEventEntity reversalEvent = OutboxEventEntity.builder()
                                 .id(reversalId)
                                 .aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER)
                                 .aggregateId(order.getId().toString())
-                                .eventType(com.fooddelivery.common.constants.EventType.valueOf("LEDGER_REVERSAL_REQUEST")) 
+                                .eventType(com.fooddelivery.common.constants.EventType.LEDGER_BULK_TRANSACTION_REQUEST) 
                                 .payload(reversalStr)
                                 .createdAt(LocalDateTime.now())
                                 .build();
                             outboxEventRepository.save(reversalEvent);
-                            log.info("Emitted partial LEDGER_REVERSAL_REQUEST for delivered order {}", order.getId());
+                            log.info("Emitted partial LEDGER_BULK_TRANSACTION_REQUEST for delivered order {}", order.getId());
                         }
 
                         latestOrder.setPaymentStatus(PaymentIntentStatus.REFUND_PENDING);
@@ -236,5 +235,57 @@ public class OrderRefundService {
                 return;
             }
         }
+    }
+
+    private UUID originalTransactionIdForReversal(UUID orderId) {
+        // Typically the original order payment uses orderId as referenceId
+        return orderId;
+    }
+
+    private java.util.List<com.fooddelivery.common.dto.LedgerEntryCommand> buildLedgerReversalCommands(Order order, java.math.BigDecimal amount, com.fooddelivery.common.enums.FaultType faultType) {
+        java.util.List<com.fooddelivery.common.dto.LedgerEntryCommand> commands = new java.util.ArrayList<>();
+        
+        java.math.BigDecimal totalCustomerCharge = order.getTotalAmount();
+        java.math.BigDecimal refundRatio = java.math.BigDecimal.ONE;
+        if (amount != null && totalCustomerCharge != null && totalCustomerCharge.compareTo(java.math.BigDecimal.ZERO) > 0) {
+            refundRatio = amount.divide(totalCustomerCharge, 4, java.math.RoundingMode.HALF_UP);
+            if (refundRatio.compareTo(java.math.BigDecimal.ONE) > 0) refundRatio = java.math.BigDecimal.ONE;
+        }
+        
+        java.math.BigDecimal refundAmount = (order.getTotalAmount() != null ? order.getTotalAmount() : java.math.BigDecimal.ZERO).multiply(refundRatio).setScale(2, java.math.RoundingMode.HALF_UP);
+        if (refundAmount.compareTo(java.math.BigDecimal.ZERO) > 0) {
+            commands.add(new com.fooddelivery.common.dto.LedgerEntryCommand(
+                PLATFORM_ACCOUNT_ID, AccountType.PLATFORM,
+                order.getCustomerId(), AccountType.CUSTOMER,
+                refundAmount,
+                com.fooddelivery.common.enums.ChargeCategory.ORDER_TOTAL
+            ));
+        }
+        
+        if (faultType == com.fooddelivery.common.enums.FaultType.RESTAURANT_FAULT) {
+            java.math.BigDecimal restRefund = (order.getRestaurantPayout() != null ? order.getRestaurantPayout() : java.math.BigDecimal.ZERO).multiply(refundRatio).setScale(2, java.math.RoundingMode.HALF_UP);
+            if (restRefund.compareTo(java.math.BigDecimal.ZERO) > 0) {
+                commands.add(new com.fooddelivery.common.dto.LedgerEntryCommand(
+                    order.getRestaurantId(), AccountType.RESTAURANT,
+                    PLATFORM_ACCOUNT_ID, AccountType.PLATFORM,
+                    restRefund,
+                    com.fooddelivery.common.enums.ChargeCategory.FOOD_COST
+                ));
+            }
+        }
+        
+        if (faultType == com.fooddelivery.common.enums.FaultType.RIDER_FAULT) {
+            java.math.BigDecimal riderRefund = (order.getDriverNetPayout() != null ? order.getDriverNetPayout() : java.math.BigDecimal.ZERO).multiply(refundRatio).setScale(2, java.math.RoundingMode.HALF_UP);
+            if (riderRefund.compareTo(java.math.BigDecimal.ZERO) > 0 && order.getDeliveryExecutiveId() != null) {
+                commands.add(new com.fooddelivery.common.dto.LedgerEntryCommand(
+                    order.getDeliveryExecutiveId(), AccountType.DRIVER,
+                    PLATFORM_ACCOUNT_ID, AccountType.PLATFORM,
+                    riderRefund,
+                    com.fooddelivery.common.enums.ChargeCategory.PAYOUT
+                ));
+            }
+        }
+        
+        return commands;
     }
 }
