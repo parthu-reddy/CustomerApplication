@@ -16,7 +16,7 @@ description: Audits persistence layer, distributed transactions, and event broke
 2. **Verify Database Schema**: Inspect migration files to ensure the outbox table has: `id` (UUID), `aggregate_id`, `aggregate_type`, `idempotency_key`, `payload` (JSONB), and a timestamp.
 3. **Verify Logical Replication**: Execute `SHOW wal_level;` on the PostgreSQL instance via SSH:
    ```bash
-   ssh -i /Users/parthureddy/Documents/OracleSSH/ssh-key-2026-07-17.key ubuntu@140.245.225.221 \
+   ssh -i /Users/parthureddy/Documents/OracleSSH/ssh-key-2026-08-16.key ubuntu@140.245.234.137 \
      "cd 'Food Delivery.nosync/Deployment' && docker compose exec -T -e PGPASSWORD=password postgres psql -U postgres -c 'SHOW wal_level;'"
    ```
    Verify the WAL level is `logical`.
