@@ -28,6 +28,19 @@ public class OrderController {
 
     private final CustomerOrderService customerOrderService;
 
+    @PostMapping("/quote")
+    public java.util.concurrent.CompletableFuture<ResponseEntity<ApiResponse<com.fooddelivery.customer.dto.QuoteResponse>>> quoteOrder(java.security.Principal principal, @Valid @RequestBody com.fooddelivery.customer.dto.QuoteRequest request) {
+        return customerOrderService.calculateOrderQuote(request).thenApply(response -> {
+            return ResponseEntity.ok(ApiResponse.success(response, "Quote generated successfully."));
+        }).exceptionally(ex -> {
+            Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
+            if (cause instanceof com.fooddelivery.customer.exception.DeliveryPartnerUnavailableException || cause instanceof com.fooddelivery.customer.exception.MenuItemsUnavailableException || cause instanceof IllegalArgumentException) {
+                throw (RuntimeException) cause;
+            }
+            throw new RuntimeException("Failed to generate quote", cause);
+        });
+    }
+
     @PostMapping
     public java.util.concurrent.CompletableFuture<ResponseEntity<ApiResponse<OrderResponse>>> createOrder(java.security.Principal principal, @Valid @RequestBody OrderRequest request) {
         java.util.UUID customerId = java.util.UUID.fromString(principal.getName());

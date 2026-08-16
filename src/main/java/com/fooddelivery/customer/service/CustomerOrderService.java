@@ -402,6 +402,159 @@ public class CustomerOrderService {
         });
     }
 
+
+    public java.util.concurrent.CompletableFuture<com.fooddelivery.customer.dto.QuoteResponse> calculateOrderQuote(com.fooddelivery.customer.dto.QuoteRequest request) {
+        UUID restaurantId = request.getRestaurantId();
+        UUID deliveryAddressId = request.getDeliveryAddressId();
+        final List<OrderItemRequest> requestedItems = request.getItems() == null ? java.util.Collections.emptyList() : request.getItems();
+        if (deliveryAddressId == null) {
+            throw new IllegalArgumentException("Delivery address is required.");
+        }
+        try {
+            com.fooddelivery.customer.entity.CustomerAddress address = addressRepository.findById(deliveryAddressId)
+                .orElseThrow(() -> new IllegalArgumentException("Delivery address not found"));
+
+            String menuIds = requestedItems.stream().map(req -> req.getMenuItemId().toString()).collect(Collectors.joining(","));
+            org.springframework.web.context.request.RequestAttributes requestAttributes = org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
+            org.springframework.security.core.context.SecurityContext securityContext = org.springframework.security.core.context.SecurityContextHolder.getContext();
+            
+            java.util.concurrent.CompletableFuture<List<MenuItemDTO>> menuFuture;
+            if (requestedItems.isEmpty()) {
+                menuFuture = java.util.concurrent.CompletableFuture.completedFuture(java.util.Collections.emptyList());
+            } else {
+                menuFuture = java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+                    org.springframework.web.context.request.RequestContextHolder.setRequestAttributes(requestAttributes);
+                    org.springframework.security.core.context.SecurityContextHolder.setContext(securityContext);
+                    try {
+                        return restaurantClient.getMenuItemsBatch(restaurantId, menuIds);
+                    } finally {
+                        org.springframework.web.context.request.RequestContextHolder.resetRequestAttributes();
+                        org.springframework.security.core.context.SecurityContextHolder.clearContext();
+                    }
+                }, executorService).orTimeout(3, java.util.concurrent.TimeUnit.SECONDS);
+            }
+
+            java.util.concurrent.CompletableFuture<java.util.Map<String, Object>> restaurantDataFuture = java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+                org.springframework.web.context.request.RequestContextHolder.setRequestAttributes(requestAttributes);
+                org.springframework.security.core.context.SecurityContextHolder.setContext(securityContext);
+                try {
+                    java.util.Map<String, Object> responseBody = restaurantClient.getRestaurantById(restaurantId);
+                    if (responseBody == null) throw new RuntimeException(new IllegalArgumentException("Restaurant not found"));
+                    java.util.Map<String, Object> restaurantData = (java.util.Map<String, Object>) responseBody.get("data");
+                    if (restaurantData == null) throw new RuntimeException(new IllegalArgumentException("Restaurant not found"));
+                    Double rLat = (Double) restaurantData.get("lat");
+                    Double rLng = (Double) restaurantData.get("lng");
+                    if (rLat == null || rLng == null) throw new RuntimeException(new IllegalStateException("Unknown restaurant location"));
+                    return restaurantData;
+                } finally {
+                    org.springframework.web.context.request.RequestContextHolder.resetRequestAttributes();
+                    org.springframework.security.core.context.SecurityContextHolder.clearContext();
+                }
+            }, executorService).orTimeout(3, java.util.concurrent.TimeUnit.SECONDS);
+
+            return java.util.concurrent.CompletableFuture.allOf(menuFuture, restaurantDataFuture)
+                .orTimeout(10, java.util.concurrent.TimeUnit.SECONDS).thenApplyAsync(v -> {
+                try {
+                    java.util.Map<String, Object> restaurantData = restaurantDataFuture.join();
+                    Double rLat = (Double) restaurantData.get("lat");
+                    Double rLng = (Double) restaurantData.get("lng");
+
+                    String distanceCacheKey = "distance_cache:" + address.getId() + ":" + request.getRestaurantId();
+                    String cachedDistance = redisTemplate.opsForValue().get(distanceCacheKey);
+                    double distance = -1.0;
+                    boolean isFallback = false;
+                    boolean cacheHit = false;
+                    if (cachedDistance != null) {
+                        try {
+                            distance = Double.parseDouble(cachedDistance);
+                            cacheHit = true;
+                        } catch (NumberFormatException e) {
+                            redisTemplate.delete(distanceCacheKey);
+                        }
+                    }
+                    if (!cacheHit) {
+                        String lockKey = "lock:distance_cache:" + address.getId() + ":" + request.getRestaurantId();
+                        Boolean acquired = redisTemplate.opsForValue().setIfAbsent(lockKey, "1", 10, java.util.concurrent.TimeUnit.SECONDS);
+                        try {
+                            if (Boolean.TRUE.equals(acquired)) {
+                                cachedDistance = redisTemplate.opsForValue().get(distanceCacheKey);
+                                if (cachedDistance != null) {
+                                    try { distance = Double.parseDouble(cachedDistance); cacheHit = true; } 
+                                    catch (NumberFormatException ignored) {}
+                                }
+                                if (!cacheHit) {
+                                    String originStr = address.getLatitude() + "," + address.getLongitude();
+                                    String destinationStr = rLat + "," + rLng;
+                                    java.util.Map<String, Object> distanceMap = mapsClient.getDistance(originStr, destinationStr);
+                                    if (distanceMap != null) {
+                                        if (distanceMap.containsKey("distance")) distance = ((Number) distanceMap.get("distance")).doubleValue();
+                                        else isFallback = true;
+                                        if (Boolean.TRUE.equals(distanceMap.get("fallback"))) isFallback = true;
+                                    } else {
+                                        isFallback = true;
+                                    }
+                                    if (!isFallback) redisTemplate.opsForValue().set(distanceCacheKey, String.valueOf(distance), 1, java.util.concurrent.TimeUnit.HOURS);
+                                }
+                            } else {
+                                try { Thread.sleep(500); } catch (InterruptedException ignored) {}
+                                cachedDistance = redisTemplate.opsForValue().get(distanceCacheKey);
+                                if (cachedDistance != null) distance = Double.parseDouble(cachedDistance);
+                                else throw new RuntimeException("Timeout waiting for distance calculation");
+                            }
+                        } finally {
+                            if (Boolean.TRUE.equals(acquired)) redisTemplate.delete(lockKey);
+                        }
+                        if (isFallback) throw new IllegalArgumentException("Unable to calculate accurate delivery distance");
+                    }
+                    if (distance > com.fooddelivery.common.constants.AppConstants.MAX_DELIVERY_RADIUS_KM) {
+                        throw new IllegalArgumentException("Delivery address is outside the radius. Distance: " + String.format("%.2f", distance) + " km.");
+                    }
+
+                    BigDecimal totalAmount = BigDecimal.ZERO;
+                    if (!requestedItems.isEmpty()) {
+                        List<MenuItemDTO> fetchedItems = menuFuture.get();
+                        if (fetchedItems == null) throw new IllegalArgumentException("Failed to fetch menu items");
+                        Map<UUID, MenuItemDTO> menuItemMap = fetchedItems.stream().collect(Collectors.toMap(MenuItemDTO::id, item -> item));
+                        
+                        for (OrderItemRequest req : requestedItems) {
+                            MenuItemDTO menuItem = menuItemMap.get(req.getMenuItemId());
+                            if (menuItem == null || !menuItem.restaurantId().equals(restaurantId) || !menuItem.isAvailable()) {
+                                throw new com.fooddelivery.customer.exception.MenuItemsUnavailableException("Menu item unavailable", List.of(req.getMenuItemId()));
+                            }
+                            totalAmount = totalAmount.add(menuItem.price().multiply(BigDecimal.valueOf(req.getQuantity())));
+                        }
+                    }
+
+                    com.fooddelivery.customer.model.PricingBreakdown pricing = dynamicPricingService.calculatePricing(totalAmount, new BigDecimal(String.valueOf(distance)));
+                    
+                    BigDecimal finalTotal = totalAmount.add(pricing.getTotalCustomerDeliveryFee()).add(pricing.getSgst()).add(pricing.getCgst());
+
+                    return com.fooddelivery.customer.dto.QuoteResponse.builder()
+                        .subtotal(pricing.getItemTotal())
+                        .deliveryFee(pricing.getDeliveryFee())
+                        .platformFee(pricing.getCustomerPlatformFee())
+                        .sgst(pricing.getSgst())
+                        .cgst(pricing.getCgst())
+                        .total(finalTotal)
+                        .minAmountForFreeDelivery(dynamicPricingService.getMinAmountForFreeDelivery(new BigDecimal(String.valueOf(distance))))
+                        .distanceKm(new BigDecimal(String.valueOf(distance)))
+                        .driverPayout(pricing.getDriverGrossPayout())
+                        .restaurantDeliveryContribution(pricing.getRestaurantDeliveryContribution())
+                        .build();
+
+                } catch (java.util.concurrent.CompletionException ce) {
+                    if (ce.getCause() instanceof RuntimeException) throw (RuntimeException) ce.getCause();
+                    throw ce;
+                } catch (Exception e) {
+                    throw new java.util.concurrent.CompletionException(e);
+                }
+            }, executorService);
+        } catch (Exception e) {
+            log.error("Failed to generate quote", e);
+            return java.util.concurrent.CompletableFuture.failedFuture(e);
+        }
+    }
+
     private String formatAddress(com.fooddelivery.customer.entity.CustomerAddress address) {
         StringBuilder sb = new StringBuilder();
         if (address.getAddressLine1() != null) sb.append(address.getAddressLine1());
