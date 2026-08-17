@@ -14,8 +14,7 @@ public class CustomerGlobalExceptionHandler {
     @ExceptionHandler(DeliveryPartnerUnavailableException.class)
     public ResponseEntity<ApiResponse<Void>> handleDeliveryPartnerUnavailableException(DeliveryPartnerUnavailableException ex) {
         log.warn("DeliveryPartnerUnavailableException: {}", ex.getMessage());
-        // Return 409 Conflict with the specific error code injected into the message.
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(ex.getErrorCode() + ": " + ex.getMessage()));
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(ex.getMessage()));
     }
 
     @ExceptionHandler(MenuItemsUnavailableException.class)

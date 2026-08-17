@@ -5,6 +5,7 @@ import java.util.UUID;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.Valid;
+import com.fooddelivery.common.enums.PaymentMethod;
 
 public class OrderRequest {
     @NotNull
@@ -14,6 +15,7 @@ public class OrderRequest {
     private UUID restaurantId;
     @NotNull
     private UUID deliveryAddressId;
+    private PaymentMethod paymentMethod;
     @NotEmpty
     @Valid
     private List<OrderItemRequest> items;
@@ -29,6 +31,8 @@ public class OrderRequest {
         private UUID restaurantId;
         @java.lang.SuppressWarnings("all")
         private UUID deliveryAddressId;
+        @java.lang.SuppressWarnings("all")
+        private PaymentMethod paymentMethod;
         @java.lang.SuppressWarnings("all")
         private List<OrderItemRequest> items;
 
@@ -83,13 +87,13 @@ public class OrderRequest {
 
         @java.lang.SuppressWarnings("all")
         public OrderRequest build() {
-            return new OrderRequest(this.customerId, this.customerName, this.restaurantId, this.deliveryAddressId, this.items);
+            return new OrderRequest(this.customerId, this.customerName, this.restaurantId, this.deliveryAddressId, this.paymentMethod, this.items);
         }
 
         @java.lang.Override
         @java.lang.SuppressWarnings("all")
         public java.lang.String toString() {
-            return "OrderRequest.OrderRequestBuilder(customerId=" + this.customerId + ", customerName=" + this.customerName + ", restaurantId=" + this.restaurantId + ", deliveryAddressId=" + this.deliveryAddressId + ", items=" + this.items + ")";
+            return "OrderRequest.OrderRequestBuilder(customerId=" + this.customerId + ", customerName=" + this.customerName + ", restaurantId=" + this.restaurantId + ", deliveryAddressId=" + this.deliveryAddressId + ", paymentMethod=" + this.paymentMethod + ", items=" + this.items + ")";
         }
     }
 
@@ -119,6 +123,11 @@ public class OrderRequest {
     }
 
     @java.lang.SuppressWarnings("all")
+    public PaymentMethod getPaymentMethod() {
+        return this.paymentMethod;
+    }
+
+    @java.lang.SuppressWarnings("all")
     public List<OrderItemRequest> getItems() {
         return this.items;
     }
@@ -141,6 +150,11 @@ public class OrderRequest {
     @java.lang.SuppressWarnings("all")
     public void setDeliveryAddressId(final UUID deliveryAddressId) {
         this.deliveryAddressId = deliveryAddressId;
+    }
+
+    @java.lang.SuppressWarnings("all")
+    public void setPaymentMethod(final PaymentMethod paymentMethod) {
+        this.paymentMethod = paymentMethod;
     }
 
     @java.lang.SuppressWarnings("all")
@@ -167,6 +181,9 @@ public class OrderRequest {
         final java.lang.Object this$deliveryAddressId = this.getDeliveryAddressId();
         final java.lang.Object other$deliveryAddressId = other.getDeliveryAddressId();
         if (this$deliveryAddressId == null ? other$deliveryAddressId != null : !this$deliveryAddressId.equals(other$deliveryAddressId)) return false;
+        final java.lang.Object this$paymentMethod = this.getPaymentMethod();
+        final java.lang.Object other$paymentMethod = other.getPaymentMethod();
+        if (this$paymentMethod == null ? other$paymentMethod != null : !this$paymentMethod.equals(other$paymentMethod)) return false;
         final java.lang.Object this$items = this.getItems();
         final java.lang.Object other$items = other.getItems();
         if (this$items == null ? other$items != null : !this$items.equals(other$items)) return false;
@@ -191,6 +208,8 @@ public class OrderRequest {
         result = result * PRIME + ($restaurantId == null ? 43 : $restaurantId.hashCode());
         final java.lang.Object $deliveryAddressId = this.getDeliveryAddressId();
         result = result * PRIME + ($deliveryAddressId == null ? 43 : $deliveryAddressId.hashCode());
+        final java.lang.Object $paymentMethod = this.getPaymentMethod();
+        result = result * PRIME + ($paymentMethod == null ? 43 : $paymentMethod.hashCode());
         final java.lang.Object $items = this.getItems();
         result = result * PRIME + ($items == null ? 43 : $items.hashCode());
         return result;
@@ -199,7 +218,7 @@ public class OrderRequest {
     @java.lang.Override
     @java.lang.SuppressWarnings("all")
     public java.lang.String toString() {
-        return "OrderRequest(customerId=" + this.getCustomerId() + ", customerName=" + this.getCustomerName() + ", restaurantId=" + this.getRestaurantId() + ", deliveryAddressId=" + this.getDeliveryAddressId() + ", items=" + this.getItems() + ")";
+        return "OrderRequest(customerId=" + this.getCustomerId() + ", customerName=" + this.getCustomerName() + ", restaurantId=" + this.getRestaurantId() + ", deliveryAddressId=" + this.getDeliveryAddressId() + ", paymentMethod=" + this.getPaymentMethod() + ", items=" + this.getItems() + ")";
     }
 
     @java.lang.SuppressWarnings("all")
@@ -207,11 +226,12 @@ public class OrderRequest {
     }
 
     @java.lang.SuppressWarnings("all")
-    public OrderRequest(final UUID customerId, final String customerName, final UUID restaurantId, final UUID deliveryAddressId, final List<OrderItemRequest> items) {
+    public OrderRequest(final UUID customerId, final String customerName, final UUID restaurantId, final UUID deliveryAddressId, final PaymentMethod paymentMethod, final List<OrderItemRequest> items) {
         this.customerId = customerId;
         this.customerName = customerName;
         this.restaurantId = restaurantId;
         this.deliveryAddressId = deliveryAddressId;
+        this.paymentMethod = paymentMethod;
         this.items = items;
     }
 }

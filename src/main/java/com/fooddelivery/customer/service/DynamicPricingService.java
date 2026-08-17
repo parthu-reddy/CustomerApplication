@@ -14,9 +14,17 @@ public class DynamicPricingService {
     private final DynamicPricingConfig config;
 
     public PricingBreakdown calculatePricing(BigDecimal foodCost, BigDecimal distanceKm) {
+        if (foodCost == null || foodCost.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("Food cost cannot be null or negative");
+        }
+        if (distanceKm == null || distanceKm.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("Distance cannot be null or negative for pricing calculations");
+        }
         BigDecimal effectiveDistance = distanceKm.max(BigDecimal.ONE);
         BigDecimal driverPayout = config.getBasePrice().add(effectiveDistance.multiply(config.getPerKmRate()));
-        BigDecimal maxRestContribution = foodCost.multiply(config.getRestMaxContributionPercent());
+        BigDecimal maxRestContribution = distanceKm.compareTo(BigDecimal.valueOf(5.0)) > 0 
+            ? BigDecimal.ZERO 
+            : foodCost.multiply(config.getRestMaxContributionPercent());
         BigDecimal excessBudget = maxRestContribution.subtract(driverPayout).max(BigDecimal.ZERO);
         BigDecimal platformBonus = excessBudget.multiply(config.getPlatformExcessCutPercent());
         BigDecimal restPaysDe = driverPayout.min(maxRestContribution);
@@ -94,11 +102,17 @@ public class DynamicPricingService {
     }
 
     public BigDecimal getMinAmountForFreeDelivery(BigDecimal distanceKm) {
+        if (distanceKm == null || distanceKm.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("Distance cannot be null or negative for pricing calculations");
+        }
         BigDecimal effectiveDistance = distanceKm.max(BigDecimal.ONE);
         BigDecimal driverPayout = config.getBasePrice().add(effectiveDistance.multiply(config.getPerKmRate()));
         // For custPaysDe to be 0, maxRestContribution must be >= driverPayout
         // maxRestContribution = foodCost * restMaxContributionPercent
         // So, foodCost >= driverPayout / restMaxContributionPercent
+        if (distanceKm.compareTo(BigDecimal.valueOf(5.0)) > 0) {
+            return BigDecimal.valueOf(999999); // Cannot get free delivery over 5km
+        }
         if (config.getRestMaxContributionPercent().compareTo(BigDecimal.ZERO) <= 0) {
             return BigDecimal.valueOf(999999); // Cannot get free delivery if rest contribution is 0
         }

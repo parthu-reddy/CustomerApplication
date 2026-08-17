@@ -45,6 +45,7 @@ public class CustomerOrderService {
     private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
     private final com.fooddelivery.common.outbox.repository.OutboxEventRepository outboxEventRepository;
     private final DynamicPricingService dynamicPricingService;
+    private final com.fooddelivery.common.client.WalletServiceClient walletServiceClient;
 
 
     public record OrderWithPayment(Order order, String paymentIntent) {
@@ -92,7 +93,26 @@ public class CustomerOrderService {
     public java.util.concurrent.CompletableFuture<OrderWithPayment> createOrderWithPayment(com.fooddelivery.customer.dto.OrderRequest request) {
         return createOrder(request).thenApply(order -> {
             try {
-                String intent = paymentGatewayOrchestrator.generateUpiIntent(order);
+                com.fooddelivery.common.enums.PaymentMethod method = request.getPaymentMethod();
+                if (method == null) {
+                    method = com.fooddelivery.common.enums.PaymentMethod.WALLET; // fallback
+                }
+                String intent = paymentGatewayOrchestrator.generateIntent(order, method);
+
+                if (method == com.fooddelivery.common.enums.PaymentMethod.WALLET || method == com.fooddelivery.common.enums.PaymentMethod.COD) {
+                    if (method == com.fooddelivery.common.enums.PaymentMethod.WALLET) {
+                        com.fooddelivery.common.dto.wallet.TransactionRequest txReq = new com.fooddelivery.common.dto.wallet.TransactionRequest();
+                        txReq.setAmount(order.getTotalAmount());
+                        txReq.setReferenceId(intent);
+                        txReq.setDescription("Order " + order.getId());
+                        walletServiceClient.debit("CUSTOMER", order.getCustomerId(), txReq);
+                    }
+                    String payload = String.format("{\"eventType\":\"PAYMENT_COMPLETED\", \"orderId\":\"%s\", \"gatewayOrderId\":\"%s\"}", order.getId(), intent);
+                    com.fooddelivery.common.outbox.entity.OutboxEventEntity evt = com.fooddelivery.common.outbox.entity.OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.PAYMENT).aggregateId(intent).eventType(com.fooddelivery.common.constants.EventType.PAYMENT_COMPLETED).payload(payload).createdAt(java.time.LocalDateTime.now()).build();
+                    outboxEventRepository.save(evt);
+                    log.info("Saved PAYMENT_COMPLETED event for order: {}", order.getId());
+                }
+
                 return new OrderWithPayment(order, intent);
             } catch (Exception e) {
                 // COMPENSATION: The order was already committed to DB via startOrderSaga().
@@ -165,11 +185,11 @@ public class CustomerOrderService {
                 try {
                     java.util.Map<String, Object> responseBody = restaurantClient.getRestaurantById(restaurantId);
                     if (responseBody == null) {
-                        throw new RuntimeException(new IllegalArgumentException(com.fooddelivery.common.constants.AppConstants.ERROR_MSG_RESTAURANT_NOT_FOUND + restaurantId));
+                        throw new IllegalArgumentException(com.fooddelivery.common.constants.AppConstants.ERROR_MSG_RESTAURANT_NOT_FOUND + restaurantId);
                     }
                     java.util.Map<String, Object> restaurantData = (java.util.Map<String, Object>) responseBody.get("data");
                     if (restaurantData == null) {
-                        throw new RuntimeException(new IllegalArgumentException(com.fooddelivery.common.constants.AppConstants.ERROR_MSG_RESTAURANT_NOT_FOUND + restaurantId));
+                        throw new IllegalArgumentException(com.fooddelivery.common.constants.AppConstants.ERROR_MSG_RESTAURANT_NOT_FOUND + restaurantId);
                     }
                     Boolean isActive = (Boolean) restaurantData.get("isActive");
                     if (isActive == null || !isActive) {
@@ -182,7 +202,7 @@ public class CustomerOrderService {
                     Double rLat = (Double) restaurantData.get("lat");
                     Double rLng = (Double) restaurantData.get("lng");
                     if (rLat == null || rLng == null) {
-                        throw new RuntimeException(new IllegalStateException(com.fooddelivery.common.constants.AppConstants.ERROR_MSG_RESTAURANT_UNKNOWN));
+                        throw new IllegalStateException(com.fooddelivery.common.constants.AppConstants.ERROR_MSG_RESTAURANT_UNKNOWN);
                     }
                     return restaurantData;
                 } finally {
@@ -292,9 +312,10 @@ public class CustomerOrderService {
                             throw new IllegalArgumentException("Unable to calculate accurate delivery distance as the mapping service is currently unavailable. Please try again later.");
                         }
                     }
-                    if (distance > com.fooddelivery.common.constants.AppConstants.MAX_DELIVERY_RADIUS_KM) {
-                        throw new IllegalArgumentException("Delivery address is outside the " + com.fooddelivery.common.constants.AppConstants.MAX_DELIVERY_RADIUS_KM + "km radius. Distance: " + String.format("%.2f", distance) + " km.");
+                    if (distance > 7.0) {
+                        throw new IllegalArgumentException("The restaurant is too far away (over 7km). Please select a closer restaurant.");
                     }
+                    
                     BigDecimal totalAmount = BigDecimal.ZERO;
                     Set<OrderItem> orderItems = new HashSet<>();
                     List<MenuItemDTO> fetchedItems = menuFuture.get();
@@ -403,7 +424,7 @@ public class CustomerOrderService {
     }
 
 
-    public java.util.concurrent.CompletableFuture<com.fooddelivery.customer.dto.QuoteResponse> calculateOrderQuote(com.fooddelivery.customer.dto.QuoteRequest request) {
+    public java.util.concurrent.CompletableFuture<com.fooddelivery.customer.dto.QuoteResponse> calculateOrderQuote(UUID customerId, com.fooddelivery.customer.dto.QuoteRequest request) {
         UUID restaurantId = request.getRestaurantId();
         UUID deliveryAddressId = request.getDeliveryAddressId();
         final List<OrderItemRequest> requestedItems = request.getItems() == null ? java.util.Collections.emptyList() : request.getItems();
@@ -413,6 +434,10 @@ public class CustomerOrderService {
         try {
             com.fooddelivery.customer.entity.CustomerAddress address = addressRepository.findById(deliveryAddressId)
                 .orElseThrow(() -> new IllegalArgumentException("Delivery address not found"));
+
+            if (!address.getCustomerId().equals(customerId)) {
+                throw new org.springframework.security.access.AccessDeniedException("Delivery address does not belong to the current customer");
+            }
 
             String menuIds = requestedItems.stream().map(req -> req.getMenuItemId().toString()).collect(Collectors.joining(","));
             org.springframework.web.context.request.RequestAttributes requestAttributes = org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
@@ -439,12 +464,12 @@ public class CustomerOrderService {
                 org.springframework.security.core.context.SecurityContextHolder.setContext(securityContext);
                 try {
                     java.util.Map<String, Object> responseBody = restaurantClient.getRestaurantById(restaurantId);
-                    if (responseBody == null) throw new RuntimeException(new IllegalArgumentException("Restaurant not found"));
+                    if (responseBody == null) throw new IllegalArgumentException("Restaurant not found");
                     java.util.Map<String, Object> restaurantData = (java.util.Map<String, Object>) responseBody.get("data");
-                    if (restaurantData == null) throw new RuntimeException(new IllegalArgumentException("Restaurant not found"));
+                    if (restaurantData == null) throw new IllegalArgumentException("Restaurant not found");
                     Double rLat = (Double) restaurantData.get("lat");
                     Double rLng = (Double) restaurantData.get("lng");
-                    if (rLat == null || rLng == null) throw new RuntimeException(new IllegalStateException("Unknown restaurant location"));
+                    if (rLat == null || rLng == null) throw new IllegalStateException("Unknown restaurant location");
                     return restaurantData;
                 } finally {
                     org.springframework.web.context.request.RequestContextHolder.resetRequestAttributes();
@@ -458,6 +483,12 @@ public class CustomerOrderService {
                     java.util.Map<String, Object> restaurantData = restaurantDataFuture.join();
                     Double rLat = (Double) restaurantData.get("lat");
                     Double rLng = (Double) restaurantData.get("lng");
+                    Boolean isActive = (Boolean) restaurantData.get("isActive");
+                    Boolean isOpen = (Boolean) restaurantData.get("isOpen");
+
+                    if (Boolean.FALSE.equals(isActive) || Boolean.FALSE.equals(isOpen)) {
+                        throw new IllegalArgumentException("Restaurant is currently offline or closed.");
+                    }
 
                     String distanceCacheKey = "distance_cache:" + address.getId() + ":" + request.getRestaurantId();
                     String cachedDistance = redisTemplate.opsForValue().get(distanceCacheKey);
@@ -506,8 +537,8 @@ public class CustomerOrderService {
                         }
                         if (isFallback) throw new IllegalArgumentException("Unable to calculate accurate delivery distance");
                     }
-                    if (distance > com.fooddelivery.common.constants.AppConstants.MAX_DELIVERY_RADIUS_KM) {
-                        throw new IllegalArgumentException("Delivery address is outside the radius. Distance: " + String.format("%.2f", distance) + " km.");
+                    if (distance > 7.0) {
+                        throw new IllegalArgumentException("The restaurant is too far away (over 7km). Please select a closer restaurant.");
                     }
 
                     BigDecimal totalAmount = BigDecimal.ZERO;
@@ -568,7 +599,7 @@ public class CustomerOrderService {
     }
 
     @java.lang.SuppressWarnings("all")
-    public CustomerOrderService(final IOrderRepository orderRepository, final OrderSagaOrchestrator orderSagaOrchestrator, final StringRedisTemplate redisTemplate, final PaymentGatewayOrchestrator paymentGatewayOrchestrator, final com.fooddelivery.customer.repository.CustomerAddressRepository addressRepository, final com.fooddelivery.customer.client.RestaurantClient restaurantClient, final com.fooddelivery.common.client.MapsServiceClient mapsClient, final org.springframework.transaction.support.TransactionTemplate transactionTemplate, final com.fooddelivery.common.outbox.repository.OutboxEventRepository outboxEventRepository, final DynamicPricingService dynamicPricingService) {
+    public CustomerOrderService(final IOrderRepository orderRepository, final OrderSagaOrchestrator orderSagaOrchestrator, final StringRedisTemplate redisTemplate, final PaymentGatewayOrchestrator paymentGatewayOrchestrator, final com.fooddelivery.customer.repository.CustomerAddressRepository addressRepository, final com.fooddelivery.customer.client.RestaurantClient restaurantClient, final com.fooddelivery.common.client.MapsServiceClient mapsClient, final org.springframework.transaction.support.TransactionTemplate transactionTemplate, final com.fooddelivery.common.outbox.repository.OutboxEventRepository outboxEventRepository, final DynamicPricingService dynamicPricingService, final com.fooddelivery.common.client.WalletServiceClient walletServiceClient) {
         this.orderRepository = orderRepository;
         this.orderSagaOrchestrator = orderSagaOrchestrator;
         this.redisTemplate = redisTemplate;
@@ -579,5 +610,6 @@ public class CustomerOrderService {
         this.transactionTemplate = transactionTemplate;
         this.outboxEventRepository = outboxEventRepository;
         this.dynamicPricingService = dynamicPricingService;
+        this.walletServiceClient = walletServiceClient;
     }
 }

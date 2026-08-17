@@ -45,6 +45,20 @@ public class CustomerAddressController {
         return ResponseEntity.ok(ApiResponse.success(dtos, "Addresses retrieved"));
     }
 
+    @DeleteMapping("/{addressId}")
+    public ResponseEntity<ApiResponse<Void>> deleteAddress(@PathVariable UUID customerId, @PathVariable UUID addressId) {
+        if (!customerRepository.existsById(customerId)) {
+            throw new IllegalArgumentException("Customer not found.");
+        }
+        CustomerAddress address = addressRepository.findById(addressId)
+                .orElseThrow(() -> new IllegalArgumentException("Address not found."));
+        if (!address.getCustomerId().equals(customerId)) {
+            throw new IllegalArgumentException("Address does not belong to this customer.");
+        }
+        addressRepository.deleteById(addressId);
+        return ResponseEntity.ok(ApiResponse.success(null, "Address deleted successfully"));
+    }
+
     private CustomerAddressDto toDto(CustomerAddress entity) {
         return CustomerAddressDto.builder().id(entity.getId()).customerId(entity.getCustomerId()).label(entity.getLabel()).addressLine1(entity.getAddressLine1()).addressLine2(entity.getAddressLine2()).city(entity.getCity()).state(entity.getState()).zipCode(entity.getZipCode()).latitude(entity.getLatitude()).longitude(entity.getLongitude()).isDefault(entity.getIsDefault()).build();
     }

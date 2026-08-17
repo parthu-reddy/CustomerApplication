@@ -30,7 +30,8 @@ public class OrderController {
 
     @PostMapping("/quote")
     public java.util.concurrent.CompletableFuture<ResponseEntity<ApiResponse<com.fooddelivery.customer.dto.QuoteResponse>>> quoteOrder(java.security.Principal principal, @Valid @RequestBody com.fooddelivery.customer.dto.QuoteRequest request) {
-        return customerOrderService.calculateOrderQuote(request).thenApply(response -> {
+        java.util.UUID customerId = java.util.UUID.fromString(principal.getName());
+        return customerOrderService.calculateOrderQuote(customerId, request).thenApply(response -> {
             return ResponseEntity.ok(ApiResponse.success(response, "Quote generated successfully."));
         }).exceptionally(ex -> {
             Throwable cause = ex.getCause() != null ? ex.getCause() : ex;

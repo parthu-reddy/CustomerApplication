@@ -28,9 +28,17 @@ public class InternalOrderController {
     public ResponseEntity<org.springframework.data.domain.Page<Order>> getActiveOrdersForDriver(
             @PathVariable UUID driverId,
             @org.springframework.data.web.PageableDefault(size = 50) org.springframework.data.domain.Pageable pageable) {
-        log.debug("Fetching active orders for driver {}", driverId);
+        log.info("Fetching active orders for driver {}", driverId);
         List<OrderStatus> cancelledStatuses = Arrays.asList(OrderStatus.CANCELLED, OrderStatus.CANCELLED_BY_RESTAURANT);
-        org.springframework.data.domain.Page<Order> activeOrders = orderRepository.findActiveOrdersForDriver(driverId, cancelledStatuses, java.util.List.of(com.fooddelivery.common.enums.DeliveryStatus.DELIVERED, com.fooddelivery.common.enums.DeliveryStatus.FAILED, com.fooddelivery.common.enums.DeliveryStatus.CANCELLED), pageable);
+        List<com.fooddelivery.common.enums.DeliveryStatus> terminalDeliveryStatuses = java.util.List.of(com.fooddelivery.common.enums.DeliveryStatus.DELIVERED, com.fooddelivery.common.enums.DeliveryStatus.FAILED, com.fooddelivery.common.enums.DeliveryStatus.CANCELLED);
+        log.info("findActiveOrdersForDriver parameters: driverId={}, cancelledStatuses={}, terminalDeliveryStatuses={}", driverId, cancelledStatuses, terminalDeliveryStatuses);
+        org.springframework.data.domain.Page<Order> activeOrders = orderRepository.findActiveOrdersForDriver(driverId, cancelledStatuses, terminalDeliveryStatuses, pageable);
+        log.info("Decision: active orders found count={}", activeOrders.getTotalElements());
+        if (activeOrders.isEmpty()) {
+            log.info("Decision: returning empty orders list. Check if deliveryExecutiveId is matching and status is not terminal.");
+        } else {
+            activeOrders.getContent().forEach(order -> log.info("Decision: Returning Order ID {}, Status {}, DeliveryStatus {}", order.getId(), order.getStatus(), order.getDeliveryStatus()));
+        }
         return ResponseEntity.ok(activeOrders);
     }
 
@@ -41,12 +49,15 @@ public class InternalOrderController {
             @PathVariable UUID driverId, 
             @RequestParam(required = false) String date,
             @org.springframework.data.web.PageableDefault(size = 50) org.springframework.data.domain.Pageable pageable) {
-        log.debug("Fetching order history for driver {} for date {}", driverId, date);
+        log.info("Fetching order history for driver {} for date {}", driverId, date);
         LocalDate queryDate = date != null ? LocalDate.parse(date) : LocalDate.now();
         LocalDateTime startOfDay = queryDate.atStartOfDay();
         LocalDateTime endOfDay = queryDate.atTime(LocalTime.MAX);
         List<OrderStatus> cancelledStatuses = Arrays.asList(OrderStatus.CANCELLED, OrderStatus.CANCELLED_BY_RESTAURANT);
-        org.springframework.data.domain.Page<Order> history = orderRepository.findHistoryOrdersForDriver(driverId, cancelledStatuses, java.util.List.of(com.fooddelivery.common.enums.DeliveryStatus.DELIVERED, com.fooddelivery.common.enums.DeliveryStatus.FAILED, com.fooddelivery.common.enums.DeliveryStatus.CANCELLED), startOfDay, endOfDay, pageable);
+        List<com.fooddelivery.common.enums.DeliveryStatus> terminalDeliveryStatuses = java.util.List.of(com.fooddelivery.common.enums.DeliveryStatus.DELIVERED, com.fooddelivery.common.enums.DeliveryStatus.FAILED, com.fooddelivery.common.enums.DeliveryStatus.CANCELLED);
+        log.info("findHistoryOrdersForDriver parameters: driverId={}, start={}, end={}, cancelledStatuses={}, terminalDeliveryStatuses={}", driverId, startOfDay, endOfDay, cancelledStatuses, terminalDeliveryStatuses);
+        org.springframework.data.domain.Page<Order> history = orderRepository.findHistoryOrdersForDriver(driverId, cancelledStatuses, terminalDeliveryStatuses, startOfDay, endOfDay, pageable);
+        log.info("Decision: order history found count={}", history.getTotalElements());
         return ResponseEntity.ok(history);
     }
 
@@ -54,9 +65,11 @@ public class InternalOrderController {
     @PreAuthorize("hasAnyRole(\'ADMIN\', \'DELIVERY\')")
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public ResponseEntity<List<Order>> getUnassignedOrders() {
-        log.debug("Fetching unassigned orders for broadcast");
+        log.info("Fetching unassigned orders for broadcast");
         List<OrderStatus> dispatchableStatuses = Arrays.asList(OrderStatus.ACCEPTED, OrderStatus.PREPARING, OrderStatus.READY_FOR_PICKUP);
+        log.info("findByStatusInAndDeliveryExecutiveIdIsNull parameters: dispatchableStatuses={}", dispatchableStatuses);
         List<Order> unassignedOrders = orderRepository.findByStatusInAndDeliveryExecutiveIdIsNull(dispatchableStatuses, org.springframework.data.domain.PageRequest.of(0, 100)).getContent();
+        log.info("Decision: unassigned orders found count={}", unassignedOrders.size());
         return ResponseEntity.ok(unassignedOrders);
     }
 
