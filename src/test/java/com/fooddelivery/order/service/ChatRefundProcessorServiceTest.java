@@ -8,7 +8,7 @@ import com.fooddelivery.order.entity.OrderItem;
 import com.fooddelivery.order.entity.SupportTicket;
 import com.fooddelivery.order.repository.IOrderRepository;
 import com.fooddelivery.order.repository.SupportTicketRepository;
-import com.fooddelivery.order.repository.ProcessedEventRepository;
+import com.fooddelivery.common.repository.IIdempotencyKeyRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,7 +37,7 @@ public class ChatRefundProcessorServiceTest {
     private TransactionTemplate transactionTemplate;
 
     @Mock
-    private ProcessedEventRepository processedEventRepository;
+    private IIdempotencyKeyRepository idempotencyKeyRepository;
 
     private ObjectMapper objectMapper;
 
@@ -48,7 +48,7 @@ public class ChatRefundProcessorServiceTest {
     void setUp() {
         objectMapper = new ObjectMapper();
         chatRefundProcessorService = new ChatRefundProcessorService(
-                orderRepository, supportTicketRepository, outboxEventRepository, processedEventRepository, objectMapper, transactionTemplate
+                orderRepository, supportTicketRepository, outboxEventRepository, idempotencyKeyRepository, objectMapper, transactionTemplate
         );
         doAnswer(invocation -> {
             java.util.function.Consumer<org.springframework.transaction.TransactionStatus> consumer = invocation.getArgument(0);
@@ -71,7 +71,7 @@ public class ChatRefundProcessorServiceTest {
         order.setTotalAmount(new BigDecimal("100.00"));
         order.setStatus(com.fooddelivery.common.enums.OrderStatus.CREATED);
         
-        when(processedEventRepository.existsById(event.getId())).thenReturn(false);
+        when(idempotencyKeyRepository.existsById("chat_event:" + event.getId())).thenReturn(false);
         when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
 
         chatRefundProcessorService.handleChatEvents(event);
@@ -95,7 +95,7 @@ public class ChatRefundProcessorServiceTest {
         Order order = new Order();
         order.setId(orderId);
         order.setTotalAmount(new BigDecimal("100.00"));
-        order.setStatus(com.fooddelivery.common.enums.OrderStatus.CREATED);
+        order.setStatus(com.fooddelivery.common.enums.OrderStatus.HANDED_OVER);
         
         OrderItem item = new OrderItem();
         item.setId(itemId);
@@ -103,7 +103,7 @@ public class ChatRefundProcessorServiceTest {
         item.setPrice(new BigDecimal("50.00"));
         order.setOrderItems(java.util.Set.of(item));
 
-        when(processedEventRepository.existsById(event.getId())).thenReturn(false);
+        lenient().when(idempotencyKeyRepository.existsById("chat_event:" + event.getId())).thenReturn(false);
         when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
         when(supportTicketRepository.save(any(SupportTicket.class))).thenAnswer(invocation -> {
             SupportTicket t = invocation.getArgument(0);
@@ -133,7 +133,7 @@ public class ChatRefundProcessorServiceTest {
         Order order = new Order();
         order.setId(orderId);
         order.setTotalAmount(new BigDecimal("100.00"));
-        order.setStatus(com.fooddelivery.common.enums.OrderStatus.CREATED);
+        order.setStatus(com.fooddelivery.common.enums.OrderStatus.HANDED_OVER);
         
         OrderItem item = new OrderItem();
         item.setId(itemId);
@@ -142,7 +142,7 @@ public class ChatRefundProcessorServiceTest {
         item.setPrice(new BigDecimal("50.00"));
         order.setOrderItems(java.util.Set.of(item));
 
-        when(processedEventRepository.existsById(event.getId())).thenReturn(false);
+        lenient().when(idempotencyKeyRepository.existsById("chat_event:" + event.getId())).thenReturn(false);
         when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
 
         chatRefundProcessorService.handleChatEvents(event);

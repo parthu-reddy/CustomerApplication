@@ -14,7 +14,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.redis.core.StringRedisTemplate;
+import com.fooddelivery.common.repository.IIdempotencyKeyRepository;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.Optional;
@@ -29,7 +29,7 @@ public class PaymentEventConsumerTest {
     @Mock
     private IOrderRepository orderRepository;
     @Mock
-    private StringRedisTemplate redisTemplate;
+    private IIdempotencyKeyRepository idempotencyKeyRepository;
     @Mock
     private TransactionTemplate transactionTemplate;
     @Mock
@@ -48,7 +48,7 @@ public class PaymentEventConsumerTest {
     @BeforeEach
     void setUp() {
         paymentEventConsumer = new PaymentEventConsumer(
-                redisTemplate,
+                idempotencyKeyRepository,
                 transactionTemplate,
                 objectMapper,
                 paymentIntentRepository,
@@ -59,13 +59,12 @@ public class PaymentEventConsumerTest {
         );
 
         lenient().doAnswer(invocation -> {
-            org.springframework.transaction.support.TransactionCallback<Object> action = invocation.getArgument(0);
-            return action.doInTransaction(null);
-        }).when(transactionTemplate).execute(any(org.springframework.transaction.support.TransactionCallback.class));
+            java.util.function.Consumer<org.springframework.transaction.TransactionStatus> consumer = invocation.getArgument(0);
+            consumer.accept(null);
+            return null;
+        }).when(transactionTemplate).executeWithoutResult(any());
 
-        org.springframework.data.redis.core.ValueOperations<String, String> valueOperations = mock(org.springframework.data.redis.core.ValueOperations.class);
-        lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        lenient().when(valueOperations.setIfAbsent(anyString(), anyString(), any())).thenReturn(Boolean.TRUE);
+        lenient().when(idempotencyKeyRepository.existsById(anyString())).thenReturn(false);
     }
 
     @Test

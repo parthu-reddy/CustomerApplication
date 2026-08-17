@@ -4,10 +4,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fooddelivery.common.constants.AppConstants;
 import com.fooddelivery.common.constants.EventType;
 import com.fooddelivery.common.constants.KafkaConstants;
+import com.fooddelivery.common.entity.IdempotencyKey;
+import com.fooddelivery.common.repository.IIdempotencyKeyRepository;
 import com.fooddelivery.order.entity.Order;
 import com.fooddelivery.order.repository.IOrderRepository;
 import com.fooddelivery.order.service.state.OrderActionService;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.annotation.RetryableTopic;
 import org.springframework.retry.annotation.Backoff;
@@ -36,20 +37,20 @@ public class OrderEventConsumer {
         EVENT_HANDLERS.put(EventType.ORDER_AT_RESTAURANT.name(), com.fooddelivery.order.service.state.OrderState::handleDriverAtRestaurant);
     }
 
-    private final StringRedisTemplate redisTemplate;
+    private final IIdempotencyKeyRepository idempotencyKeyRepository;
     private final TransactionTemplate transactionTemplate;
     private final ObjectMapper objectMapper;
     private final IOrderRepository orderRepository;
     private final OrderActionService orderActionService;
     private final OrderRefundService orderRefundService;
 
-    public OrderEventConsumer(StringRedisTemplate redisTemplate,
+    public OrderEventConsumer(IIdempotencyKeyRepository idempotencyKeyRepository,
                               TransactionTemplate transactionTemplate,
                               ObjectMapper objectMapper,
                               IOrderRepository orderRepository,
                               OrderActionService orderActionService,
                               OrderRefundService orderRefundService) {
-        this.redisTemplate = redisTemplate;
+        this.idempotencyKeyRepository = idempotencyKeyRepository;
         this.transactionTemplate = transactionTemplate;
         this.objectMapper = objectMapper;
         this.orderRepository = orderRepository;
@@ -69,17 +70,21 @@ public class OrderEventConsumer {
         } else {
             resolvedEventId = extractedEventId;
         }
-        boolean isNew = Boolean.TRUE.equals(redisTemplate.opsForValue().setIfAbsent("processed_event:" + resolvedEventId, "1", java.time.Duration.ofDays(7)));
-        if (!isNew) {
-            log.info("Duplicate event ignored: {}", resolvedEventId);
-            return;
-        }
+
+        String idempotencyKeyStr = "processed_event:" + resolvedEventId;
+
         try {
             int retries = 0;
             boolean success = false;
             while (!success && retries < AppConstants.MAX_OPTIMISTIC_LOCK_RETRIES) {
                 try {
-                    Order orderToRefund = transactionTemplate.execute(status -> {
+                    transactionTemplate.execute(status -> {
+                        if (idempotencyKeyRepository.existsById(idempotencyKeyStr)) {
+                            log.info("Duplicate event ignored: {}", idempotencyKeyStr);
+                            return null;
+                        }
+                        idempotencyKeyRepository.save(new IdempotencyKey(idempotencyKeyStr));
+
                         try {
                             com.fasterxml.jackson.databind.JsonNode rootNode = objectMapper.readTree(payload);
                             String eventType = com.fooddelivery.common.util.KafkaHeaderUtils.extractEventType(headers, rootNode);
@@ -123,7 +128,7 @@ public class OrderEventConsumer {
                                 orderActionService.emitOrderStatusSyncEvent(order.getId(), order.getStatus());
                             }
                             if (context.isRequiresRefund()) {
-                                return order;
+                                orderRefundService.processRefund(order);
                             }
                             return null;
                         } catch (RuntimeException e) {
@@ -132,9 +137,6 @@ public class OrderEventConsumer {
                             throw new RuntimeException("Failed to process order event inner", e);
                         }
                     });
-                    if (orderToRefund != null) {
-                        orderRefundService.processRefund(orderToRefund);
-                    }
                     success = true;
                 } catch (org.springframework.orm.ObjectOptimisticLockingFailureException e) {
                     log.warn("Optimistic locking failure in handleOrderEvents, delegating to Kafka retry.");
@@ -145,9 +147,6 @@ public class OrderEventConsumer {
                 }
             }
         } catch (Exception e) {
-            if (isNew && resolvedEventId != null) {
-                redisTemplate.delete("processed_event:" + resolvedEventId);
-            }
             throw e;
         }
     }
@@ -155,6 +154,5 @@ public class OrderEventConsumer {
     @org.springframework.kafka.annotation.DltHandler
     public void handleDlt(String message, @org.springframework.messaging.handler.annotation.Headers java.util.Map<String, Object> headers) {
         log.error("DLT processing: Message exhausted all retries in CustomerApplication. Message: {}, Headers: {}", message, headers);
-        // You could also publish a metric here if meterRegistry was injected
     }
 }

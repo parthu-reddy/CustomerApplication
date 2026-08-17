@@ -12,10 +12,10 @@ import com.fooddelivery.common.outbox.repository.OutboxEventRepository;
 import com.fooddelivery.order.entity.Order;
 import com.fooddelivery.order.entity.OrderItem;
 import com.fooddelivery.order.entity.SupportTicket;
-import com.fooddelivery.order.entity.ProcessedEvent;
+import com.fooddelivery.common.entity.IdempotencyKey;
 import com.fooddelivery.order.repository.IOrderRepository;
 import com.fooddelivery.order.repository.SupportTicketRepository;
-import com.fooddelivery.order.repository.ProcessedEventRepository;
+import com.fooddelivery.common.repository.IIdempotencyKeyRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -35,20 +35,20 @@ public class ChatRefundProcessorService {
     private final IOrderRepository orderRepository;
     private final SupportTicketRepository supportTicketRepository;
     private final OutboxEventRepository outboxEventRepository;
-    private final ProcessedEventRepository processedEventRepository;
+    private final IIdempotencyKeyRepository idempotencyKeyRepository;
     private final ObjectMapper objectMapper;
     private final TransactionTemplate transactionTemplate;
 
     public ChatRefundProcessorService(IOrderRepository orderRepository,
                                       SupportTicketRepository supportTicketRepository,
                                       OutboxEventRepository outboxEventRepository,
-                                      ProcessedEventRepository processedEventRepository,
+                                      IIdempotencyKeyRepository idempotencyKeyRepository,
                                       ObjectMapper objectMapper,
                                       TransactionTemplate transactionTemplate) {
         this.orderRepository = orderRepository;
         this.supportTicketRepository = supportTicketRepository;
         this.outboxEventRepository = outboxEventRepository;
-        this.processedEventRepository = processedEventRepository;
+        this.idempotencyKeyRepository = idempotencyKeyRepository;
         this.objectMapper = objectMapper;
         this.transactionTemplate = transactionTemplate;
     }
@@ -56,7 +56,7 @@ public class ChatRefundProcessorService {
     @KafkaListener(topics = KafkaConstants.TOPIC_CHAT_EVENTS, groupId = "customer-application-chat-group")
     public void handleChatEvents(OutboxEvent event) {
         Boolean alreadyProcessed = transactionTemplate.execute(status -> {
-            if (processedEventRepository.existsById(event.getId())) {
+            if (idempotencyKeyRepository.existsById("chat_event:" + event.getId())) {
                 return true;
             }
             return false;
@@ -77,7 +77,7 @@ public class ChatRefundProcessorService {
     private void handleQuoteRequest(OutboxEvent event) {
         transactionTemplate.executeWithoutResult(status -> {
             try {
-                if (processedEventRepository.existsById(event.getId())) return;
+                if (idempotencyKeyRepository.existsById("chat_event:" + event.getId())) return;
                 
                 JsonNode payload = objectMapper.readTree(event.getPayload());
                 UUID orderId = UUID.fromString(payload.get("orderId").asText());
@@ -112,7 +112,7 @@ public class ChatRefundProcessorService {
                 log.error("Failed to process JSON payload for quote request", e);
                 publishErrorEvent(event.getAggregateId(), "Invalid request format.");
             } finally {
-                processedEventRepository.save(new ProcessedEvent(event.getId()));
+                idempotencyKeyRepository.save(new IdempotencyKey("chat_event:" + event.getId()));
             }
         });
     }
@@ -180,7 +180,7 @@ public class ChatRefundProcessorService {
                 log.error("Failed to process JSON payload for refund request", e);
                 publishErrorEvent(event.getAggregateId(), "Invalid request format.");
             } finally {
-                processedEventRepository.save(new ProcessedEvent(event.getId()));
+                idempotencyKeyRepository.save(new IdempotencyKey("chat_event:" + event.getId()));
             }
         });
     }

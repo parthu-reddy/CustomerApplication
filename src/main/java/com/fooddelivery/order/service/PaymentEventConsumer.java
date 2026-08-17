@@ -11,7 +11,8 @@ import com.fooddelivery.order.repository.IOrderRepository;
 import com.fooddelivery.order.repository.IPaymentIntentRepository;
 import com.fooddelivery.common.outbox.repository.OutboxEventRepository;
 import com.fooddelivery.order.service.state.OrderActionService;
-import org.springframework.data.redis.core.StringRedisTemplate;
+import com.fooddelivery.common.entity.IdempotencyKey;
+import com.fooddelivery.common.repository.IIdempotencyKeyRepository;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -31,7 +32,7 @@ public class PaymentEventConsumer {
     private static final String REFUND_TX_PREFIX = "REFUND_";
     private static final UUID PLATFORM_ACCOUNT_ID = UUID.fromString("00000000-0000-0000-0000-000000000000");
 
-    private final StringRedisTemplate redisTemplate;
+    private final IIdempotencyKeyRepository idempotencyKeyRepository;
     private final TransactionTemplate transactionTemplate;
     private final ObjectMapper objectMapper;
     private final IPaymentIntentRepository paymentIntentRepository;
@@ -40,7 +41,7 @@ public class PaymentEventConsumer {
     private final OutboxEventRepository outboxEventRepository;
     private final OrderRefundService orderRefundService;
 
-    public PaymentEventConsumer(StringRedisTemplate redisTemplate,
+    public PaymentEventConsumer(IIdempotencyKeyRepository idempotencyKeyRepository,
                                 TransactionTemplate transactionTemplate,
                                 ObjectMapper objectMapper,
                                 IPaymentIntentRepository paymentIntentRepository,
@@ -48,7 +49,7 @@ public class PaymentEventConsumer {
                                 OrderActionService orderActionService,
                                 OutboxEventRepository outboxEventRepository,
                                 OrderRefundService orderRefundService) {
-        this.redisTemplate = redisTemplate;
+        this.idempotencyKeyRepository = idempotencyKeyRepository;
         this.transactionTemplate = transactionTemplate;
         this.objectMapper = objectMapper;
         this.paymentIntentRepository = paymentIntentRepository;
@@ -69,22 +70,25 @@ public class PaymentEventConsumer {
         } else {
             resolvedEventId = extractedEventId;
         }
-        boolean isNew = Boolean.TRUE.equals(redisTemplate.opsForValue().setIfAbsent("processed_event:" + resolvedEventId, "1", java.time.Duration.ofDays(7)));
-        if (!isNew) {
-            log.info("Duplicate event ignored: {}", resolvedEventId);
-            return;
-        }
         try {
             int retries = 0;
             boolean success = false;
             while (!success && retries < AppConstants.MAX_OPTIMISTIC_LOCK_RETRIES) {
                 try {
-                    Order orderToRefund = transactionTemplate.execute(status -> {
+                    transactionTemplate.executeWithoutResult(status -> {
+                        String idempotencyKeyStr = "processed_event:payment:" + resolvedEventId;
+                        if (idempotencyKeyRepository.existsById(idempotencyKeyStr)) {
+                            log.info("Duplicate event ignored inside transaction: {}", resolvedEventId);
+                            return;
+                        }
+                        idempotencyKeyRepository.save(new IdempotencyKey(idempotencyKeyStr));
+                        
+                        Order orderToRefund = null;
                         try {
                             com.fasterxml.jackson.databind.JsonNode rootNode = objectMapper.readTree(payload);
                             if (!rootNode.has(FIELD_ORDER_ID) || !rootNode.has(FIELD_GATEWAY_ORDER_ID)) {
                                 log.info("Ignoring unrecognized event payload: {}", payload);
-                                return null;
+                                return;
                             }
                             String gatewayOrderId = rootNode.get(FIELD_GATEWAY_ORDER_ID).asText();
                             String internalOrderId = rootNode.get(FIELD_ORDER_ID).asText();
@@ -137,7 +141,7 @@ public class PaymentEventConsumer {
                                         }
                                     }
                                 }
-                                return null;
+                                return;
                             }
                             if (rootNode.has(FIELD_EVENT_TYPE) && com.fooddelivery.common.constants.EventType.PAYMENT_PARTIALLY_REFUNDED.name().equals(rootNode.get(FIELD_EVENT_TYPE).asText())) {
                                 log.info("Processing PAYMENT_PARTIALLY_REFUNDED event for order: {}", internalOrderId);
@@ -187,20 +191,20 @@ public class PaymentEventConsumer {
                                         }
                                     }
                                 }
-                                return null;
+                                return;
                             }
                             boolean isFailure = rootNode.has(FIELD_FAILURE_REASON) || (rootNode.has(FIELD_EVENT_TYPE) && com.fooddelivery.common.constants.EventType.PAYMENT_FAILED.name().equals(rootNode.get(FIELD_EVENT_TYPE).asText()));
                             log.info("Payment event for gateway order {}. Finding internal order {}. IsFailure: {}", gatewayOrderId, internalOrderId, isFailure);
                             com.fooddelivery.order.entity.PaymentIntent intent = paymentIntentRepository.findByGatewayOrderId(gatewayOrderId).orElse(null);
                             if (intent == null) {
                                 log.warn("PaymentIntent for gateway order {} not found", gatewayOrderId);
-                                return null;
+                                return;
                             }
                             UUID orderUUID = intent.getInternalOrderId();
                             Order order = orderRepository.findById(orderUUID).orElse(null);
                             if (order == null) {
                                 log.warn("Order {} not found, skipping status update", orderUUID);
-                                return null;
+                                return;
                             }
                             com.fooddelivery.order.service.state.OrderContext context = new com.fooddelivery.order.service.state.OrderContext(order, rootNode, orderActionService);
                             com.fooddelivery.order.service.state.OrderState state = com.fooddelivery.order.service.state.OrderStateFactory.getState(order.getStatus());
@@ -214,18 +218,18 @@ public class PaymentEventConsumer {
                                 log.error("ILLEGAL_STATE_TRANSITION: {}", e.getMessage());
                             }
                             if (context.isRequiresRefund()) {
-                                return order;
+                                orderToRefund = order;
                             }
-                            return null;
                         } catch (RuntimeException e) {
                             throw e;
                         } catch (Exception e) {
                             throw new RuntimeException("Failed to process payment event", e);
                         }
+                        
+                        if (orderToRefund != null) {
+                            orderRefundService.processRefund(orderToRefund);
+                        }
                     });
-                    if (orderToRefund != null) {
-                        orderRefundService.processRefund(orderToRefund);
-                    }
                     success = true;
                 } catch (org.springframework.orm.ObjectOptimisticLockingFailureException e) {
                     log.warn("Optimistic locking failure in handlePaymentEvents, delegating to Kafka retry.");
@@ -236,9 +240,6 @@ public class PaymentEventConsumer {
                 }
             }
         } catch (Exception e) {
-            if (isNew && resolvedEventId != null) {
-                redisTemplate.delete("processed_event:" + resolvedEventId);
-            }
             throw e;
         }
     }
