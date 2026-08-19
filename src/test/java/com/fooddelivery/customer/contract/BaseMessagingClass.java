@@ -16,12 +16,19 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.context.annotation.Bean;
 
 @SpringBootTest(classes = BaseMessagingClass.TestConfig.class, webEnvironment = SpringBootTest.WebEnvironment.NONE)
+@org.springframework.test.context.ActiveProfiles("contract-test")
 @AutoConfigureMessageVerifier
-@EmbeddedKafka(partitions = 1, topics = {"order-events", "chat-events", "wallet-events", "ledger-events", "ad-events", "platform.notifications.dispatch"})
+@EmbeddedKafka(partitions = 1, topics = {"order-events", "chat-events", "wallet-events", "ledger-events", "platform.notifications.dispatch"})
 public abstract class BaseMessagingClass {
 
-    @org.springframework.boot.test.context.TestConfiguration
-    
+    @org.springframework.boot.SpringBootConfiguration
+    @org.springframework.boot.autoconfigure.EnableAutoConfiguration(exclude = {
+            org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration.class,
+            org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration.class,
+            org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration.class,
+            org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration.class,
+            org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration.class
+    })
     static class TestConfig {
         @Bean
         public KafkaMessageVerifier kafkaMessageVerifier() {
@@ -37,80 +44,144 @@ public abstract class BaseMessagingClass {
     @Autowired
     private KafkaTemplate<String, String> kafkaTemplate;
 
-    public void fireOrderCreated() {
-        String payload = """
-{
-  "eventId": "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d",
-  "type": "ORDER_CREATED",
-  "payload": {
-    "orderId": 1001,
-    "customerId": "user-123",
-    "restaurantId": 501,
-    "totalAmount": 15.50
-  }
-}""";
-        kafkaTemplate.send("order-events", payload);
+    /** The same auto-configured mapper OrderSagaOrchestrator is injected with. */
+    @Autowired
+    private com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+
+    /**
+     * Publishes ORDER_CREATED through the real production path rather than a hand-written JSON
+     * blob: a real OrderCreatedEvent is serialized exactly as OrderSagaOrchestrator serializes it,
+     * wrapped in a real OutboxEventEntity, and handed to the real OutboxProcessor -- which decides
+     * the topic from the aggregate type and the Kafka key from the aggregate id.
+     *
+     * Only the repository is mocked; persistence is not part of the contract. This means the test
+     * now breaks if a field is added to or renamed on OrderCreatedEvent, or if the ORDER ->
+     * order-events topic routing changes. The previous text-block version could not detect either.
+     */
+    public void fireOrderCreated() throws Exception {
+        com.fooddelivery.common.event.OrderCreatedEvent event =
+                com.fooddelivery.common.event.OrderCreatedEvent.builder()
+                        .orderId(java.util.UUID.fromString("3f2504e0-4f89-41d3-9a0c-0305e82c3301"))
+                        .customerId(java.util.UUID.fromString("6b1d3c22-9f45-4a7e-8c11-2d4e6f8a9b02"))
+                        .restaurantId(java.util.UUID.fromString("9c8b7a65-1e2d-4f30-b5a6-7c8d9e0f1a23"))
+                        .totalAmount(new java.math.BigDecimal("15.50"))
+                        .deliveryLat(12.971598)
+                        .deliveryLng(77.594562)
+                        .deliveryAddress("221B Baker Street, Bangalore")
+                        .pickupOtp("1234")
+                        .deliveryOtp("5678")
+                        .build();
+
+        com.fooddelivery.common.outbox.entity.OutboxEventEntity outboxEvent =
+                com.fooddelivery.common.outbox.entity.OutboxEventEntity.builder()
+                        .id(java.util.UUID.randomUUID())
+                        .aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER)
+                        .aggregateId(event.getOrderId().toString())
+                        .eventType(com.fooddelivery.common.constants.EventType.ORDER_CREATED)
+                        .payload(objectMapper.writeValueAsString(event))
+                        .createdAt(java.time.LocalDateTime.now())
+                        .build();
+
+        com.fooddelivery.common.outbox.repository.OutboxEventRepository outboxRepository =
+                org.mockito.Mockito.mock(com.fooddelivery.common.outbox.repository.OutboxEventRepository.class);
+        org.mockito.Mockito.when(outboxRepository.findTop100ByStatusInOrderByCreatedAtAsc(org.mockito.ArgumentMatchers.anyList()))
+                .thenReturn(new java.util.ArrayList<>(java.util.List.of(outboxEvent)));
+
+        new com.fooddelivery.common.outbox.service.OutboxProcessor(outboxRepository, kafkaTemplate)
+                .processOutboxEvents();
     }
-    public void fireChatEvent() {
-        String payload = """
-{
-  "eventId": "chat-444",
-  "type": "CHAT_MESSAGE_SENT",
-  "payload": {
-    "chatId": "chat-100",
-    "senderId": "user-123",
-    "message": "Where is my food?"
-  }
-}""";
-        kafkaTemplate.send("chat-events", payload);
+    /** Mirrors ChatRefundProcessorService's CHAT_REFUND_QUOTE_RESPONSE map. */
+    public void fireChatEvent() throws Exception {
+        java.util.Map<String, Object> responseMap = new java.util.HashMap<>();
+        responseMap.put("quoteAmount", new java.math.BigDecimal("125.50"));
+        responseMap.put("refundType", "PARTIAL");
+        publishViaOutbox(com.fooddelivery.common.constants.AggregateType.CHAT_SESSION,
+                "7a1d5e90-3c22-4b6f-8a11-9d4c2e77b501",
+                com.fooddelivery.common.constants.EventType.CHAT_REFUND_QUOTE_RESPONSE, responseMap);
     }
-    public void fireWalletEvent() {
-        String payload = """
-{
-  "eventId": "wal-111",
-  "type": "WALLET_DEBITED",
-  "payload": {
-    "userId": "user-123",
-    "amount": 15.50
-  }
-}""";
-        kafkaTemplate.send("wallet-events", payload);
+    /** Mirrors OrderActionService.emitEarningsGeneratedEvent - FLAT, no body eventType. */
+    public void fireWalletEarnings() throws Exception {
+        String entityId = "9c8b7a65-1e2d-4f30-b5a6-7c8d9e0f1a23";
+        java.util.Map<String, Object> payload = new java.util.HashMap<>();
+        payload.put("entityId", entityId);
+        payload.put("entityType", "RESTAURANT");
+        payload.put("amount", new java.math.BigDecimal("125.50").toString());
+        payload.put("referenceId", "ORDER_3f2504e0-4f89-41d3-9a0c-0305e82c3301");
+        payload.put("description", "Earnings for Order 3f2504e0-4f89-41d3-9a0c-0305e82c3301");
+        payload.put("metadata", "{}");
+        publishViaOutbox(com.fooddelivery.common.constants.AggregateType.WALLET, entityId,
+                com.fooddelivery.common.constants.EventType.EARNINGS_GENERATED, payload);
     }
-    public void fireLedgerEvent() {
-        String payload = """
-{
-  "eventId": "led-222",
-  "type": "LEDGER_ENTRY_CREATED",
-  "payload": {
-    "transactionId": "txn-999",
-    "amount": 15.50
-  }
-}""";
-        kafkaTemplate.send("ledger-events", payload);
+    /** Mirrors OrderActionService: a real serialized NotificationRequestEvent. */
+    public void fireNotificationDispatch() throws Exception {
+        java.util.UUID customerId = java.util.UUID.fromString("6b1d3c22-9f45-4a7e-8c11-2d4e6f8a9b02");
+        com.fooddelivery.common.event.NotificationRequestEvent notificationEvent =
+                com.fooddelivery.common.event.NotificationRequestEvent.builder()
+                        .userId(customerId)
+                        .channel(com.fooddelivery.common.enums.ChannelType.PUSH)
+                        .eventName("ORDER_CONFIRMED")
+                        .templateParams(java.util.List.of("3f2504e0-4f89-41d3-9a0c-0305e82c3301"))
+                        .build();
+        publishViaOutbox(com.fooddelivery.common.constants.AggregateType.NOTIFICATION,
+                customerId.toString(),
+                com.fooddelivery.common.constants.EventType.NOTIFICATION_REQUEST, notificationEvent);
     }
-    public void fireAdEvent() {
-        String payload = """
-{
-  "eventId": "ad-333",
-  "type": "AD_DISPLAYED",
-  "payload": {
-    "campaignId": 999,
-    "userId": "user-123"
-  }
-}""";
-        kafkaTemplate.send("ad-events", payload);
+
+
+    /** Drives the real OutboxProcessor: real topic routing, real key, real eventType header. */
+    /** Mirrors OrderActionService's LEDGER_TRANSACTION_REQUEST ObjectNode (amount as String). */
+    public void fireLedgerEvent() throws Exception {
+        com.fasterxml.jackson.databind.node.ObjectNode n = objectMapper.createObjectNode();
+        String transferId = "0f1a5cb3-2b6d-5a1e-9c47-8e3f6d2a1b04";
+        n.put("transferId", transferId);
+        n.put("referenceId", "3f2504e0-4f89-41d3-9a0c-0305e82c3301");
+        n.put("fromId", "6b1d3c22-9f45-4a7e-8c11-2d4e6f8a9b02");
+        n.put("fromType", com.fooddelivery.common.enums.AccountType.PLATFORM.name());
+        n.put("toId", "9c8b7a65-1e2d-4f30-b5a6-7c8d9e0f1a23");
+        n.put("toType", com.fooddelivery.common.enums.AccountType.RESTAURANT.name());
+        n.put("amount", new java.math.BigDecimal("125.50").toString());
+        n.put("chargeCategory", com.fooddelivery.common.enums.ChargeCategory.FOOD_COST.name());
+        publishViaOutbox(com.fooddelivery.common.constants.AggregateType.LEDGER, transferId,
+                com.fooddelivery.common.constants.EventType.LEDGER_TRANSACTION_REQUEST, n);
     }
-    public void fireNotificationDispatch() {
-        String payload = """
-{
-  "eventId": "not-444",
-  "type": "NOTIFICATION_SENT",
-  "payload": {
-    "userId": "user-123",
-    "message": "Your order is confirmed."
-  }
-}""";
-        kafkaTemplate.send("platform.notifications.dispatch", payload);
+
+    /** Mirrors AdminOrderManualController - ENVELOPED, body eventType differs from the header. */
+    public void fireWalletReversal() throws Exception {
+        String orderId = "3f2504e0-4f89-41d3-9a0c-0305e82c3301";
+        java.util.Map<String, Object> eventPayload = new java.util.HashMap<>();
+        eventPayload.put("entityId", "9c8b7a65-1e2d-4f30-b5a6-7c8d9e0f1a23");
+        eventPayload.put("entityType", "RESTAURANT");
+        eventPayload.put("amount", new java.math.BigDecimal("40.00").toString());
+        eventPayload.put("referenceId", "REV_" + orderId + "_1699999999999");
+        eventPayload.put("description", "Reversal for order " + orderId);
+        eventPayload.put("chargeCategory", com.fooddelivery.common.enums.ChargeCategory.REFUND.name());
+        java.util.Map<String, Object> kafkaMessage = new java.util.HashMap<>();
+        kafkaMessage.put("eventType", "REVERSAL_GENERATED");
+        kafkaMessage.put("payload", eventPayload);
+        publishViaOutbox(com.fooddelivery.common.constants.AggregateType.WALLET, orderId,
+                com.fooddelivery.common.constants.EventType.REFUND_GENERATED, kafkaMessage);
+    }
+
+    protected void publishViaOutbox(com.fooddelivery.common.constants.AggregateType aggregateType,
+                                    String aggregateId,
+                                    com.fooddelivery.common.constants.EventType eventType,
+                                    Object payloadObject) throws Exception {
+        com.fooddelivery.common.outbox.entity.OutboxEventEntity outboxEvent =
+                com.fooddelivery.common.outbox.entity.OutboxEventEntity.builder()
+                        .id(java.util.UUID.randomUUID())
+                        .aggregateType(aggregateType)
+                        .aggregateId(aggregateId)
+                        .eventType(eventType)
+                        .payload(payloadObject instanceof String
+                                ? (String) payloadObject
+                                : objectMapper.writeValueAsString(payloadObject))
+                        .createdAt(java.time.LocalDateTime.now())
+                        .build();
+        com.fooddelivery.common.outbox.repository.OutboxEventRepository repo =
+                org.mockito.Mockito.mock(com.fooddelivery.common.outbox.repository.OutboxEventRepository.class);
+        org.mockito.Mockito.when(repo.findTop100ByStatusInOrderByCreatedAtAsc(org.mockito.ArgumentMatchers.anyList()))
+                .thenReturn(new java.util.ArrayList<>(java.util.List.of(outboxEvent)));
+        new com.fooddelivery.common.outbox.service.OutboxProcessor(repo, kafkaTemplate).processOutboxEvents();
     }
 
 }
