@@ -14,6 +14,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.Mockito;
 import com.fooddelivery.common.repository.IIdempotencyKeyRepository;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -24,6 +25,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+@org.springframework.test.context.ActiveProfiles("contract-test")
 public class PaymentEventConsumerTest {
 
     @Mock
@@ -60,7 +62,7 @@ public class PaymentEventConsumerTest {
 
         lenient().doAnswer(invocation -> {
             java.util.function.Consumer<org.springframework.transaction.TransactionStatus> consumer = invocation.getArgument(0);
-            consumer.accept(null);
+            consumer.accept(Mockito.mock(org.springframework.transaction.TransactionStatus.class));
             return null;
         }).when(transactionTemplate).executeWithoutResult(any());
 

@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-@FeignClient(name = "restaurant-service", fallback = RestaurantClientFallback.class)
+@FeignClient(name = "restaurant-application", fallback = RestaurantClientFallback.class)
 public interface RestaurantClient {
 
     @Cacheable(value = "customer-app:nearbyRestaurants", key = "#lat + '-' + #lng + '-' + #radius", sync = true)
