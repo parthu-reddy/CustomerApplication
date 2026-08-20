@@ -1,13 +1,8 @@
 spring:
-  kafka:
-    listener:
-      observation-enabled: true
-    template:
-      observation-enabled: true
   application:
     name: customer-service
   config:
-    import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
+    import: optional:classpath:config/platform-defaults.yml,optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
   cache:
     type: redis
     redis:
@@ -15,25 +10,11 @@ spring:
       cache-null-values: false
   cloud:
     openfeign:
-      client:
-        config:
-          default:
-            connectTimeout: 2000
-            readTimeout: 3000
       circuitbreaker:
         enabled: true
         alphanumeric-ids: true
-
 resilience4j:
   circuitbreaker:
-    configs:
-      default:
-        slidingWindowSize: 10
-        minimumNumberOfCalls: 5
-        failureRateThreshold: 50
-        waitDurationInOpenState: 10s
-        permittedNumberOfCallsInHalfOpenState: 3
-        automaticTransitionFromOpenToHalfOpenEnabled: true
     instances:
       restaurant-service:
         baseConfig: default
@@ -43,14 +24,7 @@ resilience4j:
         baseConfig: default
       bidding-engine:
         baseConfig: default
-
   retry:
-    configs:
-      default:
-        maxAttempts: 3
-        waitDuration: 500ms
-        enableExponentialBackoff: true
-        exponentialBackoffMultiplier: 2
     instances:
       restaurant-service:
         baseConfig: default
@@ -59,9 +33,6 @@ resilience4j:
       payment-service:
         baseConfig: default
   timelimiter:
-    configs:
-      default:
-        timeoutDuration: 3s
     instances:
       restaurant-service:
         baseConfig: default
@@ -71,13 +42,3 @@ resilience4j:
         baseConfig: default
       bidding-engine:
         timeoutDuration: 100ms
-
-
-management:
-  tracing:
-    enabled: true
-    sampling:
-      probability: 1.0
-  otlp:
-    tracing:
-      endpoint: http://localhost:4318/v1/traces

@@ -1,6 +1,12 @@
 
 import org.springframework.cloud.contract.spec.Contract
 
+/*
+ * Corrected 2026-08-20. This asserted status: 'OUT_FOR_DELIVERY', but OrderStatus has no such value --
+ * CREATED, PENDING_ACCEPTANCE, AWAITING_DELAY_APPROVAL, ACCEPTED, PREPARING, READY_FOR_PICKUP,
+ * HANDED_OVER, CANCELLED, CANCELLED_BY_RESTAURANT. 'OUT_FOR_DELIVERY' is a DeliveryStatus, and Order carries
+ * BOTH fields; the contract conflated them. Asserting `deliveryStatus` is what it meant.
+ */
 Contract.make {
     description("should return active orders for driver")
     request {
@@ -21,7 +27,7 @@ Contract.make {
             content: [
                 [
                     id: '123e4567-e89b-12d3-a456-426614174000',
-                    status: 'OUT_FOR_DELIVERY'
+                    deliveryStatus: 'OUT_FOR_DELIVERY'
                 ]
             ],
             totalElements: 1

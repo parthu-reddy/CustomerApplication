@@ -24,8 +24,6 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.kafka.annotation.RetryableTopic;
-import org.springframework.kafka.annotation.DltHandler;
-import org.springframework.retry.annotation.Backoff;
 import org.springframework.messaging.handler.annotation.Payload;
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -88,9 +86,9 @@ public class OrderSagaOrchestrator {
         log.info("Order state and outbox event saved for Order ID: {}", order.getId());
     }
 
-    // Listens to Kafka 'payment-events' topic for events published by external Payment Service
-    @RetryableTopic(attempts = "4", backoff = @Backoff(delay = 2000, multiplier = 2.0, maxDelay = 10000))
-
+    // NOTE: this method PUBLISHES; it is not a Kafka listener. It previously carried a
+    // @RetryableTopic annotation and a comment claiming it listened to payment-events -- both were
+    // dead: @RetryableTopic only takes effect on a @KafkaListener method, and this class has none.
     @Transactional
     public void publishDelayApprovalEvent(Order order, boolean approved, String reason) {
         try {
@@ -433,11 +431,6 @@ public class OrderSagaOrchestrator {
 
     private boolean isTerminalState(OrderStatus status) {
         return status == OrderStatus.HANDED_OVER || status == OrderStatus.CANCELLED || status == OrderStatus.CANCELLED_BY_RESTAURANT;
-    }
-
-    @DltHandler
-    public void processDeadLetterTopic(@Payload(required = false) String payload, @org.springframework.messaging.handler.annotation.Header(name = org.springframework.kafka.support.KafkaHeaders.EXCEPTION_MESSAGE, required = false) String exceptionMessage) {
-        log.error("Terminal failure for event in Saga. Payload: {}. Moving to manual intervention queue. Exception: {}", payload, exceptionMessage);
     }
 
     @java.lang.SuppressWarnings("all")

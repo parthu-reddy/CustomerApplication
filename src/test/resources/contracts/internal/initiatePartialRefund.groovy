@@ -1,6 +1,15 @@
 
 import org.springframework.cloud.contract.spec.Contract
 
+/*
+ * Corrected 2026-08-20. Two errors, both fatal:
+ *   - the request sent only `reason`, but partialRefund() requires `amount` and 400s without it.
+ *     `reason` is not sent by the only production caller (RestaurantApplication's
+ *     FulfillmentService builds {"amount": ...} alone), so requiring it here would make the
+ *     contract stricter than reality;
+ *   - the response asserted {status: 'REFUND_INITIATED'}, but the handler returns
+ *     ApiResponse.success(...), i.e. {success, message, data}.
+ */
 Contract.make {
     description("should initiate partial refund")
     request {
@@ -10,7 +19,7 @@ Contract.make {
             contentType applicationJson()
         }
         body([
-            reason: 'Item missing'
+            amount: '25.00'
         ])
     }
     response {
@@ -19,7 +28,8 @@ Contract.make {
             contentType applicationJson()
         }
         body([
-            status: 'REFUND_INITIATED'
+            success: true,
+            data: 'Partial refund requested successfully'
         ])
     }
 }

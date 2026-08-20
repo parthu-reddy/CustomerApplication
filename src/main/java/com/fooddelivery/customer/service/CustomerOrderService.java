@@ -105,7 +105,7 @@ public class CustomerOrderService {
                         txReq.setAmount(order.getTotalAmount());
                         txReq.setReferenceId(intent);
                         txReq.setDescription("Order " + order.getId());
-                        walletServiceClient.debit("CUSTOMER", order.getCustomerId(), txReq);
+                        walletServiceClient.debit("CUSTOMER", order.getCustomerId(), txReq, "CustomerService");
                     }
                     String payload = String.format("{\"eventType\":\"PAYMENT_COMPLETED\", \"orderId\":\"%s\", \"gatewayOrderId\":\"%s\"}", order.getId(), intent);
                     com.fooddelivery.common.outbox.entity.OutboxEventEntity evt = com.fooddelivery.common.outbox.entity.OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.PAYMENT).aggregateId(intent).eventType(com.fooddelivery.common.constants.EventType.PAYMENT_COMPLETED).payload(payload).createdAt(java.time.LocalDateTime.now()).build();
