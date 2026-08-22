@@ -81,7 +81,7 @@ public abstract class BaseMessagingClass {
         org.mockito.Mockito.when(outboxRepository.findTop100ByStatusInOrderByCreatedAtAsc(org.mockito.ArgumentMatchers.anyList()))
                 .thenReturn(new java.util.ArrayList<>(java.util.List.of(outboxEvent)));
 
-        new com.fooddelivery.common.outbox.service.OutboxProcessor(outboxRepository, kafkaTemplate)
+        new com.fooddelivery.common.outbox.service.OutboxProcessor(outboxRepository, kafkaTemplate, new io.micrometer.core.instrument.simple.SimpleMeterRegistry())
                 .processOutboxEvents();
     }
     /** Mirrors ChatRefundProcessorService's CHAT_REFUND_QUOTE_RESPONSE map. */
@@ -139,7 +139,7 @@ public abstract class BaseMessagingClass {
                 com.fooddelivery.common.constants.EventType.LEDGER_TRANSACTION_REQUEST, n);
     }
 
-    /** Mirrors AdminOrderManualController - ENVELOPED, body eventType differs from the header. */
+    /** Mirrors AdminOrderManualController - flat payload, body eventType differs from the header. */
     public void fireWalletReversal() throws Exception {
         String orderId = "3f2504e0-4f89-41d3-9a0c-0305e82c3301";
         java.util.Map<String, Object> eventPayload = new java.util.HashMap<>();
@@ -149,11 +149,9 @@ public abstract class BaseMessagingClass {
         eventPayload.put("referenceId", "REV_" + orderId + "_1699999999999");
         eventPayload.put("description", "Reversal for order " + orderId);
         eventPayload.put("chargeCategory", com.fooddelivery.common.enums.ChargeCategory.REFUND.name());
-        java.util.Map<String, Object> kafkaMessage = new java.util.HashMap<>();
-        kafkaMessage.put("eventType", "REVERSAL_GENERATED");
-        kafkaMessage.put("payload", eventPayload);
+        eventPayload.put("eventType", "REVERSAL_GENERATED");
         publishViaOutbox(com.fooddelivery.common.constants.AggregateType.WALLET, orderId,
-                com.fooddelivery.common.constants.EventType.REFUND_GENERATED, kafkaMessage);
+                com.fooddelivery.common.constants.EventType.REFUND_GENERATED, eventPayload);
     }
 
     protected void publishViaOutbox(com.fooddelivery.common.constants.AggregateType aggregateType,
@@ -175,7 +173,20 @@ public abstract class BaseMessagingClass {
                 org.mockito.Mockito.mock(com.fooddelivery.common.outbox.repository.OutboxEventRepository.class);
         org.mockito.Mockito.when(repo.findTop100ByStatusInOrderByCreatedAtAsc(org.mockito.ArgumentMatchers.anyList()))
                 .thenReturn(new java.util.ArrayList<>(java.util.List.of(outboxEvent)));
-        new com.fooddelivery.common.outbox.service.OutboxProcessor(repo, kafkaTemplate).processOutboxEvents();
+        new com.fooddelivery.common.outbox.service.OutboxProcessor(repo, kafkaTemplate, new io.micrometer.core.instrument.simple.SimpleMeterRegistry()).processOutboxEvents();
+    }
+
+    public void firePaymentRefundRequested() throws Exception {
+        java.util.Map<String, Object> payloadMap = new java.util.HashMap<>();
+        payloadMap.put("intentId", "3f2504e0-4f89-41d3-9a0c-0305e82c3301");
+        payloadMap.put("gatewayOrderId", "pay_12345");
+        payloadMap.put("amountInInr", 15.50);
+        payloadMap.put("gatewayName", "STRIPE");
+        payloadMap.put("orderId", "6b1d3c22-9f45-4a7e-8c11-2d4e6f8a9b02");
+        payloadMap.put("refundDestination", "GATEWAY");
+        publishViaOutbox(com.fooddelivery.common.constants.AggregateType.PAYMENT,
+                "6b1d3c22-9f45-4a7e-8c11-2d4e6f8a9b02",
+                com.fooddelivery.common.constants.EventType.PAYMENT_REFUND_REQUESTED, payloadMap);
     }
 
 }

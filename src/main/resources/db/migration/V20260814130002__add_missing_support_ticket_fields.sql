@@ -1,5 +1,0 @@
-ALTER TABLE support_tickets 
-ADD COLUMN IF NOT EXISTS requested_refund_items TEXT,
-ADD COLUMN IF NOT EXISTS refund_amount DOUBLE PRECISION,
-ADD COLUMN IF NOT EXISTS restaurant_comments VARCHAR(2000),
-ADD COLUMN IF NOT EXISTS rider_comments VARCHAR(2000);

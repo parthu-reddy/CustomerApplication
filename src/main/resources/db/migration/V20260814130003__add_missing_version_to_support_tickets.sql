@@ -1,1 +1,0 @@
-ALTER TABLE support_tickets ADD COLUMN IF NOT EXISTS version BIGINT DEFAULT 0;

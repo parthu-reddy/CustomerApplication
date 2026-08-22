@@ -66,11 +66,8 @@ public class AdminOrderManualController {
             eventPayload.put("customerId", order.getCustomerId().toString());
             eventPayload.put("driverId", driverId.toString());
             eventPayload.put("timestamp", System.currentTimeMillis());
-            Map<String, Object> kafkaMessage = new HashMap<>();
-            kafkaMessage.put("eventType", EventType.FORCE_ASSIGN_DRIVER.name());
-            kafkaMessage.put("payload", eventPayload);
             com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-            String jsonMessage = mapper.writeValueAsString(kafkaMessage);
+            String jsonMessage = mapper.writeValueAsString(eventPayload);
             com.fooddelivery.common.outbox.entity.OutboxEventEntity outboxEvent = com.fooddelivery.common.outbox.entity.OutboxEventEntity.builder()
                 .id(java.util.UUID.randomUUID())
                 .aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER)
@@ -109,11 +106,8 @@ public class AdminOrderManualController {
             eventPayload.put("reason", reason);
             eventPayload.put("timestamp", System.currentTimeMillis());
             // Use ORDER_CANCELLED_BY_ADMIN or standard cancellation
-            Map<String, Object> kafkaMessage = new HashMap<>();
-            kafkaMessage.put("eventType", EventType.ORDER_CANCELLED_BY_ADMIN.name());
-            kafkaMessage.put("payload", eventPayload);
             com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-            String jsonMessage = mapper.writeValueAsString(kafkaMessage);
+            String jsonMessage = mapper.writeValueAsString(eventPayload);
             com.fooddelivery.common.outbox.entity.OutboxEventEntity outboxEvent = com.fooddelivery.common.outbox.entity.OutboxEventEntity.builder()
                 .id(java.util.UUID.randomUUID())
                 .aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER)
@@ -236,13 +230,11 @@ public class AdminOrderManualController {
                     eventPayload.put("description", "Reversal for order " + order.getId() + " due to post-delivery refund");
                     eventPayload.put("chargeCategory", com.fooddelivery.common.enums.ChargeCategory.REFUND.name());
                     
-                    Map<String, Object> kafkaMessage = new HashMap<>();
-                    kafkaMessage.put("eventType", "REVERSAL_GENERATED");
-                    kafkaMessage.put("payload", eventPayload);
+                    eventPayload.put("eventType", "REVERSAL_GENERATED");
                     
                     try {
                         com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-                        String jsonMessage = mapper.writeValueAsString(kafkaMessage);
+                        String jsonMessage = mapper.writeValueAsString(eventPayload);
                         com.fooddelivery.common.outbox.entity.OutboxEventEntity outboxEvent = com.fooddelivery.common.outbox.entity.OutboxEventEntity.builder()
                             .id(java.util.UUID.randomUUID())
                             .aggregateType(com.fooddelivery.common.constants.AggregateType.WALLET)

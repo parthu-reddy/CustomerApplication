@@ -29,7 +29,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @ActiveProfiles("contract-test")
-@SpringBootTest(classes = CustomerContractConsumerTest.TestConfig.class, webEnvironment = SpringBootTest.WebEnvironment.NONE)
+@SpringBootTest(classes = CustomerContractConsumerTest.TestConfig.class, webEnvironment = SpringBootTest.WebEnvironment.NONE, properties = {
+    // Stub ids are Maven artifactIds; Feign resolves by spring.application.name. These two
+    // differ for these services, so the stub must be registered under the name the client asks for.
+    "stubrunner.idsToServiceIds.restaurant-application=restaurant-service"
+})
 @AutoConfigureStubRunner(
     ids = {
         "com.fooddelivery:restaurant-application:+:stubs:8091",
@@ -76,19 +80,39 @@ public class CustomerContractConsumerTest {
         assertTrue(response.isSuccess());
     }
 
+    @SuppressWarnings("unchecked")
     @Test
     public void testGetRestaurantById() {
         Map<String, Object> response = restaurantClient.getRestaurantById(UUID.fromString("123e4567-e89b-12d3-a456-426614174000"));
         assertNotNull(response);
-        assertEquals("Test Restaurant", response.get("name"));
+        // RestaurantOutletController returns ResponseEntity<ApiResponse<Map<...>>>, and the client
+        // declares the raw Map, so the envelope is part of the body: name lives under "data".
+        assertEquals(Boolean.TRUE, response.get("success"));
+        Map<String, Object> data = (Map<String, Object>) response.get("data");
+        assertNotNull(data);
+        assertEquals("Test Restaurant", data.get("name"));
     }
 
+    @SuppressWarnings("unchecked")
     @Test
     public void testFetchAds() {
+        // The request body must be what BiddingEngine's fetchAds contract declares -- WireMock
+        // matches on the body, and AdRequestDTO has exactly these three fields. Sending anything
+        // else 404s, the circuit-breaker fallback fires, and because that fallback is a @MockBean
+        // it answers null rather than the real emptyList() -- so the miss looked like a null bug.
         Map<String, Object> req = new HashMap<>();
-        req.put("userId", "user123");
-        req.put("location", "test");
+        req.put("geo", "test-geo");
+        req.put("deviceId", "device-123");
+        req.put("context", "test-context");
+
         Object response = advertisementClient.fetchAds(req);
+
         assertNotNull(response);
+        // Assert the contracted payload, not merely non-null: an empty list would also be
+        // non-null and would mean the stub was never matched.
+        List<Map<String, Object>> ads = (List<Map<String, Object>>) response;
+        assertEquals(1, ads.size());
+        assertEquals("AD-12345-campaign-1", ads.get(0).get("adId"));
+        assertEquals("campaign-1", ads.get(0).get("campaignId"));
     }
 }

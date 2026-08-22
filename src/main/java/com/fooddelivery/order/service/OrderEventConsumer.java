@@ -87,10 +87,11 @@ public class OrderEventConsumer {
 
                         try {
                             com.fasterxml.jackson.databind.JsonNode rootNode = objectMapper.readTree(payload);
+                            com.fasterxml.jackson.databind.JsonNode payloadNode = rootNode;
                             String eventType = com.fooddelivery.common.util.KafkaHeaderUtils.extractEventType(headers, rootNode);
-                            String orderIdStr = rootNode.path("orderId").asText(null);
-                            if (orderIdStr == null && rootNode.has("id")) {
-                                orderIdStr = rootNode.get("id").asText();
+                            String orderIdStr = payloadNode.path("orderId").asText(null);
+                            if (orderIdStr == null && payloadNode.has("id")) {
+                                orderIdStr = payloadNode.get("id").asText();
                             }
                             if (orderIdStr == null || eventType == null) {
                                 log.warn("Missing orderId or eventType. Ignored.");
@@ -102,14 +103,14 @@ public class OrderEventConsumer {
                                 log.warn("Order {} not found, skipping event", orderId);
                                 return null;
                             }
-                            com.fooddelivery.order.service.state.OrderContext context = new com.fooddelivery.order.service.state.OrderContext(order, rootNode, orderActionService);
+                            com.fooddelivery.order.service.state.OrderContext context = new com.fooddelivery.order.service.state.OrderContext(order, payloadNode, orderActionService);
                             com.fooddelivery.order.service.state.OrderState state = com.fooddelivery.order.service.state.OrderStateFactory.getState(order.getStatus());
                             try {
                                 java.util.function.BiConsumer<com.fooddelivery.order.service.state.OrderState, com.fooddelivery.order.service.state.OrderContext> handler = EVENT_HANDLERS.get(eventType);
                                 if (handler != null) {
                                     handler.accept(state, context);
                                 } else if (EventType.ORDER_STATUS_UPDATED.name().equals(eventType)) {
-                                    String updateStatus = rootNode.path("status").asText(null);
+                                    String updateStatus = payloadNode.path("status").asText(null);
                                     if (EventType.DELIVERY_FAILED.name().equals(updateStatus)) {
                                         state.handleDeliveryFailed(context);
                                     } else {

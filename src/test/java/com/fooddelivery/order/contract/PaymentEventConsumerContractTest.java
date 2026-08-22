@@ -1,5 +1,7 @@
 package com.fooddelivery.order.contract;
 
+import com.fooddelivery.common.contract.KafkaStubMessageSender;
+
 import com.fooddelivery.order.service.PaymentEventConsumer;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
