@@ -162,45 +162,45 @@ CREATE TABLE outbox_events (
     retry_count INT NOT NULL DEFAULT 0
 );
 
-CREATE INDEX idx_customer_addresses_customer_id ON customer_addresses(customer_id);
 
-CREATE INDEX idx_orders_customer_id ON orders(customer_id);
 
-CREATE INDEX idx_orders_restaurant_id ON orders(restaurant_id);
 
-CREATE INDEX idx_orders_status ON orders(status);
 
-CREATE INDEX idx_order_items_order_id ON order_items(order_id);
 
-CREATE INDEX idx_order_items_menu_item_id ON order_items(menu_item_id);
 
-CREATE INDEX idx_payment_intents_internal_order_id ON payment_intents(internal_order_id);
 
-CREATE INDEX idx_payment_intents_status_created_at ON payment_intents(status, created_at);
 
-CREATE INDEX idx_refunds_payment_intent_id ON refunds(payment_intent_id);
+
+
+
+
+
+
+
+
+
 
 CREATE UNIQUE INDEX idx_ledger_accounts_owner ON ledger_accounts(owner_id, owner_type);
 
-CREATE INDEX idx_ledger_entries_transaction_id ON ledger_entries(transaction_id);
 
-CREATE INDEX idx_ledger_entries_account_id ON ledger_entries(account_id);
 
-CREATE INDEX idx_ledgers_account_id_created ON ledgers(account_id, created_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_orders_customer_status_created ON orders(customer_id, status, created_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_orders_restaurant_id ON orders(restaurant_id);
 
-CREATE INDEX idx_support_ticket_order ON support_tickets(order_id);
 
-CREATE INDEX idx_support_ticket_customer ON support_tickets(customer_id);
 
-CREATE INDEX idx_support_ticket_status ON support_tickets(status);
 
-CREATE INDEX IF NOT EXISTS idx_order_delivery_status ON orders(delivery_status);
 
-CREATE INDEX IF NOT EXISTS idx_order_composite_del_exec ON orders(delivery_executive_id, delivery_status);
+
+
+
+
+
+
+
+
+
+
 
 CREATE OR REPLACE FUNCTION update_refunded_amount()
 RETURNS TRIGGER AS $$
@@ -251,3 +251,80 @@ CREATE TABLE support_tickets (
     version BIGINT DEFAULT 0,
     CONSTRAINT fk_support_ticket_order FOREIGN KEY (order_id) REFERENCES orders(id)
 );
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+CREATE INDEX idx_customer_addresses_customer_id ON customer_addresses(customer_id);
+
+CREATE INDEX idx_orders_customer_id ON orders(customer_id);
+
+CREATE INDEX idx_orders_restaurant_id ON orders(restaurant_id);
+
+CREATE INDEX idx_orders_status ON orders(status);
+
+CREATE INDEX idx_order_items_order_id ON order_items(order_id);
+
+CREATE INDEX idx_order_items_menu_item_id ON order_items(menu_item_id);
+
+CREATE INDEX idx_payment_intents_internal_order_id ON payment_intents(internal_order_id);
+
+CREATE INDEX idx_payment_intents_status_created_at ON payment_intents(status, created_at);
+
+CREATE INDEX idx_refunds_payment_intent_id ON refunds(payment_intent_id);
+
+CREATE INDEX idx_ledger_entries_transaction_id ON ledger_entries(transaction_id);
+
+CREATE INDEX idx_ledger_entries_account_id ON ledger_entries(account_id);
+
+CREATE INDEX idx_ledgers_account_id_created ON ledgers(account_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_orders_customer_status_created ON orders(customer_id, status, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_orders_restaurant_id ON orders(restaurant_id);
+
+CREATE INDEX idx_support_ticket_order ON support_tickets(order_id);
+
+CREATE INDEX idx_support_ticket_customer ON support_tickets(customer_id);
+
+CREATE INDEX idx_support_ticket_status ON support_tickets(status);
+
+CREATE INDEX IF NOT EXISTS idx_order_delivery_status ON orders(delivery_status);
+
+CREATE INDEX IF NOT EXISTS idx_order_composite_del_exec ON orders(delivery_executive_id, delivery_status);
