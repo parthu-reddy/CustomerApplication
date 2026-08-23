@@ -13,7 +13,7 @@ import java.util.UUID;
 @lombok.extern.slf4j.Slf4j
 
 public class ReadyForPickupState implements OrderState {
-    @java.lang.SuppressWarnings("all")
+    
 
     @Override
     public void handleDriverAssigned(OrderContext ctx) {

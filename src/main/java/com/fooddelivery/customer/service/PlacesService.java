@@ -9,7 +9,7 @@ import java.util.Map;
 @Service
 @lombok.extern.slf4j.Slf4j
 public class PlacesService {
-    @java.lang.SuppressWarnings("all")
+    
 
     private final MapsServiceClient mapsClient;
 
@@ -33,7 +33,7 @@ public class PlacesService {
         }
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public PlacesService(final MapsServiceClient mapsClient) {
         this.mapsClient = mapsClient;
     }

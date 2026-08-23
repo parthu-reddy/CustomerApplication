@@ -16,7 +16,7 @@ import java.util.List;
 @Component
 @lombok.extern.slf4j.Slf4j
 public class RestaurantTimeoutSweeper {
-    @java.lang.SuppressWarnings("all")
+    
 
     private final IOrderRepository orderRepository;
     private final OrderActionService orderActionService;
@@ -136,7 +136,7 @@ public class RestaurantTimeoutSweeper {
         }
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public RestaurantTimeoutSweeper(final IOrderRepository orderRepository, final OrderActionService orderActionService, final OrderSagaOrchestrator orderSagaOrchestrator, final com.fooddelivery.order.service.OrderRefundService orderRefundService, final TransactionTemplate transactionTemplate, final StringRedisTemplate redisTemplate) {
         this.orderRepository = orderRepository;
         this.orderActionService = orderActionService;

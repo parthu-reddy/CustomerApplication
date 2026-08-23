@@ -53,7 +53,7 @@ public class ChatRefundProcessorService {
         this.transactionTemplate = transactionTemplate;
     }
 
-    @KafkaListener(topics = KafkaConstants.TOPIC_CHAT_EVENTS, groupId = "customer-application-chat-group")
+    @KafkaListener(topics = KafkaConstants.TOPIC_CHAT_EVENTS, groupId = "customer-application-chat-group-chatrefundprocessorservice")
     public void handleChatEvents(OutboxEvent event) {
         Boolean alreadyProcessed = transactionTemplate.execute(status -> {
             if (idempotencyKeyRepository.existsById("chat_event:" + event.getId())) {

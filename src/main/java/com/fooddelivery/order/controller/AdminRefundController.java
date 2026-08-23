@@ -18,9 +18,11 @@ import com.fooddelivery.order.entity.OrderItem;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
-@RequestMapping("/api/v1/admin/refunds")
+@RequestMapping("/api/v1/internal/admin/refunds")
+@PreAuthorize("hasRole('ADMIN')")
 public class AdminRefundController {
 
     private final SupportTicketRepository supportTicketRepository;

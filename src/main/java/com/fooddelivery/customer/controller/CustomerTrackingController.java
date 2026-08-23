@@ -19,7 +19,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 @PreAuthorize("hasRole(\'CUSTOMER\') and @customerSecurityHelper.isOrderOwner(#orderId, authentication.principal)")
 @lombok.extern.slf4j.Slf4j
 public class CustomerTrackingController {
-    @java.lang.SuppressWarnings("all")
+    
 
     private final StringRedisTemplate redisTemplate;
     private final com.fooddelivery.order.repository.IOrderRepository orderRepository;
@@ -84,7 +84,7 @@ public class CustomerTrackingController {
         scheduler.shutdown();
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public CustomerTrackingController(final StringRedisTemplate redisTemplate, final com.fooddelivery.order.repository.IOrderRepository orderRepository, final org.springframework.data.redis.listener.RedisMessageListenerContainer redisMessageListenerContainer) {
         this.redisTemplate = redisTemplate;
         this.orderRepository = orderRepository;

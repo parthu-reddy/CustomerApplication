@@ -35,7 +35,7 @@ import java.util.concurrent.ScheduledExecutorService;
 @Service
 @lombok.extern.slf4j.Slf4j
 public class OrderSagaOrchestrator {
-    @java.lang.SuppressWarnings("all")
+    
 
     private static final String REFUND_TX_PREFIX = "REFUND_";
     private static final String FIELD_ORDER_ID = "orderId";
@@ -47,7 +47,7 @@ public class OrderSagaOrchestrator {
     private final IPaymentIntentRepository paymentIntentRepository;
     private final ObjectMapper objectMapper;
     private final KafkaTemplate<String, String> kafkaTemplate;
-    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+
     private final com.fooddelivery.common.client.PaymentServiceClient paymentClient;
     private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
     private final com.fooddelivery.order.service.state.OrderActionService orderActionService;
@@ -136,32 +136,32 @@ public class OrderSagaOrchestrator {
         private String event;
         private PayloadData payload;
 
-        @java.lang.SuppressWarnings("all")
+        
         public WebhookPayloadDTO() {
         }
 
-        @java.lang.SuppressWarnings("all")
+        
         public String getEvent() {
             return this.event;
         }
 
-        @java.lang.SuppressWarnings("all")
+        
         public PayloadData getPayload() {
             return this.payload;
         }
 
-        @java.lang.SuppressWarnings("all")
+        
         public void setEvent(final String event) {
             this.event = event;
         }
 
-        @java.lang.SuppressWarnings("all")
+        
         public void setPayload(final PayloadData payload) {
             this.payload = payload;
         }
 
         @java.lang.Override
-        @java.lang.SuppressWarnings("all")
+        
         public boolean equals(final java.lang.Object o) {
             if (o == this) return true;
             if (!(o instanceof OrderSagaOrchestrator.WebhookPayloadDTO)) return false;
@@ -176,13 +176,13 @@ public class OrderSagaOrchestrator {
             return true;
         }
 
-        @java.lang.SuppressWarnings("all")
+        
         protected boolean canEqual(final java.lang.Object other) {
             return other instanceof OrderSagaOrchestrator.WebhookPayloadDTO;
         }
 
         @java.lang.Override
-        @java.lang.SuppressWarnings("all")
+        
         public int hashCode() {
             final int PRIME = 59;
             int result = 1;
@@ -194,7 +194,7 @@ public class OrderSagaOrchestrator {
         }
 
         @java.lang.Override
-        @java.lang.SuppressWarnings("all")
+        
         public java.lang.String toString() {
             return "OrderSagaOrchestrator.WebhookPayloadDTO(event=" + this.getEvent() + ", payload=" + this.getPayload() + ")";
         }
@@ -229,22 +229,22 @@ public class OrderSagaOrchestrator {
     public static class PayloadData {
         private PaymentData payment;
 
-        @java.lang.SuppressWarnings("all")
+        
         public PayloadData() {
         }
 
-        @java.lang.SuppressWarnings("all")
+        
         public PaymentData getPayment() {
             return this.payment;
         }
 
-        @java.lang.SuppressWarnings("all")
+        
         public void setPayment(final PaymentData payment) {
             this.payment = payment;
         }
 
         @java.lang.Override
-        @java.lang.SuppressWarnings("all")
+        
         public boolean equals(final java.lang.Object o) {
             if (o == this) return true;
             if (!(o instanceof OrderSagaOrchestrator.PayloadData)) return false;
@@ -256,13 +256,13 @@ public class OrderSagaOrchestrator {
             return true;
         }
 
-        @java.lang.SuppressWarnings("all")
+        
         protected boolean canEqual(final java.lang.Object other) {
             return other instanceof OrderSagaOrchestrator.PayloadData;
         }
 
         @java.lang.Override
-        @java.lang.SuppressWarnings("all")
+        
         public int hashCode() {
             final int PRIME = 59;
             int result = 1;
@@ -272,7 +272,7 @@ public class OrderSagaOrchestrator {
         }
 
         @java.lang.Override
-        @java.lang.SuppressWarnings("all")
+        
         public java.lang.String toString() {
             return "OrderSagaOrchestrator.PayloadData(payment=" + this.getPayment() + ")";
         }
@@ -282,22 +282,22 @@ public class OrderSagaOrchestrator {
     public static class PaymentData {
         private PaymentEntity entity;
 
-        @java.lang.SuppressWarnings("all")
+        
         public PaymentData() {
         }
 
-        @java.lang.SuppressWarnings("all")
+        
         public PaymentEntity getEntity() {
             return this.entity;
         }
 
-        @java.lang.SuppressWarnings("all")
+        
         public void setEntity(final PaymentEntity entity) {
             this.entity = entity;
         }
 
         @java.lang.Override
-        @java.lang.SuppressWarnings("all")
+        
         public boolean equals(final java.lang.Object o) {
             if (o == this) return true;
             if (!(o instanceof OrderSagaOrchestrator.PaymentData)) return false;
@@ -309,13 +309,13 @@ public class OrderSagaOrchestrator {
             return true;
         }
 
-        @java.lang.SuppressWarnings("all")
+        
         protected boolean canEqual(final java.lang.Object other) {
             return other instanceof OrderSagaOrchestrator.PaymentData;
         }
 
         @java.lang.Override
-        @java.lang.SuppressWarnings("all")
+        
         public int hashCode() {
             final int PRIME = 59;
             int result = 1;
@@ -325,7 +325,7 @@ public class OrderSagaOrchestrator {
         }
 
         @java.lang.Override
-        @java.lang.SuppressWarnings("all")
+        
         public java.lang.String toString() {
             return "OrderSagaOrchestrator.PaymentData(entity=" + this.getEntity() + ")";
         }
@@ -338,43 +338,43 @@ public class OrderSagaOrchestrator {
         private String status;
         private double amount;
 
-        @java.lang.SuppressWarnings("all")
+        
         public PaymentEntity() {
         }
 
-        @java.lang.SuppressWarnings("all")
+        
         public String getOrderId() {
             return this.orderId;
         }
 
-        @java.lang.SuppressWarnings("all")
+        
         public String getStatus() {
             return this.status;
         }
 
-        @java.lang.SuppressWarnings("all")
+        
         public double getAmount() {
             return this.amount;
         }
 
         @com.fasterxml.jackson.annotation.JsonProperty("order_id")
-        @java.lang.SuppressWarnings("all")
+        
         public void setOrderId(final String orderId) {
             this.orderId = orderId;
         }
 
-        @java.lang.SuppressWarnings("all")
+        
         public void setStatus(final String status) {
             this.status = status;
         }
 
-        @java.lang.SuppressWarnings("all")
+        
         public void setAmount(final double amount) {
             this.amount = amount;
         }
 
         @java.lang.Override
-        @java.lang.SuppressWarnings("all")
+        
         public boolean equals(final java.lang.Object o) {
             if (o == this) return true;
             if (!(o instanceof OrderSagaOrchestrator.PaymentEntity)) return false;
@@ -390,13 +390,13 @@ public class OrderSagaOrchestrator {
             return true;
         }
 
-        @java.lang.SuppressWarnings("all")
+        
         protected boolean canEqual(final java.lang.Object other) {
             return other instanceof OrderSagaOrchestrator.PaymentEntity;
         }
 
         @java.lang.Override
-        @java.lang.SuppressWarnings("all")
+        
         public int hashCode() {
             final int PRIME = 59;
             int result = 1;
@@ -410,7 +410,7 @@ public class OrderSagaOrchestrator {
         }
 
         @java.lang.Override
-        @java.lang.SuppressWarnings("all")
+        
         public java.lang.String toString() {
             return "OrderSagaOrchestrator.PaymentEntity(orderId=" + this.getOrderId() + ", status=" + this.getStatus() + ", amount=" + this.getAmount() + ")";
         }
@@ -433,7 +433,7 @@ public class OrderSagaOrchestrator {
         return status == OrderStatus.HANDED_OVER || status == OrderStatus.CANCELLED || status == OrderStatus.CANCELLED_BY_RESTAURANT;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     private final OrderRefundService orderRefundService;
 
     public OrderSagaOrchestrator(final IOrderRepository orderRepository, final OutboxEventRepository outboxEventRepository, final IPaymentIntentRepository paymentIntentRepository, final ObjectMapper objectMapper, final KafkaTemplate<String, String> kafkaTemplate, final com.fooddelivery.common.client.PaymentServiceClient paymentClient, final org.springframework.transaction.support.TransactionTemplate transactionTemplate, final com.fooddelivery.order.service.state.OrderActionService orderActionService, final StringRedisTemplate redisTemplate, final OrderRefundService orderRefundService) {

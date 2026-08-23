@@ -20,7 +20,7 @@ import jakarta.validation.Valid;
 @PreAuthorize("hasRole(\'CUSTOMER\') and #customerId.toString() == authentication.principal")
 @lombok.extern.slf4j.Slf4j
 public class CustomerAddressController {
-    @java.lang.SuppressWarnings("all")
+    
 
     private final CustomerAddressRepository addressRepository;
     private final ICustomerRepository customerRepository;
@@ -63,7 +63,7 @@ public class CustomerAddressController {
         return CustomerAddressDto.builder().id(entity.getId()).customerId(entity.getCustomerId()).label(entity.getLabel()).addressLine1(entity.getAddressLine1()).addressLine2(entity.getAddressLine2()).city(entity.getCity()).state(entity.getState()).zipCode(entity.getZipCode()).latitude(entity.getLatitude()).longitude(entity.getLongitude()).isDefault(entity.getIsDefault()).build();
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public CustomerAddressController(final CustomerAddressRepository addressRepository, final ICustomerRepository customerRepository) {
         this.addressRepository = addressRepository;
         this.customerRepository = customerRepository;

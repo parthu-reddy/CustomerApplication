@@ -15,7 +15,7 @@ public class MenuItemsUnavailableException extends RuntimeException {
         this.unavailableItemIds = unavailableItemIds;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public List<UUID> getUnavailableItemIds() {
         return this.unavailableItemIds;
     }

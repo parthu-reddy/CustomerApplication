@@ -46,23 +46,23 @@ public class OrderResponse {
     private BigDecimal distanceKm;
 
 
-    @java.lang.SuppressWarnings("all")
+    
     public static class OrderResponseBuilder {
-        @java.lang.SuppressWarnings("all")
+        
         private UUID id;
-        @java.lang.SuppressWarnings("all")
+        
         private UUID customerId;
-        @java.lang.SuppressWarnings("all")
+        
         private UUID restaurantId;
-        @java.lang.SuppressWarnings("all")
+        
         private String restaurantName;
-        @java.lang.SuppressWarnings("all")
+        
         private OrderStatus status;
-        @java.lang.SuppressWarnings("all")
+        
         private com.fooddelivery.common.enums.DeliveryStatus deliveryStatus;
-        @java.lang.SuppressWarnings("all")
+        
         private BigDecimal totalAmount;
-        @java.lang.SuppressWarnings("all")
+        
         private BigDecimal itemTotal;
         private BigDecimal foodCost;
         private BigDecimal customerPlatformFee;
@@ -70,57 +70,57 @@ public class OrderResponse {
         private BigDecimal platformBonus;
         private BigDecimal restaurantDeliveryContribution;
         private BigDecimal restaurantPayout;
-        @java.lang.SuppressWarnings("all")
+        
         private BigDecimal sgst;
-        @java.lang.SuppressWarnings("all")
+        
         private BigDecimal cgst;
-        @java.lang.SuppressWarnings("all")
+        
         private BigDecimal deliveryFee;
 
-        @java.lang.SuppressWarnings("all")
+        
         private BigDecimal driverGrossPayout;
-        @java.lang.SuppressWarnings("all")
+        
         private BigDecimal driverTaxes;
-        @java.lang.SuppressWarnings("all")
+        
         private BigDecimal driverNetPayout;
 
-        @java.lang.SuppressWarnings("all")
+        
         private String deliveryAddress;
-        @java.lang.SuppressWarnings("all")
+        
         private Double deliveryLat;
-        @java.lang.SuppressWarnings("all")
+        
         private Double deliveryLng;
-        @java.lang.SuppressWarnings("all")
+        
         private List<OrderItemResponse> items;
-        @java.lang.SuppressWarnings("all")
+        
         private LocalDateTime createdAt;
-        @java.lang.SuppressWarnings("all")
+        
         private LocalDateTime updatedAt;
-        @java.lang.SuppressWarnings("all")
+        
         private UUID riderId;
-        @java.lang.SuppressWarnings("all")
+        
         private String paymentIntent;
-        @java.lang.SuppressWarnings("all")
+        
         private String pickupOtp;
-        @java.lang.SuppressWarnings("all")
+        
         private String otp;
-        @java.lang.SuppressWarnings("all")
+        
         private Long estimatedCompletionTime;
-        @java.lang.SuppressWarnings("all")
+        
         private Long expiresAt;
-        @java.lang.SuppressWarnings("all")
+        
         private Long remainingPingSeconds;
-        @java.lang.SuppressWarnings("all")
+        
         private BigDecimal distanceKm;
 
-        @java.lang.SuppressWarnings("all")
+        
         OrderResponseBuilder() {
         }
 
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public OrderResponse.OrderResponseBuilder id(final UUID id) {
             this.id = id;
             return this;
@@ -129,7 +129,7 @@ public class OrderResponse {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public OrderResponse.OrderResponseBuilder customerId(final UUID customerId) {
             this.customerId = customerId;
             return this;
@@ -138,7 +138,7 @@ public class OrderResponse {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public OrderResponse.OrderResponseBuilder restaurantId(final UUID restaurantId) {
             this.restaurantId = restaurantId;
             return this;
@@ -147,7 +147,7 @@ public class OrderResponse {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public OrderResponse.OrderResponseBuilder restaurantName(final String restaurantName) {
             this.restaurantName = restaurantName;
             return this;
@@ -156,7 +156,7 @@ public class OrderResponse {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public OrderResponse.OrderResponseBuilder status(final OrderStatus status) {
             this.status = status;
             return this;
@@ -165,7 +165,7 @@ public class OrderResponse {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public OrderResponse.OrderResponseBuilder deliveryStatus(final com.fooddelivery.common.enums.DeliveryStatus deliveryStatus) {
             this.deliveryStatus = deliveryStatus;
             return this;
@@ -174,7 +174,7 @@ public class OrderResponse {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public OrderResponse.OrderResponseBuilder totalAmount(final BigDecimal totalAmount) {
             this.totalAmount = totalAmount;
             return this;
@@ -183,7 +183,7 @@ public class OrderResponse {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
 
         public OrderResponse.OrderResponseBuilder foodCost(final BigDecimal foodCost) {
             this.foodCost = foodCost;
@@ -222,7 +222,7 @@ public class OrderResponse {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public OrderResponse.OrderResponseBuilder sgst(final BigDecimal sgst) {
             this.sgst = sgst;
             return this;
@@ -231,7 +231,7 @@ public class OrderResponse {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public OrderResponse.OrderResponseBuilder cgst(final BigDecimal cgst) {
             this.cgst = cgst;
             return this;
@@ -240,19 +240,19 @@ public class OrderResponse {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
 public OrderResponse.OrderResponseBuilder driverGrossPayout(final BigDecimal driverGrossPayout) {
             this.driverGrossPayout = driverGrossPayout;
             return this;
         }
 
-        @java.lang.SuppressWarnings("all")
+        
         public OrderResponse.OrderResponseBuilder driverTaxes(final BigDecimal driverTaxes) {
             this.driverTaxes = driverTaxes;
             return this;
         }
 
-        @java.lang.SuppressWarnings("all")
+        
         public OrderResponse.OrderResponseBuilder driverNetPayout(final BigDecimal driverNetPayout) {
             this.driverNetPayout = driverNetPayout;
             return this;
@@ -270,7 +270,7 @@ public OrderResponse.OrderResponseBuilder driverGrossPayout(final BigDecimal dri
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public OrderResponse.OrderResponseBuilder deliveryAddress(final String deliveryAddress) {
             this.deliveryAddress = deliveryAddress;
             return this;
@@ -279,7 +279,7 @@ public OrderResponse.OrderResponseBuilder driverGrossPayout(final BigDecimal dri
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public OrderResponse.OrderResponseBuilder deliveryLat(final Double deliveryLat) {
             this.deliveryLat = deliveryLat;
             return this;
@@ -288,7 +288,7 @@ public OrderResponse.OrderResponseBuilder driverGrossPayout(final BigDecimal dri
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public OrderResponse.OrderResponseBuilder deliveryLng(final Double deliveryLng) {
             this.deliveryLng = deliveryLng;
             return this;
@@ -297,7 +297,7 @@ public OrderResponse.OrderResponseBuilder driverGrossPayout(final BigDecimal dri
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public OrderResponse.OrderResponseBuilder items(final List<OrderItemResponse> items) {
             this.items = items;
             return this;
@@ -306,7 +306,7 @@ public OrderResponse.OrderResponseBuilder driverGrossPayout(final BigDecimal dri
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public OrderResponse.OrderResponseBuilder createdAt(final LocalDateTime createdAt) {
             this.createdAt = createdAt;
             return this;
@@ -315,7 +315,7 @@ public OrderResponse.OrderResponseBuilder driverGrossPayout(final BigDecimal dri
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public OrderResponse.OrderResponseBuilder updatedAt(final LocalDateTime updatedAt) {
             this.updatedAt = updatedAt;
             return this;
@@ -324,7 +324,7 @@ public OrderResponse.OrderResponseBuilder driverGrossPayout(final BigDecimal dri
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public OrderResponse.OrderResponseBuilder riderId(final UUID riderId) {
             this.riderId = riderId;
             return this;
@@ -333,7 +333,7 @@ public OrderResponse.OrderResponseBuilder driverGrossPayout(final BigDecimal dri
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public OrderResponse.OrderResponseBuilder paymentIntent(final String paymentIntent) {
             this.paymentIntent = paymentIntent;
             return this;
@@ -342,7 +342,7 @@ public OrderResponse.OrderResponseBuilder driverGrossPayout(final BigDecimal dri
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public OrderResponse.OrderResponseBuilder pickupOtp(final String pickupOtp) {
             this.pickupOtp = pickupOtp;
             return this;
@@ -351,7 +351,7 @@ public OrderResponse.OrderResponseBuilder driverGrossPayout(final BigDecimal dri
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public OrderResponse.OrderResponseBuilder otp(final String otp) {
             this.otp = otp;
             return this;
@@ -360,7 +360,7 @@ public OrderResponse.OrderResponseBuilder driverGrossPayout(final BigDecimal dri
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public OrderResponse.OrderResponseBuilder estimatedCompletionTime(final Long estimatedCompletionTime) {
             this.estimatedCompletionTime = estimatedCompletionTime;
             return this;
@@ -370,7 +370,7 @@ public OrderResponse.OrderResponseBuilder driverGrossPayout(final BigDecimal dri
          * @return {@code this}.
          */
         @com.fasterxml.jackson.annotation.JsonProperty("expiresAt")
-        @java.lang.SuppressWarnings("all")
+        
         public OrderResponse.OrderResponseBuilder expiresAt(final Long expiresAt) {
             this.expiresAt = expiresAt;
             return this;
@@ -379,7 +379,7 @@ public OrderResponse.OrderResponseBuilder driverGrossPayout(final BigDecimal dri
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public OrderResponse.OrderResponseBuilder remainingPingSeconds(final Long remainingPingSeconds) {
             this.remainingPingSeconds = remainingPingSeconds;
             return this;
@@ -388,65 +388,65 @@ public OrderResponse.OrderResponseBuilder driverGrossPayout(final BigDecimal dri
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public OrderResponse.OrderResponseBuilder distanceKm(final BigDecimal distanceKm) {
             this.distanceKm = distanceKm;
             return this;
         }
 
-        @java.lang.SuppressWarnings("all")
+        
         public OrderResponse build() {
             return new OrderResponse(this.id, this.customerId, this.restaurantId, this.restaurantName, this.status, this.deliveryStatus, this.totalAmount, this.itemTotal, this.foodCost, this.customerPlatformFee, this.restaurantPlatformFee, this.platformBonus, this.restaurantDeliveryContribution, this.restaurantPayout, this.sgst, this.cgst, this.deliveryFee, this.driverGrossPayout, this.driverTaxes, this.driverNetPayout, this.deliveryAddress, this.deliveryLat, this.deliveryLng, this.items, this.createdAt, this.updatedAt, this.riderId, this.paymentIntent, this.pickupOtp, this.otp, this.estimatedCompletionTime, this.expiresAt, this.remainingPingSeconds, this.distanceKm);
         }
 
         @java.lang.Override
-        @java.lang.SuppressWarnings("all")
+        
         public java.lang.String toString() {
             return "OrderResponse.OrderResponseBuilder(id=" + this.id + ", customerId=" + this.customerId + ", restaurantId=" + this.restaurantId + ", restaurantName=" + this.restaurantName + ", status=" + this.status + ", deliveryStatus=" + this.deliveryStatus + ", totalAmount=" + this.totalAmount + ", itemTotal=" + this.itemTotal + ", sgst=" + this.sgst + ", cgst=" + this.cgst + ", deliveryFee=" + this.deliveryFee + ", deliveryAddress=" + this.deliveryAddress + ", deliveryLat=" + this.deliveryLat + ", deliveryLng=" + this.deliveryLng + ", items=" + this.items + ", createdAt=" + this.createdAt + ", updatedAt=" + this.updatedAt + ", riderId=" + this.riderId + ", paymentIntent=" + this.paymentIntent + ", pickupOtp=" + this.pickupOtp + ", otp=" + this.otp + ", estimatedCompletionTime=" + this.estimatedCompletionTime + ", expiresAt=" + this.expiresAt + ", remainingPingSeconds=" + this.remainingPingSeconds + ", distanceKm=" + this.distanceKm + ")";
         }
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public static OrderResponse.OrderResponseBuilder builder() {
         return new OrderResponse.OrderResponseBuilder();
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public UUID getId() {
         return this.id;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public UUID getCustomerId() {
         return this.customerId;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public UUID getRestaurantId() {
         return this.restaurantId;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public String getRestaurantName() {
         return this.restaurantName;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public OrderStatus getStatus() {
         return this.status;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public com.fooddelivery.common.enums.DeliveryStatus getDeliveryStatus() {
         return this.deliveryStatus;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public BigDecimal getTotalAmount() {
         return this.totalAmount;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
 
     public BigDecimal getFoodCost() {
         return this.foodCost;
@@ -491,42 +491,42 @@ public OrderResponse.OrderResponseBuilder driverGrossPayout(final BigDecimal dri
         return this.itemTotal;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public BigDecimal getSgst() {
         return this.sgst;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public BigDecimal getCgst() {
         return this.cgst;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
 public BigDecimal getDriverGrossPayout() {
         return this.driverGrossPayout;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setDriverGrossPayout(final BigDecimal driverGrossPayout) {
         this.driverGrossPayout = driverGrossPayout;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public BigDecimal getDriverTaxes() {
         return this.driverTaxes;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setDriverTaxes(final BigDecimal driverTaxes) {
         this.driverTaxes = driverTaxes;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public BigDecimal getDriverNetPayout() {
         return this.driverNetPayout;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setDriverNetPayout(final BigDecimal driverNetPayout) {
         this.driverNetPayout = driverNetPayout;
     }
@@ -535,112 +535,112 @@ public BigDecimal getDriverGrossPayout() {
         return this.deliveryFee;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public String getDeliveryAddress() {
         return this.deliveryAddress;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public Double getDeliveryLat() {
         return this.deliveryLat;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public Double getDeliveryLng() {
         return this.deliveryLng;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public List<OrderItemResponse> getItems() {
         return this.items;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public LocalDateTime getCreatedAt() {
         return this.createdAt;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public LocalDateTime getUpdatedAt() {
         return this.updatedAt;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public UUID getRiderId() {
         return this.riderId;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public String getPaymentIntent() {
         return this.paymentIntent;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public String getPickupOtp() {
         return this.pickupOtp;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public String getOtp() {
         return this.otp;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public Long getEstimatedCompletionTime() {
         return this.estimatedCompletionTime;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public Long getExpiresAt() {
         return this.expiresAt;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public Long getRemainingPingSeconds() {
         return this.remainingPingSeconds;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public BigDecimal getDistanceKm() {
         return this.distanceKm;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setId(final UUID id) {
         this.id = id;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setCustomerId(final UUID customerId) {
         this.customerId = customerId;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setRestaurantId(final UUID restaurantId) {
         this.restaurantId = restaurantId;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setRestaurantName(final String restaurantName) {
         this.restaurantName = restaurantName;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setStatus(final OrderStatus status) {
         this.status = status;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setDeliveryStatus(final com.fooddelivery.common.enums.DeliveryStatus deliveryStatus) {
         this.deliveryStatus = deliveryStatus;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setTotalAmount(final BigDecimal totalAmount) {
         this.totalAmount = totalAmount;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setItemTotal(final BigDecimal itemTotal) {
         this.itemTotal = itemTotal;
     }
@@ -649,17 +649,17 @@ public BigDecimal getDriverGrossPayout() {
         this.foodCost = foodCost;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setSgst(final BigDecimal sgst) {
         this.sgst = sgst;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setCgst(final BigDecimal cgst) {
         this.cgst = cgst;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setDeliveryFee(final BigDecimal deliveryFee) {
         this.deliveryFee = deliveryFee;
         this.driverGrossPayout = driverGrossPayout;
@@ -668,79 +668,79 @@ public BigDecimal getDriverGrossPayout() {
 
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setDeliveryAddress(final String deliveryAddress) {
         this.deliveryAddress = deliveryAddress;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setDeliveryLat(final Double deliveryLat) {
         this.deliveryLat = deliveryLat;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setDeliveryLng(final Double deliveryLng) {
         this.deliveryLng = deliveryLng;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setItems(final List<OrderItemResponse> items) {
         this.items = items;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setCreatedAt(final LocalDateTime createdAt) {
         this.createdAt = createdAt;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setUpdatedAt(final LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setRiderId(final UUID riderId) {
         this.riderId = riderId;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setPaymentIntent(final String paymentIntent) {
         this.paymentIntent = paymentIntent;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setPickupOtp(final String pickupOtp) {
         this.pickupOtp = pickupOtp;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setOtp(final String otp) {
         this.otp = otp;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setEstimatedCompletionTime(final Long estimatedCompletionTime) {
         this.estimatedCompletionTime = estimatedCompletionTime;
     }
 
     @com.fasterxml.jackson.annotation.JsonProperty("expiresAt")
-    @java.lang.SuppressWarnings("all")
+    
     public void setExpiresAt(final Long expiresAt) {
         this.expiresAt = expiresAt;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setRemainingPingSeconds(final Long remainingPingSeconds) {
         this.remainingPingSeconds = remainingPingSeconds;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setDistanceKm(final BigDecimal distanceKm) {
         this.distanceKm = distanceKm;
     }
 
     @java.lang.Override
-    @java.lang.SuppressWarnings("all")
+    
     public boolean equals(final java.lang.Object o) {
         if (o == this) return true;
         if (!(o instanceof OrderResponse)) return false;
@@ -824,13 +824,13 @@ public BigDecimal getDriverGrossPayout() {
         return true;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     protected boolean canEqual(final java.lang.Object other) {
         return other instanceof OrderResponse;
     }
 
     @java.lang.Override
-    @java.lang.SuppressWarnings("all")
+    
     public int hashCode() {
         final int PRIME = 59;
         int result = 1;
@@ -888,16 +888,16 @@ public BigDecimal getDriverGrossPayout() {
     }
 
     @java.lang.Override
-    @java.lang.SuppressWarnings("all")
+    
     public java.lang.String toString() {
         return "OrderResponse(id=" + this.getId() + ", customerId=" + this.getCustomerId() + ", restaurantId=" + this.getRestaurantId() + ", restaurantName=" + this.getRestaurantName() + ", status=" + this.getStatus() + ", deliveryStatus=" + this.getDeliveryStatus() + ", totalAmount=" + this.getTotalAmount() + ", itemTotal=" + this.getItemTotal() + ", sgst=" + this.getSgst() + ", cgst=" + this.getCgst() + ", deliveryFee=" + this.getDeliveryFee() + ", deliveryAddress=" + this.getDeliveryAddress() + ", deliveryLat=" + this.getDeliveryLat() + ", deliveryLng=" + this.getDeliveryLng() + ", items=" + this.getItems() + ", createdAt=" + this.getCreatedAt() + ", updatedAt=" + this.getUpdatedAt() + ", riderId=" + this.getRiderId() + ", paymentIntent=" + this.getPaymentIntent() + ", pickupOtp=" + this.getPickupOtp() + ", otp=" + this.getOtp() + ", estimatedCompletionTime=" + this.getEstimatedCompletionTime() + ", expiresAt=" + this.getExpiresAt() + ", remainingPingSeconds=" + this.getRemainingPingSeconds() + ", distanceKm=" + this.getDistanceKm() + ")";
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public OrderResponse() {
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public OrderResponse(final UUID id, final UUID customerId, final UUID restaurantId, final String restaurantName, final OrderStatus status, final com.fooddelivery.common.enums.DeliveryStatus deliveryStatus, final BigDecimal totalAmount, final BigDecimal itemTotal, final BigDecimal foodCost, final BigDecimal customerPlatformFee, final BigDecimal restaurantPlatformFee, final BigDecimal platformBonus, final BigDecimal restaurantDeliveryContribution, final BigDecimal restaurantPayout, final BigDecimal sgst, final BigDecimal cgst, final BigDecimal deliveryFee, final BigDecimal driverGrossPayout, final BigDecimal driverTaxes, final BigDecimal driverNetPayout, final String deliveryAddress, final Double deliveryLat, final Double deliveryLng, final List<OrderItemResponse> items, final LocalDateTime createdAt, final LocalDateTime updatedAt, final UUID riderId, final String paymentIntent, final String pickupOtp, final String otp, final Long estimatedCompletionTime, final Long expiresAt, final Long remainingPingSeconds, final BigDecimal distanceKm) {
         this.id = id;
         this.customerId = customerId;

@@ -15,7 +15,7 @@ public class CustomerAddressDto {
     private Double longitude;
     private Boolean isDefault;
 
-    @java.lang.SuppressWarnings("all")
+    
     CustomerAddressDto(final UUID id, final UUID customerId, final String label, final String addressLine1, final String addressLine2, final String city, final String state, final String zipCode, final Double latitude, final Double longitude, final Boolean isDefault) {
         this.id = id;
         this.customerId = customerId;
@@ -31,39 +31,39 @@ public class CustomerAddressDto {
     }
 
 
-    @java.lang.SuppressWarnings("all")
+    
     public static class CustomerAddressDtoBuilder {
-        @java.lang.SuppressWarnings("all")
+        
         private UUID id;
-        @java.lang.SuppressWarnings("all")
+        
         private UUID customerId;
-        @java.lang.SuppressWarnings("all")
+        
         private String label;
-        @java.lang.SuppressWarnings("all")
+        
         private String addressLine1;
-        @java.lang.SuppressWarnings("all")
+        
         private String addressLine2;
-        @java.lang.SuppressWarnings("all")
+        
         private String city;
-        @java.lang.SuppressWarnings("all")
+        
         private String state;
-        @java.lang.SuppressWarnings("all")
+        
         private String zipCode;
-        @java.lang.SuppressWarnings("all")
+        
         private Double latitude;
-        @java.lang.SuppressWarnings("all")
+        
         private Double longitude;
-        @java.lang.SuppressWarnings("all")
+        
         private Boolean isDefault;
 
-        @java.lang.SuppressWarnings("all")
+        
         CustomerAddressDtoBuilder() {
         }
 
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public CustomerAddressDto.CustomerAddressDtoBuilder id(final UUID id) {
             this.id = id;
             return this;
@@ -72,7 +72,7 @@ public class CustomerAddressDto {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public CustomerAddressDto.CustomerAddressDtoBuilder customerId(final UUID customerId) {
             this.customerId = customerId;
             return this;
@@ -81,7 +81,7 @@ public class CustomerAddressDto {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public CustomerAddressDto.CustomerAddressDtoBuilder label(final String label) {
             this.label = label;
             return this;
@@ -90,7 +90,7 @@ public class CustomerAddressDto {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public CustomerAddressDto.CustomerAddressDtoBuilder addressLine1(final String addressLine1) {
             this.addressLine1 = addressLine1;
             return this;
@@ -99,7 +99,7 @@ public class CustomerAddressDto {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public CustomerAddressDto.CustomerAddressDtoBuilder addressLine2(final String addressLine2) {
             this.addressLine2 = addressLine2;
             return this;
@@ -108,7 +108,7 @@ public class CustomerAddressDto {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public CustomerAddressDto.CustomerAddressDtoBuilder city(final String city) {
             this.city = city;
             return this;
@@ -117,7 +117,7 @@ public class CustomerAddressDto {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public CustomerAddressDto.CustomerAddressDtoBuilder state(final String state) {
             this.state = state;
             return this;
@@ -126,7 +126,7 @@ public class CustomerAddressDto {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public CustomerAddressDto.CustomerAddressDtoBuilder zipCode(final String zipCode) {
             this.zipCode = zipCode;
             return this;
@@ -135,7 +135,7 @@ public class CustomerAddressDto {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public CustomerAddressDto.CustomerAddressDtoBuilder latitude(final Double latitude) {
             this.latitude = latitude;
             return this;
@@ -144,7 +144,7 @@ public class CustomerAddressDto {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public CustomerAddressDto.CustomerAddressDtoBuilder longitude(final Double longitude) {
             this.longitude = longitude;
             return this;
@@ -153,141 +153,141 @@ public class CustomerAddressDto {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public CustomerAddressDto.CustomerAddressDtoBuilder isDefault(final Boolean isDefault) {
             this.isDefault = isDefault;
             return this;
         }
 
-        @java.lang.SuppressWarnings("all")
+        
         public CustomerAddressDto build() {
             return new CustomerAddressDto(this.id, this.customerId, this.label, this.addressLine1, this.addressLine2, this.city, this.state, this.zipCode, this.latitude, this.longitude, this.isDefault);
         }
 
         @java.lang.Override
-        @java.lang.SuppressWarnings("all")
+        
         public java.lang.String toString() {
             return "CustomerAddressDto.CustomerAddressDtoBuilder(id=" + this.id + ", customerId=" + this.customerId + ", label=" + this.label + ", addressLine1=" + this.addressLine1 + ", addressLine2=" + this.addressLine2 + ", city=" + this.city + ", state=" + this.state + ", zipCode=" + this.zipCode + ", latitude=" + this.latitude + ", longitude=" + this.longitude + ", isDefault=" + this.isDefault + ")";
         }
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public static CustomerAddressDto.CustomerAddressDtoBuilder builder() {
         return new CustomerAddressDto.CustomerAddressDtoBuilder();
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public UUID getId() {
         return this.id;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public UUID getCustomerId() {
         return this.customerId;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public String getLabel() {
         return this.label;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public String getAddressLine1() {
         return this.addressLine1;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public String getAddressLine2() {
         return this.addressLine2;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public String getCity() {
         return this.city;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public String getState() {
         return this.state;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public String getZipCode() {
         return this.zipCode;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public Double getLatitude() {
         return this.latitude;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public Double getLongitude() {
         return this.longitude;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public Boolean getIsDefault() {
         return this.isDefault;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setId(final UUID id) {
         this.id = id;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setCustomerId(final UUID customerId) {
         this.customerId = customerId;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setLabel(final String label) {
         this.label = label;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setAddressLine1(final String addressLine1) {
         this.addressLine1 = addressLine1;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setAddressLine2(final String addressLine2) {
         this.addressLine2 = addressLine2;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setCity(final String city) {
         this.city = city;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setState(final String state) {
         this.state = state;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setZipCode(final String zipCode) {
         this.zipCode = zipCode;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setLatitude(final Double latitude) {
         this.latitude = latitude;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setLongitude(final Double longitude) {
         this.longitude = longitude;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setIsDefault(final Boolean isDefault) {
         this.isDefault = isDefault;
     }
 
     @java.lang.Override
-    @java.lang.SuppressWarnings("all")
+    
     public boolean equals(final java.lang.Object o) {
         if (o == this) return true;
         if (!(o instanceof CustomerAddressDto)) return false;
@@ -329,13 +329,13 @@ public class CustomerAddressDto {
         return true;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     protected boolean canEqual(final java.lang.Object other) {
         return other instanceof CustomerAddressDto;
     }
 
     @java.lang.Override
-    @java.lang.SuppressWarnings("all")
+    
     public int hashCode() {
         final int PRIME = 59;
         int result = 1;
@@ -365,7 +365,7 @@ public class CustomerAddressDto {
     }
 
     @java.lang.Override
-    @java.lang.SuppressWarnings("all")
+    
     public java.lang.String toString() {
         return "CustomerAddressDto(id=" + this.getId() + ", customerId=" + this.getCustomerId() + ", label=" + this.getLabel() + ", addressLine1=" + this.getAddressLine1() + ", addressLine2=" + this.getAddressLine2() + ", city=" + this.getCity() + ", state=" + this.getState() + ", zipCode=" + this.getZipCode() + ", latitude=" + this.getLatitude() + ", longitude=" + this.getLongitude() + ", isDefault=" + this.getIsDefault() + ")";
     }

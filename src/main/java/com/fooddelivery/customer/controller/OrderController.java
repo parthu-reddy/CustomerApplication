@@ -24,13 +24,23 @@ import jakarta.validation.Valid;
 @PreAuthorize("hasRole(\'CUSTOMER\')")
 @lombok.extern.slf4j.Slf4j
 public class OrderController {
-    @java.lang.SuppressWarnings("all")
+    
 
     private final CustomerOrderService customerOrderService;
+    private final com.fooddelivery.common.service.RateLimitingService rateLimitingService;
+
+    private boolean isRateLimited(String clientKey) {
+        if (clientKey == null || clientKey.isBlank() || clientKey.equals("unknown")) return true;
+        io.github.bucket4j.Bucket bucket = rateLimitingService.resolveBucket("order:" + clientKey, 100, 100, java.time.Duration.ofSeconds(10));
+        return !bucket.tryConsume(1);
+    }
 
     @PostMapping("/quote")
     public java.util.concurrent.CompletableFuture<ResponseEntity<ApiResponse<com.fooddelivery.customer.dto.QuoteResponse>>> quoteOrder(java.security.Principal principal, @Valid @RequestBody com.fooddelivery.customer.dto.QuoteRequest request) {
         java.util.UUID customerId = java.util.UUID.fromString(principal.getName());
+        if (isRateLimited(customerId.toString())) {
+            return java.util.concurrent.CompletableFuture.completedFuture(ResponseEntity.status(org.springframework.http.HttpStatus.TOO_MANY_REQUESTS).build());
+        }
         return customerOrderService.calculateOrderQuote(customerId, request).thenApply(response -> {
             return ResponseEntity.ok(ApiResponse.success(response, "Quote generated successfully."));
         }).exceptionally(ex -> {
@@ -45,9 +55,12 @@ public class OrderController {
     @PostMapping
     public java.util.concurrent.CompletableFuture<ResponseEntity<ApiResponse<OrderResponse>>> createOrder(java.security.Principal principal, @Valid @RequestBody OrderRequest request) {
         java.util.UUID customerId = java.util.UUID.fromString(principal.getName());
+        if (isRateLimited(customerId.toString())) {
+            return java.util.concurrent.CompletableFuture.completedFuture(ResponseEntity.status(org.springframework.http.HttpStatus.TOO_MANY_REQUESTS).build());
+        }
         request.setCustomerId(customerId); // ensure customerId is set from principal
         return customerOrderService.createOrderWithPayment(request).thenApply(result -> {
-            OrderResponse response = mapToResponse(result.order());
+            OrderResponse response = com.fooddelivery.customer.mapper.OrderMapper.mapToResponse(result.order());
             response.setPaymentIntent(result.paymentIntent());
             return ResponseEntity.ok(ApiResponse.success(response, "Order created successfully. Please complete payment."));
         }).exceptionally(ex -> {
@@ -79,7 +92,7 @@ public class OrderController {
         java.util.UUID customerId = java.util.UUID.fromString(principal.getName());
         org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
         org.springframework.data.domain.Page<Order> orders = customerOrderService.getActiveOrdersPaginated(customerId, pageable);
-        org.springframework.data.domain.Page<OrderResponse> responses = orders.map(this::mapToResponse);
+        org.springframework.data.domain.Page<OrderResponse> responses = orders.map(com.fooddelivery.customer.mapper.OrderMapper::mapToResponse);
         return ResponseEntity.ok(ApiResponse.success(responses, "Active orders retrieved"));
     }
 
@@ -89,7 +102,7 @@ public class OrderController {
         java.util.UUID customerId = java.util.UUID.fromString(principal.getName());
         org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
         org.springframework.data.domain.Page<Order> orders = customerOrderService.getRefundOrdersPaginated(customerId, pageable);
-        org.springframework.data.domain.Page<OrderResponse> responses = orders.map(this::mapToResponse);
+        org.springframework.data.domain.Page<OrderResponse> responses = orders.map(com.fooddelivery.customer.mapper.OrderMapper::mapToResponse);
         return ResponseEntity.ok(ApiResponse.success(responses, "Refund orders retrieved"));
     }
 
@@ -99,7 +112,7 @@ public class OrderController {
         java.util.UUID customerId = java.util.UUID.fromString(principal.getName());
         org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
         org.springframework.data.domain.Page<Order> orders = customerOrderService.getOrderHistoryPaginated(customerId, pageable);
-        org.springframework.data.domain.Page<OrderResponse> responses = orders.map(this::mapToResponse);
+        org.springframework.data.domain.Page<OrderResponse> responses = orders.map(com.fooddelivery.customer.mapper.OrderMapper::mapToResponse);
         return ResponseEntity.ok(ApiResponse.success(responses, "Order history retrieved"));
     }
 
@@ -108,7 +121,7 @@ public class OrderController {
     public ResponseEntity<ApiResponse<List<OrderResponse>>> getOrdersBatch(java.security.Principal principal, @org.springframework.web.bind.annotation.RequestParam List<java.util.UUID> ids) {
         java.util.UUID customerId = java.util.UUID.fromString(principal.getName());
         List<Order> orders = customerOrderService.getOrdersByIdsAndCustomer(ids, customerId);
-        List<OrderResponse> responses = orders.stream().map(this::mapToResponse).collect(Collectors.toList());
+        List<OrderResponse> responses = orders.stream().map(com.fooddelivery.customer.mapper.OrderMapper::mapToResponse).collect(Collectors.toList());
         return ResponseEntity.ok(ApiResponse.success(responses, "Batch orders retrieved"));
     }
 
@@ -117,62 +130,12 @@ public class OrderController {
     public ResponseEntity<ApiResponse<OrderResponse>> getOrder(java.security.Principal principal, @org.springframework.web.bind.annotation.PathVariable java.util.UUID orderId) {
         java.util.UUID customerId = java.util.UUID.fromString(principal.getName());
         Order order = customerOrderService.getOrderByIdAndCustomer(orderId, customerId);
-        return ResponseEntity.ok(ApiResponse.success(mapToResponse(order), "Order retrieved"));
+        return ResponseEntity.ok(ApiResponse.success(com.fooddelivery.customer.mapper.OrderMapper.mapToResponse(order), "Order retrieved"));
     }
 
-    public OrderResponse mapToResponse(Order order) {
-        List<OrderItemResponse> itemResponses = order.getOrderItems().stream().map(item -> OrderItemResponse.builder().id(item.getId()).menuItemId(item.getMenuItemId()).name(item.getName()).quantity(item.getQuantity()).price(item.getPrice()).build()).collect(Collectors.toList());
-        BigDecimal calculatedItemTotal = itemResponses.stream().map(item -> item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity()))).reduce(BigDecimal.ZERO, BigDecimal::add);
-        // Directly map denormalized metrics from the Order entity
-        BigDecimal itemTotal = order.getItemTotal() != null ? order.getItemTotal() : calculatedItemTotal;
-        BigDecimal sgst = order.getSgst() != null ? order.getSgst() : BigDecimal.ZERO;
-        BigDecimal cgst = order.getCgst() != null ? order.getCgst() : BigDecimal.ZERO;
-        BigDecimal deliveryFee = order.getDeliveryFee() != null ? order.getDeliveryFee() : BigDecimal.ZERO;
-        BigDecimal customerPlatformFee = order.getCustomerPlatformFee() != null ? order.getCustomerPlatformFee() : BigDecimal.ZERO;
-        BigDecimal restaurantPlatformFee = order.getRestaurantPlatformFee() != null ? order.getRestaurantPlatformFee() : BigDecimal.ZERO;
-        BigDecimal platformBonus = order.getPlatformBonus() != null ? order.getPlatformBonus() : BigDecimal.ZERO;
-        BigDecimal restaurantDeliveryContribution = order.getRestaurantDeliveryContribution() != null ? order.getRestaurantDeliveryContribution() : BigDecimal.ZERO;
-        BigDecimal restaurantPayout = order.getRestaurantPayout() != null ? order.getRestaurantPayout() : BigDecimal.ZERO;
-        BigDecimal driverGrossPayout = order.getDriverGrossPayout() != null ? order.getDriverGrossPayout() : BigDecimal.ZERO;
-        BigDecimal driverTaxes = order.getDriverTaxes() != null ? order.getDriverTaxes() : BigDecimal.ZERO;
-        BigDecimal driverNetPayout = order.getDriverNetPayout() != null ? order.getDriverNetPayout() : BigDecimal.ZERO;
-
-        return OrderResponse.builder()
-            .id(order.getId())
-            .customerId(order.getCustomerId())
-            .restaurantId(order.getRestaurantId())
-            .restaurantName(order.getRestaurantName())
-            .status(order.getStatus())
-            .deliveryStatus(order.getDeliveryStatus())
-            .totalAmount(order.getTotalAmount())
-            .itemTotal(itemTotal)
-            .foodCost(calculatedItemTotal)
-            .customerPlatformFee(customerPlatformFee)
-            .restaurantPlatformFee(restaurantPlatformFee)
-            .platformBonus(platformBonus)
-            .restaurantDeliveryContribution(restaurantDeliveryContribution)
-            .restaurantPayout(restaurantPayout)
-            .sgst(sgst)
-            .cgst(cgst)
-            .deliveryFee(deliveryFee)
-            .driverGrossPayout(driverGrossPayout)
-            .driverTaxes(driverTaxes)
-            .driverNetPayout(driverNetPayout)
-            .deliveryAddress(order.getDeliveryAddress())
-            .deliveryLat(order.getDeliveryLat())
-            .deliveryLng(order.getDeliveryLng())
-            .distanceKm(order.getDistanceKm())
-            .items(itemResponses)
-            .createdAt(order.getCreatedAt())
-            .updatedAt(order.getUpdatedAt())
-            .otp(order.getOtp())
-            .pickupOtp(order.getPickupOtp())
-            .estimatedCompletionTime(order.getEstimatedCompletionTime())
-            .build();
-    }
-
-    @java.lang.SuppressWarnings("all")
-    public OrderController(final CustomerOrderService customerOrderService) {
+    
+    public OrderController(final CustomerOrderService customerOrderService, final com.fooddelivery.common.service.RateLimitingService rateLimitingService) {
         this.customerOrderService = customerOrderService;
+        this.rateLimitingService = rateLimitingService;
     }
 }

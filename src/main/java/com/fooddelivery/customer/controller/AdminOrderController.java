@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 @RequestMapping("/api/v1/internal/admin/orders")
 @lombok.extern.slf4j.Slf4j
 public class AdminOrderController {
-    @java.lang.SuppressWarnings("all")
+    
 
     private final IOrderRepository orderRepository;
     private final RestaurantClient restaurantClient;
@@ -95,11 +95,11 @@ public class AdminOrderController {
                         highestStatusSource = "RestaurantApplication";
                     }
                 } catch (IllegalArgumentException e) {
+                    log.debug("Unknown restaurant status: {}", restaurantStatusStr);
                 }
             }
-        } catch (
-        // Ignore mapping issues for unknown statuses
-        Exception e) {
+        } catch (Exception e) {
+            log.error("Failed to reconcile order state", e);
         }
         // Log and ignore
         if (highestStatus.getSequence() > currentStatus.getSequence()) {
@@ -188,7 +188,7 @@ public class AdminOrderController {
         return ResponseEntity.ok(Map.of("message", "Post-delivery refund initiated successfully"));
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public AdminOrderController(final IOrderRepository orderRepository, final RestaurantClient restaurantClient, final com.fooddelivery.order.service.OrderSagaOrchestrator orderSagaOrchestrator, final com.fooddelivery.order.service.OrderRefundService orderRefundService, final com.fooddelivery.order.service.state.OrderActionService orderActionService) {
         this.orderRepository = orderRepository;
         this.restaurantClient = restaurantClient;

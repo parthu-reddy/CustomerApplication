@@ -12,17 +12,18 @@ import java.util.stream.Collectors;
 import com.fooddelivery.customer.repository.ICustomerRepository;
 import com.fooddelivery.customer.entity.Customer;
 import java.util.Map;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/api/v1/internal/admin/customers")
 @lombok.extern.slf4j.Slf4j
 public class AdminCustomerController {
-    @java.lang.SuppressWarnings("all")
+    
 
     private final CustomerAddressRepository addressRepository;
     private final ICustomerRepository customerRepository;
 
-    // @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/addresses")
     public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<CustomerAddressDto>>> getAllCustomerAddresses(
             @org.springframework.data.web.PageableDefault(size = 50) org.springframework.data.domain.Pageable pageable) {
@@ -35,7 +36,7 @@ public class AdminCustomerController {
         return CustomerAddressDto.builder().id(entity.getId()).customerId(entity.getCustomerId()).label(entity.getLabel()).addressLine1(entity.getAddressLine1()).addressLine2(entity.getAddressLine2()).city(entity.getCity()).state(entity.getState()).zipCode(entity.getZipCode()).latitude(entity.getLatitude()).longitude(entity.getLongitude()).isDefault(entity.getIsDefault()).build();
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public AdminCustomerController(final CustomerAddressRepository addressRepository, final ICustomerRepository customerRepository) {
         this.addressRepository = addressRepository;
         this.customerRepository = customerRepository;

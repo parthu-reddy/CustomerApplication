@@ -82,16 +82,10 @@ public abstract class ContractTestBase {
         com.fooddelivery.customer.controller.OrderController orderController =
                 Mockito.mock(com.fooddelivery.customer.controller.OrderController.class);
         Mockito.when(customerOrderService.getOrderById(Mockito.any(java.util.UUID.class))).thenReturn(order);
-        com.fooddelivery.customer.dto.OrderResponse invoiceResponse = new com.fooddelivery.customer.dto.OrderResponse();
-        invoiceResponse.setId(SAMPLE_ID);
-        invoiceResponse.setTotalAmount(new java.math.BigDecimal("100.0"));
-        Mockito.when(orderController.mapToResponse(Mockito.any())).thenReturn(invoiceResponse);
-        com.fooddelivery.customer.controller.InternalOrderController invoiceController =
-                new com.fooddelivery.customer.controller.InternalOrderController(orderController, customerOrderService);
 
         RestAssuredMockMvc.standaloneSetup(
                 org.springframework.test.web.servlet.setup.MockMvcBuilders
-                        .standaloneSetup(internalOrderController, invoiceController)
+                        .standaloneSetup(internalOrderController)
                         .setCustomArgumentResolvers(
                                 new org.springframework.data.web.PageableHandlerMethodArgumentResolver()));
     }

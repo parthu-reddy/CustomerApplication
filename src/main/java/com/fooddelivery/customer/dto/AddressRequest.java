@@ -20,92 +20,92 @@ public class AddressRequest {
     @NotNull
     private Double longitude;
 
-    @java.lang.SuppressWarnings("all")
+    
     public AddressRequest() {
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public String getLabel() {
         return this.label;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public String getAddressLine1() {
         return this.addressLine1;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public String getAddressLine2() {
         return this.addressLine2;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public String getCity() {
         return this.city;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public String getState() {
         return this.state;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public String getZipCode() {
         return this.zipCode;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public Double getLatitude() {
         return this.latitude;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public Double getLongitude() {
         return this.longitude;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setLabel(final String label) {
         this.label = label;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setAddressLine1(final String addressLine1) {
         this.addressLine1 = addressLine1;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setAddressLine2(final String addressLine2) {
         this.addressLine2 = addressLine2;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setCity(final String city) {
         this.city = city;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setState(final String state) {
         this.state = state;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setZipCode(final String zipCode) {
         this.zipCode = zipCode;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setLatitude(final Double latitude) {
         this.latitude = latitude;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setLongitude(final Double longitude) {
         this.longitude = longitude;
     }
 
     @java.lang.Override
-    @java.lang.SuppressWarnings("all")
+    
     public boolean equals(final java.lang.Object o) {
         if (o == this) return true;
         if (!(o instanceof AddressRequest)) return false;
@@ -138,13 +138,13 @@ public class AddressRequest {
         return true;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     protected boolean canEqual(final java.lang.Object other) {
         return other instanceof AddressRequest;
     }
 
     @java.lang.Override
-    @java.lang.SuppressWarnings("all")
+    
     public int hashCode() {
         final int PRIME = 59;
         int result = 1;
@@ -168,7 +168,7 @@ public class AddressRequest {
     }
 
     @java.lang.Override
-    @java.lang.SuppressWarnings("all")
+    
     public java.lang.String toString() {
         return "AddressRequest(label=" + this.getLabel() + ", addressLine1=" + this.getAddressLine1() + ", addressLine2=" + this.getAddressLine2() + ", city=" + this.getCity() + ", state=" + this.getState() + ", zipCode=" + this.getZipCode() + ", latitude=" + this.getLatitude() + ", longitude=" + this.getLongitude() + ")";
     }

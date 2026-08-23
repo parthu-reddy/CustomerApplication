@@ -27,25 +27,25 @@ public class Customer {
     private LocalDateTime updatedAt;
 
 
-    @java.lang.SuppressWarnings("all")
+    
     public static class CustomerBuilder {
-        @java.lang.SuppressWarnings("all")
+        
         private UUID id;
-        @java.lang.SuppressWarnings("all")
+        
         private String phoneNumber;
-        @java.lang.SuppressWarnings("all")
+        
         private LocalDateTime createdAt;
-        @java.lang.SuppressWarnings("all")
+        
         private LocalDateTime updatedAt;
 
-        @java.lang.SuppressWarnings("all")
+        
         CustomerBuilder() {
         }
 
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public Customer.CustomerBuilder id(final UUID id) {
             this.id = id;
             return this;
@@ -54,7 +54,7 @@ public class Customer {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public Customer.CustomerBuilder phoneNumber(final String phoneNumber) {
             this.phoneNumber = phoneNumber;
             return this;
@@ -63,7 +63,7 @@ public class Customer {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public Customer.CustomerBuilder createdAt(final LocalDateTime createdAt) {
             this.createdAt = createdAt;
             return this;
@@ -72,71 +72,71 @@ public class Customer {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public Customer.CustomerBuilder updatedAt(final LocalDateTime updatedAt) {
             this.updatedAt = updatedAt;
             return this;
         }
 
-        @java.lang.SuppressWarnings("all")
+        
         public Customer build() {
             return new Customer(this.id, this.phoneNumber, this.createdAt, this.updatedAt);
         }
 
         @java.lang.Override
-        @java.lang.SuppressWarnings("all")
+        
         public java.lang.String toString() {
             return "Customer.CustomerBuilder(id=" + this.id + ", phoneNumber=" + this.phoneNumber + ", createdAt=" + this.createdAt + ", updatedAt=" + this.updatedAt + ")";
         }
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public static Customer.CustomerBuilder builder() {
         return new Customer.CustomerBuilder();
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public UUID getId() {
         return this.id;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public String getPhoneNumber() {
         return this.phoneNumber;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public LocalDateTime getCreatedAt() {
         return this.createdAt;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public LocalDateTime getUpdatedAt() {
         return this.updatedAt;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setId(final UUID id) {
         this.id = id;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setPhoneNumber(final String phoneNumber) {
         this.phoneNumber = phoneNumber;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setCreatedAt(final LocalDateTime createdAt) {
         this.createdAt = createdAt;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setUpdatedAt(final LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
     }
 
     @java.lang.Override
-    @java.lang.SuppressWarnings("all")
+    
     public boolean equals(final java.lang.Object o) {
         if (o == this) return true;
         if (!(o instanceof Customer)) return false;
@@ -157,13 +157,13 @@ public class Customer {
         return true;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     protected boolean canEqual(final java.lang.Object other) {
         return other instanceof Customer;
     }
 
     @java.lang.Override
-    @java.lang.SuppressWarnings("all")
+    
     public int hashCode() {
         final int PRIME = 59;
         int result = 1;
@@ -179,16 +179,16 @@ public class Customer {
     }
 
     @java.lang.Override
-    @java.lang.SuppressWarnings("all")
+    
     public java.lang.String toString() {
         return "Customer(id=" + this.getId() + ", phoneNumber=" + this.getPhoneNumber() + ", createdAt=" + this.getCreatedAt() + ", updatedAt=" + this.getUpdatedAt() + ")";
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public Customer() {
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public Customer(final UUID id, final String phoneNumber, final LocalDateTime createdAt, final LocalDateTime updatedAt) {
         this.id = id;
         this.phoneNumber = phoneNumber;

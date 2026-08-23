@@ -9,7 +9,7 @@ import java.math.RoundingMode;
 @Service
 @lombok.extern.slf4j.Slf4j
 public class DynamicPricingService {
-    @java.lang.SuppressWarnings("all")
+    
 
     private final DynamicPricingConfig config;
 
@@ -101,25 +101,22 @@ public class DynamicPricingService {
         return com.fooddelivery.order.entity.OrderCharge.builder().id(java.util.UUID.randomUUID()).category(category).payerType(payer).payeeType(payee).amount(amount.setScale(2, RoundingMode.HALF_UP)).build();
     }
 
-    public BigDecimal getMinAmountForFreeDelivery(BigDecimal distanceKm) {
+    public java.util.Optional<BigDecimal> getMinAmountForFreeDelivery(BigDecimal distanceKm) {
         if (distanceKm == null || distanceKm.compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalArgumentException("Distance cannot be null or negative for pricing calculations");
         }
         BigDecimal effectiveDistance = distanceKm.max(BigDecimal.ONE);
         BigDecimal driverPayout = config.getBasePrice().add(effectiveDistance.multiply(config.getPerKmRate()));
-        // For custPaysDe to be 0, maxRestContribution must be >= driverPayout
-        // maxRestContribution = foodCost * restMaxContributionPercent
-        // So, foodCost >= driverPayout / restMaxContributionPercent
         if (distanceKm.compareTo(BigDecimal.valueOf(5.0)) > 0) {
-            return BigDecimal.valueOf(999999); // Cannot get free delivery over 5km
+            return java.util.Optional.empty();
         }
         if (config.getRestMaxContributionPercent().compareTo(BigDecimal.ZERO) <= 0) {
-            return BigDecimal.valueOf(999999); // Cannot get free delivery if rest contribution is 0
+            return java.util.Optional.empty();
         }
-        return driverPayout.divide(config.getRestMaxContributionPercent(), 2, RoundingMode.CEILING);
+        return java.util.Optional.of(driverPayout.divide(config.getRestMaxContributionPercent(), 2, RoundingMode.CEILING));
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public DynamicPricingService(final DynamicPricingConfig config) {
         this.config = config;
     }

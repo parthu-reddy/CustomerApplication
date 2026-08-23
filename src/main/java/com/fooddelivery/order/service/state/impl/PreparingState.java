@@ -9,7 +9,7 @@ import java.util.UUID;
 @lombok.extern.slf4j.Slf4j
 
 public class PreparingState implements OrderState {
-    @java.lang.SuppressWarnings("all")
+    
 
     @Override
     public void handleOrderReady(OrderContext ctx) {

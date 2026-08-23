@@ -19,7 +19,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 @PreAuthorize("hasRole(\'CUSTOMER\')")
 @lombok.extern.slf4j.Slf4j
 public class CustomerRestaurantController {
-    @java.lang.SuppressWarnings("all")
+    
 
     private final RestaurantClient restaurantClient;
     private final MapsServiceClient mapsClient;
@@ -115,7 +115,7 @@ public class CustomerRestaurantController {
         }
         // 2. Check Driver Availability in MapsIntegration
         try {
-            Map<String, Object> mapsResponse = mapsClient.checkFleetAvailability(com.fooddelivery.common.constants.AppConstants.DEFAULT_CITY_ID, lat, lng, com.fooddelivery.common.constants.AppConstants.MAX_DELIVERY_RADIUS_KM);
+            Map<String, Object> mapsResponse = mapsClient.checkFleetAvailability("BLR", lat, lng, com.fooddelivery.common.constants.AppConstants.MAX_DELIVERY_RADIUS_KM);
             if (mapsResponse != null) {
                 Boolean available = (Boolean) mapsResponse.get("available");
                 if (Boolean.TRUE.equals(available)) {
@@ -223,7 +223,7 @@ public class CustomerRestaurantController {
         return ResponseEntity.ok(ApiResponse.success(data, "Delivery pricing config retrieved"));
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public CustomerRestaurantController(final RestaurantClient restaurantClient, final MapsServiceClient mapsClient, final com.fooddelivery.customer.service.DynamicPricingService dynamicPricingService, final com.fooddelivery.customer.config.DynamicPricingConfig dynamicPricingConfig, final com.fooddelivery.customer.repository.CustomerAddressRepository customerAddressRepository, final com.fooddelivery.customer.client.AdvertisementClient advertisementClient, final org.springframework.data.redis.core.StringRedisTemplate redisTemplate) {
         this.restaurantClient = restaurantClient;
         this.mapsClient = mapsClient;

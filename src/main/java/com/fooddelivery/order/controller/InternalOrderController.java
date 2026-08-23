@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.Arrays;
 
-@RestController("orderInternalController")
+@RestController
 @RequestMapping("/api/v1/internal/orders")
 @lombok.extern.slf4j.Slf4j
 public class InternalOrderController {
@@ -74,6 +74,7 @@ public class InternalOrderController {
     }
 
     @GetMapping("/{orderId}/participants")
+    @PreAuthorize("hasAnyRole('ADMIN', 'CUSTOMER', 'RESTAURANT', 'DELIVERY')")
     public ResponseEntity<List<String>> getOrderParticipants(@PathVariable UUID orderId) {
         log.debug("Fetching authorized participants for order {}", orderId);
         return orderRepository.findById(orderId).map(order -> {
@@ -83,6 +84,15 @@ public class InternalOrderController {
             if (order.getDeliveryExecutiveId() != null) participants.add(order.getDeliveryExecutiveId().toString());
             return ResponseEntity.ok(participants);
         }).orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/{orderId}/invoice")
+    @PreAuthorize("hasAnyRole('ADMIN', 'CUSTOMER', 'RESTAURANT')")
+    public ResponseEntity<com.fooddelivery.customer.dto.OrderResponse> getOrderInvoice(@PathVariable UUID orderId) {
+        return orderRepository.findById(orderId).map(order -> {
+            com.fooddelivery.customer.dto.OrderResponse response = com.fooddelivery.customer.mapper.OrderMapper.mapToResponse(order);
+            return ResponseEntity.ok(response);
+        }).orElseThrow(() -> new RuntimeException("Order not found"));
     }
 
     @PostMapping("/{orderId}/partial-refund")
@@ -109,7 +119,7 @@ public class InternalOrderController {
         }
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public InternalOrderController(final IOrderRepository orderRepository, final com.fooddelivery.order.service.OrderSagaOrchestrator orderSagaOrchestrator, final com.fooddelivery.order.service.OrderRefundService orderRefundService) {
         this.orderRepository = orderRepository;
         this.orderSagaOrchestrator = orderSagaOrchestrator;

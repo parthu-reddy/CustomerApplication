@@ -42,51 +42,51 @@ public class CustomerAddress {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    @java.lang.SuppressWarnings("all")
+    
     private static Boolean $default$isDefault() {
         return false;
     }
 
 
-    @java.lang.SuppressWarnings("all")
+    
     public static class CustomerAddressBuilder {
-        @java.lang.SuppressWarnings("all")
+        
         private UUID id;
-        @java.lang.SuppressWarnings("all")
+        
         private UUID customerId;
-        @java.lang.SuppressWarnings("all")
+        
         private String label;
-        @java.lang.SuppressWarnings("all")
+        
         private String addressLine1;
-        @java.lang.SuppressWarnings("all")
+        
         private String addressLine2;
-        @java.lang.SuppressWarnings("all")
+        
         private String city;
-        @java.lang.SuppressWarnings("all")
+        
         private String state;
-        @java.lang.SuppressWarnings("all")
+        
         private String zipCode;
-        @java.lang.SuppressWarnings("all")
+        
         private Double latitude;
-        @java.lang.SuppressWarnings("all")
+        
         private Double longitude;
-        @java.lang.SuppressWarnings("all")
+        
         private boolean isDefault$set;
-        @java.lang.SuppressWarnings("all")
+        
         private Boolean isDefault$value;
-        @java.lang.SuppressWarnings("all")
+        
         private LocalDateTime createdAt;
-        @java.lang.SuppressWarnings("all")
+        
         private LocalDateTime updatedAt;
 
-        @java.lang.SuppressWarnings("all")
+        
         CustomerAddressBuilder() {
         }
 
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public CustomerAddress.CustomerAddressBuilder id(final UUID id) {
             this.id = id;
             return this;
@@ -95,7 +95,7 @@ public class CustomerAddress {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public CustomerAddress.CustomerAddressBuilder customerId(final UUID customerId) {
             this.customerId = customerId;
             return this;
@@ -104,7 +104,7 @@ public class CustomerAddress {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public CustomerAddress.CustomerAddressBuilder label(final String label) {
             this.label = label;
             return this;
@@ -113,7 +113,7 @@ public class CustomerAddress {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public CustomerAddress.CustomerAddressBuilder addressLine1(final String addressLine1) {
             this.addressLine1 = addressLine1;
             return this;
@@ -122,7 +122,7 @@ public class CustomerAddress {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public CustomerAddress.CustomerAddressBuilder addressLine2(final String addressLine2) {
             this.addressLine2 = addressLine2;
             return this;
@@ -131,7 +131,7 @@ public class CustomerAddress {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public CustomerAddress.CustomerAddressBuilder city(final String city) {
             this.city = city;
             return this;
@@ -140,7 +140,7 @@ public class CustomerAddress {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public CustomerAddress.CustomerAddressBuilder state(final String state) {
             this.state = state;
             return this;
@@ -149,7 +149,7 @@ public class CustomerAddress {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public CustomerAddress.CustomerAddressBuilder zipCode(final String zipCode) {
             this.zipCode = zipCode;
             return this;
@@ -158,7 +158,7 @@ public class CustomerAddress {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public CustomerAddress.CustomerAddressBuilder latitude(final Double latitude) {
             this.latitude = latitude;
             return this;
@@ -167,7 +167,7 @@ public class CustomerAddress {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public CustomerAddress.CustomerAddressBuilder longitude(final Double longitude) {
             this.longitude = longitude;
             return this;
@@ -176,7 +176,7 @@ public class CustomerAddress {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public CustomerAddress.CustomerAddressBuilder isDefault(final Boolean isDefault) {
             this.isDefault$value = isDefault;
             isDefault$set = true;
@@ -186,7 +186,7 @@ public class CustomerAddress {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public CustomerAddress.CustomerAddressBuilder createdAt(final LocalDateTime createdAt) {
             this.createdAt = createdAt;
             return this;
@@ -195,13 +195,13 @@ public class CustomerAddress {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public CustomerAddress.CustomerAddressBuilder updatedAt(final LocalDateTime updatedAt) {
             this.updatedAt = updatedAt;
             return this;
         }
 
-        @java.lang.SuppressWarnings("all")
+        
         public CustomerAddress build() {
             Boolean isDefault$value = this.isDefault$value;
             if (!this.isDefault$set) isDefault$value = CustomerAddress.$default$isDefault();
@@ -209,149 +209,149 @@ public class CustomerAddress {
         }
 
         @java.lang.Override
-        @java.lang.SuppressWarnings("all")
+        
         public java.lang.String toString() {
             return "CustomerAddress.CustomerAddressBuilder(id=" + this.id + ", customerId=" + this.customerId + ", label=" + this.label + ", addressLine1=" + this.addressLine1 + ", addressLine2=" + this.addressLine2 + ", city=" + this.city + ", state=" + this.state + ", zipCode=" + this.zipCode + ", latitude=" + this.latitude + ", longitude=" + this.longitude + ", isDefault$value=" + this.isDefault$value + ", createdAt=" + this.createdAt + ", updatedAt=" + this.updatedAt + ")";
         }
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public static CustomerAddress.CustomerAddressBuilder builder() {
         return new CustomerAddress.CustomerAddressBuilder();
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public UUID getId() {
         return this.id;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public UUID getCustomerId() {
         return this.customerId;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public String getLabel() {
         return this.label;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public String getAddressLine1() {
         return this.addressLine1;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public String getAddressLine2() {
         return this.addressLine2;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public String getCity() {
         return this.city;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public String getState() {
         return this.state;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public String getZipCode() {
         return this.zipCode;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public Double getLatitude() {
         return this.latitude;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public Double getLongitude() {
         return this.longitude;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public Boolean getIsDefault() {
         return this.isDefault;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public LocalDateTime getCreatedAt() {
         return this.createdAt;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public LocalDateTime getUpdatedAt() {
         return this.updatedAt;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setId(final UUID id) {
         this.id = id;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setCustomerId(final UUID customerId) {
         this.customerId = customerId;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setLabel(final String label) {
         this.label = label;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setAddressLine1(final String addressLine1) {
         this.addressLine1 = addressLine1;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setAddressLine2(final String addressLine2) {
         this.addressLine2 = addressLine2;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setCity(final String city) {
         this.city = city;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setState(final String state) {
         this.state = state;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setZipCode(final String zipCode) {
         this.zipCode = zipCode;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setLatitude(final Double latitude) {
         this.latitude = latitude;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setLongitude(final Double longitude) {
         this.longitude = longitude;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setIsDefault(final Boolean isDefault) {
         this.isDefault = isDefault;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setCreatedAt(final LocalDateTime createdAt) {
         this.createdAt = createdAt;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setUpdatedAt(final LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
     }
 
     @java.lang.Override
-    @java.lang.SuppressWarnings("all")
+    
     public boolean equals(final java.lang.Object o) {
         if (o == this) return true;
         if (!(o instanceof CustomerAddress)) return false;
@@ -399,13 +399,13 @@ public class CustomerAddress {
         return true;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     protected boolean canEqual(final java.lang.Object other) {
         return other instanceof CustomerAddress;
     }
 
     @java.lang.Override
-    @java.lang.SuppressWarnings("all")
+    
     public int hashCode() {
         final int PRIME = 59;
         int result = 1;
@@ -439,17 +439,17 @@ public class CustomerAddress {
     }
 
     @java.lang.Override
-    @java.lang.SuppressWarnings("all")
+    
     public java.lang.String toString() {
         return "CustomerAddress(id=" + this.getId() + ", customerId=" + this.getCustomerId() + ", label=" + this.getLabel() + ", addressLine1=" + this.getAddressLine1() + ", addressLine2=" + this.getAddressLine2() + ", city=" + this.getCity() + ", state=" + this.getState() + ", zipCode=" + this.getZipCode() + ", latitude=" + this.getLatitude() + ", longitude=" + this.getLongitude() + ", isDefault=" + this.getIsDefault() + ", createdAt=" + this.getCreatedAt() + ", updatedAt=" + this.getUpdatedAt() + ")";
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public CustomerAddress() {
         this.isDefault = CustomerAddress.$default$isDefault();
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public CustomerAddress(final UUID id, final UUID customerId, final String label, final String addressLine1, final String addressLine2, final String city, final String state, final String zipCode, final Double latitude, final Double longitude, final Boolean isDefault, final LocalDateTime createdAt, final LocalDateTime updatedAt) {
         this.id = id;
         this.customerId = customerId;

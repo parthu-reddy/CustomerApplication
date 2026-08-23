@@ -12,21 +12,21 @@ public class OrderItemRequest {
     private Integer quantity;
 
 
-    @java.lang.SuppressWarnings("all")
+    
     public static class OrderItemRequestBuilder {
-        @java.lang.SuppressWarnings("all")
+        
         private UUID menuItemId;
-        @java.lang.SuppressWarnings("all")
+        
         private Integer quantity;
 
-        @java.lang.SuppressWarnings("all")
+        
         OrderItemRequestBuilder() {
         }
 
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public OrderItemRequest.OrderItemRequestBuilder menuItemId(final UUID menuItemId) {
             this.menuItemId = menuItemId;
             return this;
@@ -35,51 +35,51 @@ public class OrderItemRequest {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public OrderItemRequest.OrderItemRequestBuilder quantity(final Integer quantity) {
             this.quantity = quantity;
             return this;
         }
 
-        @java.lang.SuppressWarnings("all")
+        
         public OrderItemRequest build() {
             return new OrderItemRequest(this.menuItemId, this.quantity);
         }
 
         @java.lang.Override
-        @java.lang.SuppressWarnings("all")
+        
         public java.lang.String toString() {
             return "OrderItemRequest.OrderItemRequestBuilder(menuItemId=" + this.menuItemId + ", quantity=" + this.quantity + ")";
         }
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public static OrderItemRequest.OrderItemRequestBuilder builder() {
         return new OrderItemRequest.OrderItemRequestBuilder();
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public UUID getMenuItemId() {
         return this.menuItemId;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public Integer getQuantity() {
         return this.quantity;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setMenuItemId(final UUID menuItemId) {
         this.menuItemId = menuItemId;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setQuantity(final Integer quantity) {
         this.quantity = quantity;
     }
 
     @java.lang.Override
-    @java.lang.SuppressWarnings("all")
+    
     public boolean equals(final java.lang.Object o) {
         if (o == this) return true;
         if (!(o instanceof OrderItemRequest)) return false;
@@ -94,13 +94,13 @@ public class OrderItemRequest {
         return true;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     protected boolean canEqual(final java.lang.Object other) {
         return other instanceof OrderItemRequest;
     }
 
     @java.lang.Override
-    @java.lang.SuppressWarnings("all")
+    
     public int hashCode() {
         final int PRIME = 59;
         int result = 1;
@@ -112,16 +112,16 @@ public class OrderItemRequest {
     }
 
     @java.lang.Override
-    @java.lang.SuppressWarnings("all")
+    
     public java.lang.String toString() {
         return "OrderItemRequest(menuItemId=" + this.getMenuItemId() + ", quantity=" + this.getQuantity() + ")";
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public OrderItemRequest() {
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public OrderItemRequest(final UUID menuItemId, final Integer quantity) {
         this.menuItemId = menuItemId;
         this.quantity = quantity;

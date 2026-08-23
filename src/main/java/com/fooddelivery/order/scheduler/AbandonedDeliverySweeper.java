@@ -13,7 +13,7 @@ import java.util.List;
 @Component
 @lombok.extern.slf4j.Slf4j
 public class AbandonedDeliverySweeper {
-    @java.lang.SuppressWarnings("all")
+    
 
     private final IOrderRepository orderRepository;
     private final OrderActionService orderActionService;
@@ -58,7 +58,7 @@ public class AbandonedDeliverySweeper {
         }
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public AbandonedDeliverySweeper(final IOrderRepository orderRepository, final OrderActionService orderActionService, final TransactionTemplate transactionTemplate, final org.springframework.data.redis.core.StringRedisTemplate redisTemplate) {
         this.orderRepository = orderRepository;
         this.orderActionService = orderActionService;

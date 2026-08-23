@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 @ControllerAdvice
 @lombok.extern.slf4j.Slf4j
 public class CustomerGlobalExceptionHandler {
-    @java.lang.SuppressWarnings("all")
+    
 
     @ExceptionHandler(DeliveryPartnerUnavailableException.class)
     public ResponseEntity<ApiResponse<Void>> handleDeliveryPartnerUnavailableException(DeliveryPartnerUnavailableException ex) {

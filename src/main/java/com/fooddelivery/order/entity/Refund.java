@@ -28,27 +28,27 @@ public class Refund {
     private LocalDateTime createdAt;
 
 
-    @java.lang.SuppressWarnings("all")
+    
     public static class RefundBuilder {
-        @java.lang.SuppressWarnings("all")
+        
         private UUID id;
-        @java.lang.SuppressWarnings("all")
+        
         private UUID paymentIntentId;
-        @java.lang.SuppressWarnings("all")
+        
         private BigDecimal amount;
-        @java.lang.SuppressWarnings("all")
+        
         private RefundStatus status;
-        @java.lang.SuppressWarnings("all")
+        
         private LocalDateTime createdAt;
 
-        @java.lang.SuppressWarnings("all")
+        
         RefundBuilder() {
         }
 
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public Refund.RefundBuilder id(final UUID id) {
             this.id = id;
             return this;
@@ -57,7 +57,7 @@ public class Refund {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public Refund.RefundBuilder paymentIntentId(final UUID paymentIntentId) {
             this.paymentIntentId = paymentIntentId;
             return this;
@@ -66,7 +66,7 @@ public class Refund {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public Refund.RefundBuilder amount(final BigDecimal amount) {
             this.amount = amount;
             return this;
@@ -75,7 +75,7 @@ public class Refund {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public Refund.RefundBuilder status(final RefundStatus status) {
             this.status = status;
             return this;
@@ -84,81 +84,81 @@ public class Refund {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public Refund.RefundBuilder createdAt(final LocalDateTime createdAt) {
             this.createdAt = createdAt;
             return this;
         }
 
-        @java.lang.SuppressWarnings("all")
+        
         public Refund build() {
             return new Refund(this.id, this.paymentIntentId, this.amount, this.status, this.createdAt);
         }
 
         @java.lang.Override
-        @java.lang.SuppressWarnings("all")
+        
         public java.lang.String toString() {
             return "Refund.RefundBuilder(id=" + this.id + ", paymentIntentId=" + this.paymentIntentId + ", amount=" + this.amount + ", status=" + this.status + ", createdAt=" + this.createdAt + ")";
         }
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public static Refund.RefundBuilder builder() {
         return new Refund.RefundBuilder();
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public UUID getId() {
         return this.id;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public UUID getPaymentIntentId() {
         return this.paymentIntentId;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public BigDecimal getAmount() {
         return this.amount;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public RefundStatus getStatus() {
         return this.status;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public LocalDateTime getCreatedAt() {
         return this.createdAt;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setId(final UUID id) {
         this.id = id;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setPaymentIntentId(final UUID paymentIntentId) {
         this.paymentIntentId = paymentIntentId;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setAmount(final BigDecimal amount) {
         this.amount = amount;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setStatus(final RefundStatus status) {
         this.status = status;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setCreatedAt(final LocalDateTime createdAt) {
         this.createdAt = createdAt;
     }
 
     @java.lang.Override
-    @java.lang.SuppressWarnings("all")
+    
     public boolean equals(final java.lang.Object o) {
         if (o == this) return true;
         if (!(o instanceof Refund)) return false;
@@ -182,13 +182,13 @@ public class Refund {
         return true;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     protected boolean canEqual(final java.lang.Object other) {
         return other instanceof Refund;
     }
 
     @java.lang.Override
-    @java.lang.SuppressWarnings("all")
+    
     public int hashCode() {
         final int PRIME = 59;
         int result = 1;
@@ -206,16 +206,16 @@ public class Refund {
     }
 
     @java.lang.Override
-    @java.lang.SuppressWarnings("all")
+    
     public java.lang.String toString() {
         return "Refund(id=" + this.getId() + ", paymentIntentId=" + this.getPaymentIntentId() + ", amount=" + this.getAmount() + ", status=" + this.getStatus() + ", createdAt=" + this.getCreatedAt() + ")";
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public Refund() {
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public Refund(final UUID id, final UUID paymentIntentId, final BigDecimal amount, final RefundStatus status, final LocalDateTime createdAt) {
         this.id = id;
         this.paymentIntentId = paymentIntentId;

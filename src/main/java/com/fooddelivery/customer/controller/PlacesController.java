@@ -16,7 +16,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 @PreAuthorize("hasRole(\'CUSTOMER\')")
 @lombok.extern.slf4j.Slf4j
 public class PlacesController {
-    @java.lang.SuppressWarnings("all")
+    
 
     private final PlacesService placesService;
 
@@ -30,7 +30,7 @@ public class PlacesController {
         return ResponseEntity.ok(ApiResponse.success(placesService.reverseGeocode(lat, lng), "Address retrieved"));
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public PlacesController(final PlacesService placesService) {
         this.placesService = placesService;
     }

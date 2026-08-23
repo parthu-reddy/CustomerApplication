@@ -22,10 +22,18 @@ public class CustomerOrderController {
 
     private final IOrderRepository orderRepository;
     private final SupportTicketRepository supportTicketRepository;
+    private final com.fooddelivery.common.service.RateLimitingService rateLimitingService;
 
-    public CustomerOrderController(IOrderRepository orderRepository, SupportTicketRepository supportTicketRepository) {
+    public CustomerOrderController(IOrderRepository orderRepository, SupportTicketRepository supportTicketRepository, com.fooddelivery.common.service.RateLimitingService rateLimitingService) {
         this.orderRepository = orderRepository;
         this.supportTicketRepository = supportTicketRepository;
+        this.rateLimitingService = rateLimitingService;
+    }
+
+    private boolean isRateLimited(String clientKey) {
+        if (clientKey == null || clientKey.isBlank() || clientKey.equals("unknown")) return true;
+        io.github.bucket4j.Bucket bucket = rateLimitingService.resolveBucket("refund:" + clientKey, 10, 10, java.time.Duration.ofMinutes(1));
+        return !bucket.tryConsume(1);
     }
 
     /**
@@ -40,6 +48,10 @@ public class CustomerOrderController {
             @RequestBody Map<String, String> payload) {
 
         UUID customerId = UUID.fromString(principal.getName());
+
+        if (isRateLimited(customerId.toString())) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.TOO_MANY_REQUESTS).build();
+        }
 
         String reason = payload.get("reason");
         if (reason == null || reason.trim().isEmpty()) {

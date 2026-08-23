@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
 @PreAuthorize("hasRole(\'DELIVERY\')")
 @lombok.extern.slf4j.Slf4j
 public class DriverOrderController {
-    @java.lang.SuppressWarnings("all")
+    
 
     private final IOrderRepository orderRepository;
     private final StringRedisTemplate redisTemplate;
@@ -51,6 +51,7 @@ public class DriverOrderController {
                     }
                 });
             } catch (Exception e) {
+                log.debug("Failed to process available order tuple", e);
             }
         }
         // ignore invalid uuid
@@ -116,7 +117,7 @@ public class DriverOrderController {
         return OrderResponse.builder().id(order.getId()).customerId(order.getCustomerId()).restaurantId(order.getRestaurantId()).restaurantName(order.getRestaurantName()).status(order.getStatus()).deliveryStatus(order.getDeliveryStatus()).totalAmount(order.getTotalAmount()).deliveryAddress(order.getDeliveryAddress()).deliveryLat(order.getDeliveryLat()).deliveryLng(order.getDeliveryLng()).items(itemResponses).createdAt(order.getCreatedAt()).updatedAt(order.getUpdatedAt()).riderId(order.getDeliveryExecutiveId()).otp(order.getOtp()).pickupOtp(order.getPickupOtp()).estimatedCompletionTime(order.getEstimatedCompletionTime()).build();
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public DriverOrderController(final IOrderRepository orderRepository, final StringRedisTemplate redisTemplate) {
         this.orderRepository = orderRepository;
         this.redisTemplate = redisTemplate;

@@ -21,29 +21,29 @@ public class OrderRequest {
     private List<OrderItemRequest> items;
 
 
-    @java.lang.SuppressWarnings("all")
+    
     public static class OrderRequestBuilder {
-        @java.lang.SuppressWarnings("all")
+        
         private UUID customerId;
-        @java.lang.SuppressWarnings("all")
+        
         private String customerName;
-        @java.lang.SuppressWarnings("all")
+        
         private UUID restaurantId;
-        @java.lang.SuppressWarnings("all")
+        
         private UUID deliveryAddressId;
-        @java.lang.SuppressWarnings("all")
+        
         private PaymentMethod paymentMethod;
-        @java.lang.SuppressWarnings("all")
+        
         private List<OrderItemRequest> items;
 
-        @java.lang.SuppressWarnings("all")
+        
         OrderRequestBuilder() {
         }
 
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public OrderRequest.OrderRequestBuilder customerId(final UUID customerId) {
             this.customerId = customerId;
             return this;
@@ -52,7 +52,7 @@ public class OrderRequest {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public OrderRequest.OrderRequestBuilder customerName(final String customerName) {
             this.customerName = customerName;
             return this;
@@ -61,7 +61,7 @@ public class OrderRequest {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public OrderRequest.OrderRequestBuilder restaurantId(final UUID restaurantId) {
             this.restaurantId = restaurantId;
             return this;
@@ -70,7 +70,7 @@ public class OrderRequest {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public OrderRequest.OrderRequestBuilder deliveryAddressId(final UUID deliveryAddressId) {
             this.deliveryAddressId = deliveryAddressId;
             return this;
@@ -79,91 +79,91 @@ public class OrderRequest {
         /**
          * @return {@code this}.
          */
-        @java.lang.SuppressWarnings("all")
+        
         public OrderRequest.OrderRequestBuilder items(final List<OrderItemRequest> items) {
             this.items = items;
             return this;
         }
 
-        @java.lang.SuppressWarnings("all")
+        
         public OrderRequest build() {
             return new OrderRequest(this.customerId, this.customerName, this.restaurantId, this.deliveryAddressId, this.paymentMethod, this.items);
         }
 
         @java.lang.Override
-        @java.lang.SuppressWarnings("all")
+        
         public java.lang.String toString() {
             return "OrderRequest.OrderRequestBuilder(customerId=" + this.customerId + ", customerName=" + this.customerName + ", restaurantId=" + this.restaurantId + ", deliveryAddressId=" + this.deliveryAddressId + ", paymentMethod=" + this.paymentMethod + ", items=" + this.items + ")";
         }
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public static OrderRequest.OrderRequestBuilder builder() {
         return new OrderRequest.OrderRequestBuilder();
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public UUID getCustomerId() {
         return this.customerId;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public String getCustomerName() {
         return this.customerName;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public UUID getRestaurantId() {
         return this.restaurantId;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public UUID getDeliveryAddressId() {
         return this.deliveryAddressId;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public PaymentMethod getPaymentMethod() {
         return this.paymentMethod;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public List<OrderItemRequest> getItems() {
         return this.items;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setCustomerId(final UUID customerId) {
         this.customerId = customerId;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setCustomerName(final String customerName) {
         this.customerName = customerName;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setRestaurantId(final UUID restaurantId) {
         this.restaurantId = restaurantId;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setDeliveryAddressId(final UUID deliveryAddressId) {
         this.deliveryAddressId = deliveryAddressId;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setPaymentMethod(final PaymentMethod paymentMethod) {
         this.paymentMethod = paymentMethod;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setItems(final List<OrderItemRequest> items) {
         this.items = items;
     }
 
     @java.lang.Override
-    @java.lang.SuppressWarnings("all")
+    
     public boolean equals(final java.lang.Object o) {
         if (o == this) return true;
         if (!(o instanceof OrderRequest)) return false;
@@ -190,13 +190,13 @@ public class OrderRequest {
         return true;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     protected boolean canEqual(final java.lang.Object other) {
         return other instanceof OrderRequest;
     }
 
     @java.lang.Override
-    @java.lang.SuppressWarnings("all")
+    
     public int hashCode() {
         final int PRIME = 59;
         int result = 1;
@@ -216,16 +216,16 @@ public class OrderRequest {
     }
 
     @java.lang.Override
-    @java.lang.SuppressWarnings("all")
+    
     public java.lang.String toString() {
         return "OrderRequest(customerId=" + this.getCustomerId() + ", customerName=" + this.getCustomerName() + ", restaurantId=" + this.getRestaurantId() + ", deliveryAddressId=" + this.getDeliveryAddressId() + ", paymentMethod=" + this.getPaymentMethod() + ", items=" + this.getItems() + ")";
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public OrderRequest() {
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public OrderRequest(final UUID customerId, final String customerName, final UUID restaurantId, final UUID deliveryAddressId, final PaymentMethod paymentMethod, final List<OrderItemRequest> items) {
         this.customerId = customerId;
         this.customerName = customerName;

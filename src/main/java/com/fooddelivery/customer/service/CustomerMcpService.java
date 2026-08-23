@@ -13,7 +13,7 @@ import java.util.List;
 @Service
 @lombok.extern.slf4j.Slf4j
 public class CustomerMcpService {
-    @java.lang.SuppressWarnings("all")
+    
 
     private final CustomerAddressController addressController;
     private final CustomerRestaurantController restaurantController;

@@ -19,102 +19,102 @@ public class DynamicPricingConfig {
     private BigDecimal deliverySgstPercent = new BigDecimal("0.09");
     private BigDecimal deliveryCgstPercent = new BigDecimal("0.09");
 
-    @java.lang.SuppressWarnings("all")
+    
     public DynamicPricingConfig() {
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public BigDecimal getBasePrice() {
         return this.basePrice;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public BigDecimal getPerKmRate() {
         return this.perKmRate;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public BigDecimal getRestMaxContributionPercent() {
         return this.restMaxContributionPercent;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public BigDecimal getFixedPlatformFee() {
         return this.fixedPlatformFee;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public BigDecimal getPlatformExcessCutPercent() {
         return this.platformExcessCutPercent;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public BigDecimal getSgstPercent() {
         return this.sgstPercent;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public BigDecimal getCgstPercent() {
         return this.cgstPercent;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public BigDecimal getDeliverySgstPercent() {
         return this.deliverySgstPercent;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public BigDecimal getDeliveryCgstPercent() {
         return this.deliveryCgstPercent;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setBasePrice(final BigDecimal basePrice) {
         this.basePrice = basePrice;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setDeliverySgstPercent(final BigDecimal deliverySgstPercent) {
         this.deliverySgstPercent = deliverySgstPercent;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setDeliveryCgstPercent(final BigDecimal deliveryCgstPercent) {
         this.deliveryCgstPercent = deliveryCgstPercent;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setPerKmRate(final BigDecimal perKmRate) {
         this.perKmRate = perKmRate;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setRestMaxContributionPercent(final BigDecimal restMaxContributionPercent) {
         this.restMaxContributionPercent = restMaxContributionPercent;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setFixedPlatformFee(final BigDecimal fixedPlatformFee) {
         this.fixedPlatformFee = fixedPlatformFee;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setPlatformExcessCutPercent(final BigDecimal platformExcessCutPercent) {
         this.platformExcessCutPercent = platformExcessCutPercent;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setSgstPercent(final BigDecimal sgstPercent) {
         this.sgstPercent = sgstPercent;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setCgstPercent(final BigDecimal cgstPercent) {
         this.cgstPercent = cgstPercent;
     }
 
     @java.lang.Override
-    @java.lang.SuppressWarnings("all")
+    
     public boolean equals(final java.lang.Object o) {
         if (o == this) return true;
         if (!(o instanceof DynamicPricingConfig)) return false;
@@ -144,13 +144,13 @@ public class DynamicPricingConfig {
         return true;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     protected boolean canEqual(final java.lang.Object other) {
         return other instanceof DynamicPricingConfig;
     }
 
     @java.lang.Override
-    @java.lang.SuppressWarnings("all")
+    
     public int hashCode() {
         final int PRIME = 59;
         int result = 1;
@@ -172,7 +172,7 @@ public class DynamicPricingConfig {
     }
 
     @java.lang.Override
-    @java.lang.SuppressWarnings("all")
+    
     public java.lang.String toString() {
         return "DynamicPricingConfig(basePrice=" + this.getBasePrice() + ", perKmRate=" + this.getPerKmRate() + ", restMaxContributionPercent=" + this.getRestMaxContributionPercent() + ", fixedPlatformFee=" + this.getFixedPlatformFee() + ", platformExcessCutPercent=" + this.getPlatformExcessCutPercent() + ", sgstPercent=" + this.getSgstPercent() + ", cgstPercent=" + this.getCgstPercent() + ")";
     }

@@ -12,7 +12,7 @@ import java.util.Map;
 @RequestMapping("/api/v1/internal/admin/orders/dlq")
 @lombok.extern.slf4j.Slf4j
 public class AdminDlqController {
-    @java.lang.SuppressWarnings("all")
+    
 
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final com.fooddelivery.order.repository.IPaymentIntentRepository paymentIntentRepository;
@@ -133,7 +133,7 @@ public class AdminDlqController {
         return ResponseEntity.ok(response);
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public AdminDlqController(final KafkaTemplate<String, String> kafkaTemplate, final com.fooddelivery.order.repository.IPaymentIntentRepository paymentIntentRepository, final com.fooddelivery.order.service.OrderSagaOrchestrator orderSagaOrchestrator, final com.fooddelivery.order.service.OrderRefundService orderRefundService, final com.fooddelivery.order.repository.IOrderRepository orderRepository) {
         this.kafkaTemplate = kafkaTemplate;
         this.paymentIntentRepository = paymentIntentRepository;

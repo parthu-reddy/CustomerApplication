@@ -9,7 +9,7 @@ import com.fooddelivery.order.service.state.OrderState;
 @lombok.extern.slf4j.Slf4j
 
 public class PendingAcceptanceState implements OrderState {
-    @java.lang.SuppressWarnings("all")
+    
 
     @Override
     public void handleOrderAccepted(OrderContext ctx) {

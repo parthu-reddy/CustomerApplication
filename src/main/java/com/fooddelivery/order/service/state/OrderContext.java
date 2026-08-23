@@ -15,33 +15,33 @@ public class OrderContext {
         this.actionService = actionService;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public Order getOrder() {
         return this.order;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public JsonNode getEventPayload() {
         return this.eventPayload;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public OrderActionService getActionService() {
         return this.actionService;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public boolean isRequiresRefund() {
         return this.requiresRefund;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public void setRequiresRefund(final boolean requiresRefund) {
         this.requiresRefund = requiresRefund;
     }
 
     @java.lang.Override
-    @java.lang.SuppressWarnings("all")
+    
     public boolean equals(final java.lang.Object o) {
         if (o == this) return true;
         if (!(o instanceof OrderContext)) return false;
@@ -60,13 +60,13 @@ public class OrderContext {
         return true;
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     protected boolean canEqual(final java.lang.Object other) {
         return other instanceof OrderContext;
     }
 
     @java.lang.Override
-    @java.lang.SuppressWarnings("all")
+    
     public int hashCode() {
         final int PRIME = 59;
         int result = 1;
@@ -81,7 +81,7 @@ public class OrderContext {
     }
 
     @java.lang.Override
-    @java.lang.SuppressWarnings("all")
+    
     public java.lang.String toString() {
         return "OrderContext(order=" + this.getOrder() + ", eventPayload=" + this.getEventPayload() + ", actionService=" + this.getActionService() + ", requiresRefund=" + this.isRequiresRefund() + ")";
     }

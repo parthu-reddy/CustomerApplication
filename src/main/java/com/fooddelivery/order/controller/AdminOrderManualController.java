@@ -25,7 +25,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/internal/admin/orders/intervention")
 @lombok.extern.slf4j.Slf4j
 public class AdminOrderManualController {
-    @java.lang.SuppressWarnings("all")
+    
 
     private final IOrderRepository orderRepository;
     private final com.fooddelivery.common.outbox.repository.OutboxEventRepository outboxEventRepository;
@@ -245,7 +245,7 @@ public class AdminOrderManualController {
                             .build();
                         outboxEventRepository.save(outboxEvent);
                     } catch (Exception ex) {
-                        log.info("Published REVERSAL_GENERATED event to Wallet for {} {} due to order {}", faultAttribution, entityId, order.getId());
+                        log.error("Failed to publish REVERSAL_GENERATED event to Wallet for {} {} due to order {}", faultAttribution, entityId, order.getId(), ex);
                     }
                 }
             }
@@ -309,7 +309,7 @@ public class AdminOrderManualController {
         return ResponseEntity.ok(ApiResponse.success("Support ticket " + action.toLowerCase() + " successfully", "Operation successful"));
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public AdminOrderManualController(final IOrderRepository orderRepository, final com.fooddelivery.common.outbox.repository.OutboxEventRepository outboxEventRepository, final com.fooddelivery.order.service.OrderSagaOrchestrator orderSagaOrchestrator, final com.fooddelivery.order.service.OrderRefundService orderRefundService, final SupportTicketRepository supportTicketRepository) {
         this.orderRepository = orderRepository;
         this.outboxEventRepository = outboxEventRepository;

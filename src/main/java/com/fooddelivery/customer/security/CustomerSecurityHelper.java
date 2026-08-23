@@ -15,7 +15,7 @@ public class CustomerSecurityHelper {
         return order != null && order.getCustomerId().toString().equals(userId);
     }
 
-    @java.lang.SuppressWarnings("all")
+    
     public CustomerSecurityHelper(final IOrderRepository orderRepository) {
         this.orderRepository = orderRepository;
     }

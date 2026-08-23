@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
 @Service
 @lombok.extern.slf4j.Slf4j
 public class CustomerOrderService {
-    @java.lang.SuppressWarnings("all")
+    
 
     private final IOrderRepository orderRepository;
     private final OrderSagaOrchestrator orderSagaOrchestrator;
@@ -38,6 +38,7 @@ public class CustomerOrderService {
     }
 
     private final StringRedisTemplate redisTemplate;
+    private final com.fooddelivery.common.lock.RedisLock redisLock;
     private final PaymentGatewayOrchestrator paymentGatewayOrchestrator;
     private final com.fooddelivery.customer.repository.CustomerAddressRepository addressRepository;
     private final com.fooddelivery.customer.client.RestaurantClient restaurantClient;
@@ -218,7 +219,7 @@ public class CustomerOrderService {
                     Double rLat = (Double) restaurantData.get("lat");
                     Double rLng = (Double) restaurantData.get("lng");
                     try {
-                        java.util.Map<String, Object> mapsResponse = mapsClient.checkFleetAvailability(com.fooddelivery.common.constants.AppConstants.DEFAULT_CITY_ID, rLat, rLng, com.fooddelivery.common.constants.AppConstants.MAX_DELIVERY_RADIUS_KM);
+                        java.util.Map<String, Object> mapsResponse = mapsClient.checkFleetAvailability("BLR", rLat, rLng, com.fooddelivery.common.constants.AppConstants.MAX_DELIVERY_RADIUS_KM);
                         if (mapsResponse != null) {
                             return Boolean.TRUE.equals(mapsResponse.get("available"));
                         }
@@ -241,77 +242,7 @@ public class CustomerOrderService {
                     if (!hasDrivers) {
                         throw new com.fooddelivery.customer.exception.DeliveryPartnerUnavailableException(com.fooddelivery.common.constants.AppConstants.ERROR_MSG_NO_DELIVERY_PARTNER_NEARBY, com.fooddelivery.common.constants.AppConstants.ERROR_NO_DELIVERY_PARTNER_NEARBY);
                     }
-                    String distanceCacheKey = "distance_cache:" + address.getId() + ":" + request.getRestaurantId();
-                    String cachedDistance = redisTemplate.opsForValue().get(distanceCacheKey);
-                    double distance = -1.0; // Enforce financial integrity: no default distance
-                    boolean isFallback = false;
-                    boolean cacheHit = false;
-                    if (cachedDistance != null) {
-                        try {
-                            distance = Double.parseDouble(cachedDistance);
-                            cacheHit = true;
-                        } catch (NumberFormatException e) {
-                            log.warn("Corrupted distance cache value for key {}: \'{}\'. Deleting and re-fetching.", distanceCacheKey, cachedDistance);
-                            redisTemplate.delete(distanceCacheKey);
-                        }
-                    }
-                    if (!cacheHit) {
-                        // Implement distributed lock to prevent cache stampede
-                        String lockKey = "lock:distance_cache:" + address.getId() + ":" + request.getRestaurantId();
-                        Boolean acquired = redisTemplate.opsForValue().setIfAbsent(lockKey, "1", 10, java.util.concurrent.TimeUnit.SECONDS);
-                        try {
-                            if (Boolean.TRUE.equals(acquired)) {
-                                // Double-check cache inside lock
-                                cachedDistance = redisTemplate.opsForValue().get(distanceCacheKey);
-                                if (cachedDistance != null) {
-                                    try {
-                                        distance = Double.parseDouble(cachedDistance);
-                                        cacheHit = true;
-                                    } catch (NumberFormatException ignored) {
-                                    }
-                                }
-                                if (!cacheHit) {
-                                    String originStr = address.getLatitude() + "," + address.getLongitude();
-                                    String destinationStr = rLat + "," + rLng;
-                                    java.util.Map<String, Object> distanceMap = mapsClient.getDistance(originStr, destinationStr);
-                                    if (distanceMap != null) {
-                                        if (distanceMap.containsKey("distance")) {
-                                            distance = ((Number) distanceMap.get("distance")).doubleValue();
-                                        } else {
-                                            isFallback = true;
-                                        }
-                                        if (Boolean.TRUE.equals(distanceMap.get("fallback"))) {
-                                            isFallback = true;
-                                        }
-                                    } else {
-                                        isFallback = true;
-                                    }
-                                    if (!isFallback) {
-                                        redisTemplate.opsForValue().set(distanceCacheKey, String.valueOf(distance), 1, java.util.concurrent.TimeUnit.HOURS);
-                                    }
-                                }
-                            } else {
-                                // If lock not acquired, wait and retry cache fetch once
-                                try {
-                                    Thread.sleep(500);
-                                } catch (InterruptedException ignored) {
-                                }
-                                cachedDistance = redisTemplate.opsForValue().get(distanceCacheKey);
-                                if (cachedDistance != null) {
-                                    distance = Double.parseDouble(cachedDistance);
-                                } else {
-                                    throw new RuntimeException("Timeout waiting for distance calculation");
-                                }
-                            }
-                        } finally {
-                            if (Boolean.TRUE.equals(acquired)) {
-                                redisTemplate.delete(lockKey);
-                            }
-                        }
-                        if (isFallback) {
-                            throw new IllegalArgumentException("Unable to calculate accurate delivery distance as the mapping service is currently unavailable. Please try again later.");
-                        }
-                    }
+                    double distance = resolveDistanceKm(address, request.getRestaurantId(), rLat, rLng);
                     if (distance > 7.0) {
                         throw new IllegalArgumentException("The restaurant is too far away (over 7km). Please select a closer restaurant.");
                     }
@@ -490,53 +421,7 @@ public class CustomerOrderService {
                         throw new IllegalArgumentException("Restaurant is currently offline or closed.");
                     }
 
-                    String distanceCacheKey = "distance_cache:" + address.getId() + ":" + request.getRestaurantId();
-                    String cachedDistance = redisTemplate.opsForValue().get(distanceCacheKey);
-                    double distance = -1.0;
-                    boolean isFallback = false;
-                    boolean cacheHit = false;
-                    if (cachedDistance != null) {
-                        try {
-                            distance = Double.parseDouble(cachedDistance);
-                            cacheHit = true;
-                        } catch (NumberFormatException e) {
-                            redisTemplate.delete(distanceCacheKey);
-                        }
-                    }
-                    if (!cacheHit) {
-                        String lockKey = "lock:distance_cache:" + address.getId() + ":" + request.getRestaurantId();
-                        Boolean acquired = redisTemplate.opsForValue().setIfAbsent(lockKey, "1", 10, java.util.concurrent.TimeUnit.SECONDS);
-                        try {
-                            if (Boolean.TRUE.equals(acquired)) {
-                                cachedDistance = redisTemplate.opsForValue().get(distanceCacheKey);
-                                if (cachedDistance != null) {
-                                    try { distance = Double.parseDouble(cachedDistance); cacheHit = true; } 
-                                    catch (NumberFormatException ignored) {}
-                                }
-                                if (!cacheHit) {
-                                    String originStr = address.getLatitude() + "," + address.getLongitude();
-                                    String destinationStr = rLat + "," + rLng;
-                                    java.util.Map<String, Object> distanceMap = mapsClient.getDistance(originStr, destinationStr);
-                                    if (distanceMap != null) {
-                                        if (distanceMap.containsKey("distance")) distance = ((Number) distanceMap.get("distance")).doubleValue();
-                                        else isFallback = true;
-                                        if (Boolean.TRUE.equals(distanceMap.get("fallback"))) isFallback = true;
-                                    } else {
-                                        isFallback = true;
-                                    }
-                                    if (!isFallback) redisTemplate.opsForValue().set(distanceCacheKey, String.valueOf(distance), 1, java.util.concurrent.TimeUnit.HOURS);
-                                }
-                            } else {
-                                try { Thread.sleep(500); } catch (InterruptedException ignored) {}
-                                cachedDistance = redisTemplate.opsForValue().get(distanceCacheKey);
-                                if (cachedDistance != null) distance = Double.parseDouble(cachedDistance);
-                                else throw new RuntimeException("Timeout waiting for distance calculation");
-                            }
-                        } finally {
-                            if (Boolean.TRUE.equals(acquired)) redisTemplate.delete(lockKey);
-                        }
-                        if (isFallback) throw new IllegalArgumentException("Unable to calculate accurate delivery distance");
-                    }
+                    double distance = resolveDistanceKm(address, request.getRestaurantId(), rLat, rLng);
                     if (distance > 7.0) {
                         throw new IllegalArgumentException("The restaurant is too far away (over 7km). Please select a closer restaurant.");
                     }
@@ -567,7 +452,7 @@ public class CustomerOrderService {
                         .sgst(pricing.getSgst())
                         .cgst(pricing.getCgst())
                         .total(finalTotal)
-                        .minAmountForFreeDelivery(dynamicPricingService.getMinAmountForFreeDelivery(new BigDecimal(String.valueOf(distance))))
+                        .minAmountForFreeDelivery(dynamicPricingService.getMinAmountForFreeDelivery(new BigDecimal(String.valueOf(distance))).orElse(null))
                         .distanceKm(new BigDecimal(String.valueOf(distance)))
                         .driverPayout(pricing.getDriverGrossPayout())
                         .restaurantDeliveryContribution(pricing.getRestaurantDeliveryContribution())
@@ -598,8 +483,7 @@ public class CustomerOrderService {
         return sb.toString();
     }
 
-    @java.lang.SuppressWarnings("all")
-    public CustomerOrderService(final IOrderRepository orderRepository, final OrderSagaOrchestrator orderSagaOrchestrator, final StringRedisTemplate redisTemplate, final PaymentGatewayOrchestrator paymentGatewayOrchestrator, final com.fooddelivery.customer.repository.CustomerAddressRepository addressRepository, final com.fooddelivery.customer.client.RestaurantClient restaurantClient, final com.fooddelivery.common.client.MapsServiceClient mapsClient, final org.springframework.transaction.support.TransactionTemplate transactionTemplate, final com.fooddelivery.common.outbox.repository.OutboxEventRepository outboxEventRepository, final DynamicPricingService dynamicPricingService, final com.fooddelivery.common.client.WalletServiceClient walletServiceClient) {
+    public CustomerOrderService(final IOrderRepository orderRepository, final OrderSagaOrchestrator orderSagaOrchestrator, final StringRedisTemplate redisTemplate, final PaymentGatewayOrchestrator paymentGatewayOrchestrator, final com.fooddelivery.customer.repository.CustomerAddressRepository addressRepository, final com.fooddelivery.customer.client.RestaurantClient restaurantClient, final com.fooddelivery.common.client.MapsServiceClient mapsClient, final org.springframework.transaction.support.TransactionTemplate transactionTemplate, final com.fooddelivery.common.outbox.repository.OutboxEventRepository outboxEventRepository, final DynamicPricingService dynamicPricingService, final com.fooddelivery.common.client.WalletServiceClient walletServiceClient, final com.fooddelivery.common.lock.RedisLock redisLock) {
         this.orderRepository = orderRepository;
         this.orderSagaOrchestrator = orderSagaOrchestrator;
         this.redisTemplate = redisTemplate;
@@ -611,5 +495,93 @@ public class CustomerOrderService {
         this.outboxEventRepository = outboxEventRepository;
         this.dynamicPricingService = dynamicPricingService;
         this.walletServiceClient = walletServiceClient;
+        this.redisLock = redisLock;
+    }
+
+    private double resolveDistanceKm(
+            com.fooddelivery.customer.entity.CustomerAddress address,
+            UUID restaurantId,
+            Double rLat,
+            Double rLng) {
+        String distanceCacheKey = "distance_cache:" + address.getId() + ":" + restaurantId;
+        String cachedDistance = redisTemplate.opsForValue().get(distanceCacheKey);
+        double distance = -1.0;
+        boolean isFallback = false;
+        boolean cacheHit = false;
+        
+        if (cachedDistance != null) {
+            try {
+                distance = Double.parseDouble(cachedDistance);
+                cacheHit = true;
+            } catch (NumberFormatException e) {
+                log.warn("Corrupted distance cache value for key {}: '{}'. Deleting and re-fetching.", distanceCacheKey, cachedDistance);
+                redisTemplate.delete(distanceCacheKey);
+            }
+        }
+        
+        if (!cacheHit) {
+            String lockKey = "lock:distance_cache:" + address.getId() + ":" + restaurantId;
+            String lockToken = UUID.randomUUID().toString();
+            boolean acquired = redisLock.tryAcquire(lockKey, lockToken, java.time.Duration.ofSeconds(10));
+            try {
+                if (acquired) {
+                    cachedDistance = redisTemplate.opsForValue().get(distanceCacheKey);
+                    if (cachedDistance != null) {
+                        try {
+                            distance = Double.parseDouble(cachedDistance);
+                            cacheHit = true;
+                        } catch (NumberFormatException ignored) {
+                            log.warn("Corrupted distance cache value on double check: '{}'", cachedDistance);
+                        }
+                    }
+                    if (!cacheHit) {
+                        String originStr = address.getLatitude() + "," + address.getLongitude();
+                        String destinationStr = rLat + "," + rLng;
+                        java.util.Map<String, Object> distanceMap = mapsClient.getDistance(originStr, destinationStr);
+                        if (distanceMap != null) {
+                            if (distanceMap.containsKey("distance")) {
+                                distance = ((Number) distanceMap.get("distance")).doubleValue();
+                            } else {
+                                isFallback = true;
+                            }
+                            if (Boolean.TRUE.equals(distanceMap.get("fallback"))) {
+                                isFallback = true;
+                            }
+                        } else {
+                            isFallback = true;
+                        }
+                        if (!isFallback) {
+                            redisTemplate.opsForValue().set(distanceCacheKey, String.valueOf(distance), 1, java.util.concurrent.TimeUnit.HOURS);
+                        }
+                    }
+                } else {
+                    try {
+                        Thread.sleep(500);
+                    } catch (InterruptedException ignored) {
+                        Thread.currentThread().interrupt();
+                    }
+                    cachedDistance = redisTemplate.opsForValue().get(distanceCacheKey);
+                    if (cachedDistance != null) {
+                        try {
+                            distance = Double.parseDouble(cachedDistance);
+                        } catch (NumberFormatException e) {
+                            log.warn("Corrupted distance cache value after lock wait for key {}: '{}'", distanceCacheKey, cachedDistance);
+                            throw new RuntimeException("Corrupted distance cache value after waiting for lock");
+                        }
+                    } else {
+                        throw new RuntimeException("Timeout waiting for distance calculation");
+                    }
+                }
+            } finally {
+                if (acquired) {
+                    redisLock.release(lockKey, lockToken);
+                }
+            }
+            if (isFallback) {
+                throw new IllegalArgumentException("Unable to calculate accurate delivery distance as the mapping service is currently unavailable. Please try again later.");
+            }
+        }
+        
+        return distance;
     }
 }
