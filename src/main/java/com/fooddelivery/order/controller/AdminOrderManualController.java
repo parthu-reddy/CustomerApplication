@@ -24,6 +24,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/internal/admin/orders/intervention")
 @lombok.extern.slf4j.Slf4j
+@lombok.RequiredArgsConstructor
 public class AdminOrderManualController {
     
 
@@ -189,73 +190,65 @@ public class AdminOrderManualController {
 
     @PostMapping("/{orderId}/refund/post-delivery")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<String>> postDeliveryRefund(@PathVariable UUID orderId, @RequestBody Map<String, Object> payload) {
-        try {
-            Optional<Order> orderOpt = orderRepository.findById(orderId);
-            if (orderOpt.isEmpty()) {
-                return ResponseEntity.notFound().build();
-            }
-            Order order = orderOpt.get();
-            Object amountObj = payload.get("amount");
-            if (amountObj == null) {
-                return ResponseEntity.badRequest().body(ApiResponse.error("Amount is required"));
-            }
-            java.math.BigDecimal amount = new java.math.BigDecimal(amountObj.toString());
-            
-            Object faultAttributionObj = payload.get("faultAttribution");
-            String faultAttribution = faultAttributionObj != null ? faultAttributionObj.toString().toUpperCase() : "PLATFORM";
-            
-            if (!faultAttribution.equals("RESTAURANT") && !faultAttribution.equals("DRIVER") && !faultAttribution.equals("PLATFORM")) {
-                return ResponseEntity.badRequest().body(ApiResponse.error("Invalid faultAttribution. Must be RESTAURANT, DRIVER, or PLATFORM"));
-            }
-            
-            // Process the refund to the customer
-            orderRefundService.processPartialRefund(order, amount, com.fooddelivery.common.enums.RefundDestination.GATEWAY);
-            
-            // If fault lies with the restaurant or driver, publish a REVERSAL_GENERATED event to debit their earnings
-            if (!faultAttribution.equals("PLATFORM")) {
-                UUID entityId = null;
-                if (faultAttribution.equals("RESTAURANT") && order.getRestaurantId() != null) {
-                    entityId = order.getRestaurantId();
-                } else if (faultAttribution.equals("DRIVER") && order.getDeliveryExecutiveId() != null) {
-                    entityId = order.getDeliveryExecutiveId();
-                }
-                
-                if (entityId != null) {
-                    Map<String, Object> eventPayload = new HashMap<>();
-                    eventPayload.put("entityId", entityId.toString());
-                    eventPayload.put("entityType", faultAttribution);
-                    eventPayload.put("amount", amount.toString());
-                    eventPayload.put("referenceId", "REV_" + order.getId().toString() + "_" + System.currentTimeMillis());
-                    eventPayload.put("description", "Reversal for order " + order.getId() + " due to post-delivery refund");
-                    eventPayload.put("chargeCategory", com.fooddelivery.common.enums.ChargeCategory.REFUND.name());
-                    
-                    eventPayload.put("eventType", "REVERSAL_GENERATED");
-                    
-                    try {
-                        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-                        String jsonMessage = mapper.writeValueAsString(eventPayload);
-                        com.fooddelivery.common.outbox.entity.OutboxEventEntity outboxEvent = com.fooddelivery.common.outbox.entity.OutboxEventEntity.builder()
-                            .id(java.util.UUID.randomUUID())
-                            .aggregateType(com.fooddelivery.common.constants.AggregateType.WALLET)
-                            .aggregateId(order.getId().toString())
-                            .eventType(com.fooddelivery.common.constants.EventType.REFUND_GENERATED)
-                            .payload(jsonMessage)
-                            .createdAt(java.time.LocalDateTime.now())
-                            .build();
-                        outboxEventRepository.save(outboxEvent);
-                    } catch (Exception ex) {
-                        log.error("Failed to publish REVERSAL_GENERATED event to Wallet for {} {} due to order {}", faultAttribution, entityId, order.getId(), ex);
-                    }
-                }
-            }
-            
-            log.info("Admin requested post-delivery refund of {} for order {}. Fault: {}", amount, order.getId(), faultAttribution);
-            return ResponseEntity.ok(ApiResponse.success("Post-delivery refund requested successfully", "Operation successful"));
-        } catch (Exception e) {
-            log.error("Error during post-delivery refund", e);
-            return ResponseEntity.internalServerError().body(ApiResponse.error(e.getMessage() != null ? e.getMessage() : "Failed to process post-delivery refund"));
+    @org.springframework.transaction.annotation.Transactional
+    public ResponseEntity<ApiResponse<String>> postDeliveryRefund(@PathVariable UUID orderId, @RequestBody Map<String, Object> payload) throws Exception {
+        Optional<Order> orderOpt = orderRepository.findById(orderId);
+        if (orderOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
         }
+        Order order = orderOpt.get();
+        Object amountObj = payload.get("amount");
+        if (amountObj == null) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("Amount is required"));
+        }
+        java.math.BigDecimal amount = new java.math.BigDecimal(amountObj.toString());
+        
+        Object faultAttributionObj = payload.get("faultAttribution");
+        String faultAttribution = faultAttributionObj != null ? faultAttributionObj.toString().toUpperCase() : "PLATFORM";
+        
+        if (!faultAttribution.equals("RESTAURANT") && !faultAttribution.equals("DRIVER") && !faultAttribution.equals("PLATFORM")) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("Invalid faultAttribution. Must be RESTAURANT, DRIVER, or PLATFORM"));
+        }
+        
+        // Process the refund to the customer
+        orderRefundService.processPartialRefund(order, amount, com.fooddelivery.common.enums.RefundDestination.GATEWAY);
+        
+        // If fault lies with the restaurant or driver, publish a REVERSAL_GENERATED event to debit their earnings
+        if (!faultAttribution.equals("PLATFORM")) {
+            UUID entityId = null;
+            if (faultAttribution.equals("RESTAURANT") && order.getRestaurantId() != null) {
+                entityId = order.getRestaurantId();
+            } else if (faultAttribution.equals("DRIVER") && order.getDeliveryExecutiveId() != null) {
+                entityId = order.getDeliveryExecutiveId();
+            }
+            
+            if (entityId != null) {
+                Map<String, Object> eventPayload = new HashMap<>();
+                eventPayload.put("entityId", entityId.toString());
+                eventPayload.put("entityType", faultAttribution);
+                eventPayload.put("amount", amount.toString());
+                eventPayload.put("referenceId", "REV_" + order.getId().toString() + "_" + System.currentTimeMillis());
+                eventPayload.put("description", "Reversal for order " + order.getId() + " due to post-delivery refund");
+                eventPayload.put("chargeCategory", com.fooddelivery.common.enums.ChargeCategory.REFUND.name());
+                
+                eventPayload.put("eventType", "REVERSAL_GENERATED");
+                
+                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                String jsonMessage = mapper.writeValueAsString(eventPayload);
+                com.fooddelivery.common.outbox.entity.OutboxEventEntity outboxEvent = com.fooddelivery.common.outbox.entity.OutboxEventEntity.builder()
+                    .id(java.util.UUID.randomUUID())
+                    .aggregateType(com.fooddelivery.common.constants.AggregateType.WALLET)
+                    .aggregateId(order.getId().toString())
+                    .eventType(com.fooddelivery.common.constants.EventType.REFUND_GENERATED)
+                    .payload(jsonMessage)
+                    .createdAt(java.time.LocalDateTime.now())
+                    .build();
+                outboxEventRepository.save(outboxEvent);
+            }
+        }
+        
+        log.info("Admin requested post-delivery refund of {} for order {}. Fault: {}", amount, order.getId(), faultAttribution);
+        return ResponseEntity.ok(ApiResponse.success("Post-delivery refund requested successfully", "Operation successful"));
     }
 
 
@@ -268,14 +261,14 @@ public class AdminOrderManualController {
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "OPEN") String status) {
         Pageable pageable = PageRequest.of(page, size);
+        Page<SupportTicket> tickets;
         try {
             SupportTicket.TicketStatus ticketStatus = SupportTicket.TicketStatus.valueOf(status.toUpperCase());
-            Page<SupportTicket> tickets = supportTicketRepository.findByStatusOrderByCreatedAtDesc(ticketStatus, pageable);
-            return ResponseEntity.ok(tickets);
+            tickets = supportTicketRepository.findByStatusOrderByCreatedAtDesc(ticketStatus, pageable);
         } catch (IllegalArgumentException e) {
-            Page<SupportTicket> tickets = supportTicketRepository.findAllByOrderByCreatedAtDesc(pageable);
-            return ResponseEntity.ok(tickets);
+            tickets = supportTicketRepository.findAllByOrderByCreatedAtDesc(pageable);
         }
+        return ResponseEntity.ok(tickets);
     }
 
     @PostMapping("/support-tickets/{ticketId}/resolve")
@@ -310,11 +303,4 @@ public class AdminOrderManualController {
     }
 
     
-    public AdminOrderManualController(final IOrderRepository orderRepository, final com.fooddelivery.common.outbox.repository.OutboxEventRepository outboxEventRepository, final com.fooddelivery.order.service.OrderSagaOrchestrator orderSagaOrchestrator, final com.fooddelivery.order.service.OrderRefundService orderRefundService, final SupportTicketRepository supportTicketRepository) {
-        this.orderRepository = orderRepository;
-        this.outboxEventRepository = outboxEventRepository;
-        this.orderSagaOrchestrator = orderSagaOrchestrator;
-        this.orderRefundService = orderRefundService;
-        this.supportTicketRepository = supportTicketRepository;
-    }
 }

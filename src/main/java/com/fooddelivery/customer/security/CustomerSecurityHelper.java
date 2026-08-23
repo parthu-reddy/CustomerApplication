@@ -6,6 +6,7 @@ import org.springframework.stereotype.Component;
 import java.util.UUID;
 
 @Component
+@lombok.RequiredArgsConstructor
 public class CustomerSecurityHelper {
     private final IOrderRepository orderRepository;
 
@@ -16,7 +17,5 @@ public class CustomerSecurityHelper {
     }
 
     
-    public CustomerSecurityHelper(final IOrderRepository orderRepository) {
-        this.orderRepository = orderRepository;
-    }
+
 }

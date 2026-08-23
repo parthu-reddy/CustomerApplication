@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.List;
 
 @Component("customerAdvertisementClientFallback")
+@lombok.RequiredArgsConstructor
 public class AdvertisementClientFallback implements AdvertisementClient {
 
     @Override

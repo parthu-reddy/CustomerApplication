@@ -93,6 +93,7 @@ public class PaymentEventConsumerTest {
         when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
 
         java.util.Map<String, Object> headers = new java.util.HashMap<>();
+        headers.put("eventId", java.util.UUID.randomUUID().toString());
         paymentEventConsumer.handlePaymentEvents(message, headers);
 
         // Verify that because order is CANCELLED, late payment triggers immediate refund

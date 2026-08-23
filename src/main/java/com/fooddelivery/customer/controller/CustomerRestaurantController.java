@@ -18,6 +18,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 @RequestMapping("/api/v1/restaurants")
 @PreAuthorize("hasRole(\'CUSTOMER\')")
 @lombok.extern.slf4j.Slf4j
+@lombok.RequiredArgsConstructor
 public class CustomerRestaurantController {
     
 
@@ -224,13 +225,4 @@ public class CustomerRestaurantController {
     }
 
     
-    public CustomerRestaurantController(final RestaurantClient restaurantClient, final MapsServiceClient mapsClient, final com.fooddelivery.customer.service.DynamicPricingService dynamicPricingService, final com.fooddelivery.customer.config.DynamicPricingConfig dynamicPricingConfig, final com.fooddelivery.customer.repository.CustomerAddressRepository customerAddressRepository, final com.fooddelivery.customer.client.AdvertisementClient advertisementClient, final org.springframework.data.redis.core.StringRedisTemplate redisTemplate) {
-        this.restaurantClient = restaurantClient;
-        this.mapsClient = mapsClient;
-        this.dynamicPricingService = dynamicPricingService;
-        this.dynamicPricingConfig = dynamicPricingConfig;
-        this.customerAddressRepository = customerAddressRepository;
-        this.advertisementClient = advertisementClient;
-        this.redisTemplate = redisTemplate;
-    }
 }

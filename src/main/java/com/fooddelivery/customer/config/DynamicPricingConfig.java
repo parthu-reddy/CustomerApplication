@@ -177,3 +177,4 @@ public class DynamicPricingConfig {
         return "DynamicPricingConfig(basePrice=" + this.getBasePrice() + ", perKmRate=" + this.getPerKmRate() + ", restMaxContributionPercent=" + this.getRestMaxContributionPercent() + ", fixedPlatformFee=" + this.getFixedPlatformFee() + ", platformExcessCutPercent=" + this.getPlatformExcessCutPercent() + ", sgstPercent=" + this.getSgstPercent() + ", cgstPercent=" + this.getCgstPercent() + ")";
     }
 }
+// @Getter

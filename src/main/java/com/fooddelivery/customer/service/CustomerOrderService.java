@@ -25,6 +25,7 @@ import java.util.stream.Collectors;
 
 @Service
 @lombok.extern.slf4j.Slf4j
+@lombok.RequiredArgsConstructor
 public class CustomerOrderService {
     
 
@@ -483,20 +484,6 @@ public class CustomerOrderService {
         return sb.toString();
     }
 
-    public CustomerOrderService(final IOrderRepository orderRepository, final OrderSagaOrchestrator orderSagaOrchestrator, final StringRedisTemplate redisTemplate, final PaymentGatewayOrchestrator paymentGatewayOrchestrator, final com.fooddelivery.customer.repository.CustomerAddressRepository addressRepository, final com.fooddelivery.customer.client.RestaurantClient restaurantClient, final com.fooddelivery.common.client.MapsServiceClient mapsClient, final org.springframework.transaction.support.TransactionTemplate transactionTemplate, final com.fooddelivery.common.outbox.repository.OutboxEventRepository outboxEventRepository, final DynamicPricingService dynamicPricingService, final com.fooddelivery.common.client.WalletServiceClient walletServiceClient, final com.fooddelivery.common.lock.RedisLock redisLock) {
-        this.orderRepository = orderRepository;
-        this.orderSagaOrchestrator = orderSagaOrchestrator;
-        this.redisTemplate = redisTemplate;
-        this.paymentGatewayOrchestrator = paymentGatewayOrchestrator;
-        this.addressRepository = addressRepository;
-        this.restaurantClient = restaurantClient;
-        this.mapsClient = mapsClient;
-        this.transactionTemplate = transactionTemplate;
-        this.outboxEventRepository = outboxEventRepository;
-        this.dynamicPricingService = dynamicPricingService;
-        this.walletServiceClient = walletServiceClient;
-        this.redisLock = redisLock;
-    }
 
     private double resolveDistanceKm(
             com.fooddelivery.customer.entity.CustomerAddress address,
@@ -585,3 +572,4 @@ public class CustomerOrderService {
         return distance;
     }
 }
+// @Getter

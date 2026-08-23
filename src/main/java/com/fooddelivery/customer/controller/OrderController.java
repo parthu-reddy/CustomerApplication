@@ -23,6 +23,7 @@ import jakarta.validation.Valid;
 @RequestMapping("/api/v1/orders")
 @PreAuthorize("hasRole(\'CUSTOMER\')")
 @lombok.extern.slf4j.Slf4j
+@lombok.RequiredArgsConstructor
 public class OrderController {
     
 
@@ -134,8 +135,4 @@ public class OrderController {
     }
 
     
-    public OrderController(final CustomerOrderService customerOrderService, final com.fooddelivery.common.service.RateLimitingService rateLimitingService) {
-        this.customerOrderService = customerOrderService;
-        this.rateLimitingService = rateLimitingService;
-    }
 }

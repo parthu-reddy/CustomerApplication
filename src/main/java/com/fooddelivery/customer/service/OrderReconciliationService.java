@@ -13,6 +13,7 @@ import java.util.UUID;
 
 @Service
 @lombok.extern.slf4j.Slf4j
+@lombok.RequiredArgsConstructor
 public class OrderReconciliationService {
     
 
@@ -60,10 +61,4 @@ public class OrderReconciliationService {
     }
 
     
-    public OrderReconciliationService(final IOrderRepository orderRepository, final OrderSagaOrchestrator orderSagaOrchestrator, final TransactionTemplate transactionTemplate, final com.fooddelivery.common.outbox.repository.OutboxEventRepository outboxEventRepository) {
-        this.orderRepository = orderRepository;
-        this.orderSagaOrchestrator = orderSagaOrchestrator;
-        this.transactionTemplate = transactionTemplate;
-        this.outboxEventRepository = outboxEventRepository;
-    }
 }

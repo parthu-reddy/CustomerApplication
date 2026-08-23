@@ -19,6 +19,7 @@ import com.fooddelivery.common.constants.PaymentIntentStatus;
 
 @Service
 @lombok.extern.slf4j.Slf4j
+@lombok.RequiredArgsConstructor
 public class OrderActionService {
     
 
@@ -230,10 +231,4 @@ public class OrderActionService {
     }
 
     
-    public OrderActionService(final IOrderRepository orderRepository, final OutboxEventRepository outboxEventRepository, final IPaymentIntentRepository paymentIntentRepository, final ObjectMapper objectMapper) {
-        this.orderRepository = orderRepository;
-        this.outboxEventRepository = outboxEventRepository;
-        this.paymentIntentRepository = paymentIntentRepository;
-        this.objectMapper = objectMapper;
-    }
 }

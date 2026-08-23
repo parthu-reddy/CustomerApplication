@@ -13,6 +13,7 @@ import java.util.List;
 
 @Component
 @lombok.extern.slf4j.Slf4j
+@lombok.RequiredArgsConstructor
 public class RefundRetrySweeper {
     
 
@@ -103,14 +104,4 @@ public class RefundRetrySweeper {
     }
 
     
-    public RefundRetrySweeper(final IPaymentIntentRepository paymentIntentRepository, final IOrderRepository orderRepository, final OrderSagaOrchestrator orderSagaOrchestrator, final com.fooddelivery.order.service.OrderRefundService orderRefundService, final StringRedisTemplate redisTemplate, final com.fooddelivery.common.outbox.repository.OutboxEventRepository outboxEventRepository, final com.fasterxml.jackson.databind.ObjectMapper objectMapper, final com.fooddelivery.order.repository.SupportTicketRepository supportTicketRepository) {
-        this.paymentIntentRepository = paymentIntentRepository;
-        this.orderRepository = orderRepository;
-        this.orderSagaOrchestrator = orderSagaOrchestrator;
-        this.orderRefundService = orderRefundService;
-        this.redisTemplate = redisTemplate;
-        this.outboxEventRepository = outboxEventRepository;
-        this.objectMapper = objectMapper;
-        this.supportTicketRepository = supportTicketRepository;
-    }
 }

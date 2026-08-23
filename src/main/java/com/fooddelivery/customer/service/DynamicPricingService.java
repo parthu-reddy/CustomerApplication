@@ -8,10 +8,23 @@ import java.math.RoundingMode;
 
 @Service
 @lombok.extern.slf4j.Slf4j
+@lombok.RequiredArgsConstructor
 public class DynamicPricingService {
     
 
     private final DynamicPricingConfig config;
+
+    /** Every monetary value in the platform is carried at 2dp. */
+    private static final int MONEY_SCALE = 2;
+
+    /**
+     * Rounds a quantity at the point it is decided. Values derived purely by adding or
+     * subtracting already-rounded quantities are exact and must NOT be rounded again --
+     * that is what made the charges and the breakdown disagree (I-23).
+     */
+    private static BigDecimal round(BigDecimal v) {
+        return v.setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+    }
 
     public PricingBreakdown calculatePricing(BigDecimal foodCost, BigDecimal distanceKm) {
         if (foodCost == null || foodCost.compareTo(BigDecimal.ZERO) < 0) {
@@ -20,30 +33,36 @@ public class DynamicPricingService {
         if (distanceKm == null || distanceKm.compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalArgumentException("Distance cannot be null or negative for pricing calculations");
         }
+        // Inputs are normalised to 2dp so every derived value stays exact at 2dp.
+        foodCost = round(foodCost);
+        final BigDecimal fixedPlatformFee = round(config.getFixedPlatformFee());
+
         BigDecimal effectiveDistance = distanceKm.max(BigDecimal.ONE);
-        BigDecimal driverPayout = config.getBasePrice().add(effectiveDistance.multiply(config.getPerKmRate()));
-        BigDecimal maxRestContribution = distanceKm.compareTo(BigDecimal.valueOf(5.0)) > 0 
-            ? BigDecimal.ZERO 
-            : foodCost.multiply(config.getRestMaxContributionPercent());
+        // decided by multiplication -> round
+        BigDecimal driverPayout = round(config.getBasePrice().add(effectiveDistance.multiply(config.getPerKmRate())));
+        BigDecimal maxRestContribution = distanceKm.compareTo(BigDecimal.valueOf(5.0)) > 0
+            ? BigDecimal.ZERO.setScale(MONEY_SCALE)
+            : round(foodCost.multiply(config.getRestMaxContributionPercent()));
+        // derived from rounded values -> already exact
         BigDecimal excessBudget = maxRestContribution.subtract(driverPayout).max(BigDecimal.ZERO);
-        BigDecimal platformBonus = excessBudget.multiply(config.getPlatformExcessCutPercent());
+        BigDecimal platformBonus = round(excessBudget.multiply(config.getPlatformExcessCutPercent()));
         BigDecimal restPaysDe = driverPayout.min(maxRestContribution);
         BigDecimal custPaysDe = driverPayout.subtract(restPaysDe).max(BigDecimal.ZERO);
-        BigDecimal totalCustomerDeliveryFee = custPaysDe.add(config.getFixedPlatformFee());
+        BigDecimal totalCustomerDeliveryFee = custPaysDe.add(fixedPlatformFee);
         java.util.Set<com.fooddelivery.order.entity.OrderCharge> charges = new java.util.HashSet<>();
         // 0. Platform pays Restaurant the Food Cost
         charges.add(createCharge(com.fooddelivery.common.enums.ChargeCategory.FOOD_COST, com.fooddelivery.order.enums.ChargeEntityType.PLATFORM, com.fooddelivery.order.enums.ChargeEntityType.RESTAURANT, foodCost));
         // 1. Customer pays Fixed Platform Fee
-        if (config.getFixedPlatformFee().compareTo(BigDecimal.ZERO) > 0) {
-            charges.add(createCharge(com.fooddelivery.common.enums.ChargeCategory.PLATFORM_FIXED_FEE, com.fooddelivery.order.enums.ChargeEntityType.CUSTOMER, com.fooddelivery.order.enums.ChargeEntityType.PLATFORM, config.getFixedPlatformFee()));
+        if (fixedPlatformFee.compareTo(BigDecimal.ZERO) > 0) {
+            charges.add(createCharge(com.fooddelivery.common.enums.ChargeCategory.PLATFORM_FIXED_FEE, com.fooddelivery.order.enums.ChargeEntityType.CUSTOMER, com.fooddelivery.order.enums.ChargeEntityType.PLATFORM, fixedPlatformFee));
         }
         // 2. Customer pays Driver
         if (custPaysDe.compareTo(BigDecimal.ZERO) > 0) {
             charges.add(createCharge(com.fooddelivery.common.enums.ChargeCategory.DELIVERY_FEE, com.fooddelivery.order.enums.ChargeEntityType.CUSTOMER, com.fooddelivery.order.enums.ChargeEntityType.DRIVER, custPaysDe));
         }
         // 3. Restaurant pays Fixed Platform Fee
-        if (config.getFixedPlatformFee().compareTo(BigDecimal.ZERO) > 0) {
-            charges.add(createCharge(com.fooddelivery.common.enums.ChargeCategory.PLATFORM_FIXED_FEE, com.fooddelivery.order.enums.ChargeEntityType.RESTAURANT, com.fooddelivery.order.enums.ChargeEntityType.PLATFORM, config.getFixedPlatformFee()));
+        if (fixedPlatformFee.compareTo(BigDecimal.ZERO) > 0) {
+            charges.add(createCharge(com.fooddelivery.common.enums.ChargeCategory.PLATFORM_FIXED_FEE, com.fooddelivery.order.enums.ChargeEntityType.RESTAURANT, com.fooddelivery.order.enums.ChargeEntityType.PLATFORM, fixedPlatformFee));
         }
         // 4. Restaurant pays Driver
         if (restPaysDe.compareTo(BigDecimal.ZERO) > 0) {
@@ -53,8 +72,8 @@ public class DynamicPricingService {
         if (platformBonus.compareTo(BigDecimal.ZERO) > 0) {
             charges.add(createCharge(com.fooddelivery.common.enums.ChargeCategory.PLATFORM_BONUS, com.fooddelivery.order.enums.ChargeEntityType.RESTAURANT, com.fooddelivery.order.enums.ChargeEntityType.PLATFORM, platformBonus));
         }
-        BigDecimal sgstAmount = foodCost.multiply(config.getSgstPercent());
-        BigDecimal cgstAmount = foodCost.multiply(config.getCgstPercent());
+        BigDecimal sgstAmount = round(foodCost.multiply(config.getSgstPercent()));
+        BigDecimal cgstAmount = round(foodCost.multiply(config.getCgstPercent()));
         // 6. Customer pays SGST to Government
         if (sgstAmount.compareTo(BigDecimal.ZERO) > 0) {
             charges.add(createCharge(com.fooddelivery.common.enums.ChargeCategory.SGST, com.fooddelivery.order.enums.ChargeEntityType.CUSTOMER, com.fooddelivery.order.enums.ChargeEntityType.GOVERNMENT, sgstAmount));
@@ -64,8 +83,8 @@ public class DynamicPricingService {
             charges.add(createCharge(com.fooddelivery.common.enums.ChargeCategory.CGST, com.fooddelivery.order.enums.ChargeEntityType.CUSTOMER, com.fooddelivery.order.enums.ChargeEntityType.GOVERNMENT, cgstAmount));
         }
         
-        BigDecimal driverSgstAmount = driverPayout.multiply(config.getDeliverySgstPercent());
-        BigDecimal driverCgstAmount = driverPayout.multiply(config.getDeliveryCgstPercent());
+        BigDecimal driverSgstAmount = round(driverPayout.multiply(config.getDeliverySgstPercent()));
+        BigDecimal driverCgstAmount = round(driverPayout.multiply(config.getDeliveryCgstPercent()));
         // 8. Driver pays SGST to Government
         if (driverSgstAmount.compareTo(BigDecimal.ZERO) > 0) {
             charges.add(createCharge(com.fooddelivery.common.enums.ChargeCategory.SGST, com.fooddelivery.order.enums.ChargeEntityType.DRIVER, com.fooddelivery.order.enums.ChargeEntityType.GOVERNMENT, driverSgstAmount));
@@ -77,28 +96,30 @@ public class DynamicPricingService {
 
         BigDecimal driverTaxes = driverSgstAmount.add(driverCgstAmount);
         BigDecimal driverNetPayout = driverPayout.subtract(driverTaxes);
-        BigDecimal restaurantPayout = foodCost.subtract(config.getFixedPlatformFee()).subtract(restPaysDe).subtract(platformBonus).max(BigDecimal.ZERO);
+        // I-24b: no .max(ZERO) clamp. A negative payout is a real debit against the
+        // restaurant and is carried as such, so the charges and the payout agree.
+        BigDecimal restaurantPayout = foodCost.subtract(fixedPlatformFee).subtract(restPaysDe).subtract(platformBonus);
 
         return PricingBreakdown.builder()
-            .totalCustomerDeliveryFee(totalCustomerDeliveryFee.setScale(2, RoundingMode.HALF_UP))
-            .itemTotal(foodCost.setScale(2, RoundingMode.HALF_UP))
-            .customerPlatformFee(config.getFixedPlatformFee().setScale(2, RoundingMode.HALF_UP))
-            .restaurantPlatformFee(config.getFixedPlatformFee().setScale(2, RoundingMode.HALF_UP))
-            .platformBonus(platformBonus.setScale(2, RoundingMode.HALF_UP))
-            .restaurantDeliveryContribution(restPaysDe.setScale(2, RoundingMode.HALF_UP))
-            .restaurantPayout(restaurantPayout.setScale(2, RoundingMode.HALF_UP))
-            .deliveryFee(custPaysDe.setScale(2, RoundingMode.HALF_UP))
-            .driverGrossPayout(driverPayout.setScale(2, RoundingMode.HALF_UP))
-            .driverTaxes(driverTaxes.setScale(2, RoundingMode.HALF_UP))
-            .driverNetPayout(driverNetPayout.setScale(2, RoundingMode.HALF_UP))
-            .sgst(sgstAmount.setScale(2, RoundingMode.HALF_UP))
-            .cgst(cgstAmount.setScale(2, RoundingMode.HALF_UP))
+            .totalCustomerDeliveryFee(totalCustomerDeliveryFee)
+            .itemTotal(foodCost)
+            .customerPlatformFee(fixedPlatformFee)
+            .restaurantPlatformFee(fixedPlatformFee)
+            .platformBonus(platformBonus)
+            .restaurantDeliveryContribution(restPaysDe)
+            .restaurantPayout(restaurantPayout)
+            .deliveryFee(custPaysDe)
+            .driverGrossPayout(driverPayout)
+            .driverTaxes(driverTaxes)
+            .driverNetPayout(driverNetPayout)
+            .sgst(sgstAmount)
+            .cgst(cgstAmount)
             .charges(charges)
             .build();
     }
 
     private com.fooddelivery.order.entity.OrderCharge createCharge(com.fooddelivery.common.enums.ChargeCategory category, com.fooddelivery.order.enums.ChargeEntityType payer, com.fooddelivery.order.enums.ChargeEntityType payee, BigDecimal amount) {
-        return com.fooddelivery.order.entity.OrderCharge.builder().id(java.util.UUID.randomUUID()).category(category).payerType(payer).payeeType(payee).amount(amount.setScale(2, RoundingMode.HALF_UP)).build();
+        return com.fooddelivery.order.entity.OrderCharge.builder().id(java.util.UUID.randomUUID()).category(category).payerType(payer).payeeType(payee).amount(amount).build();
     }
 
     public java.util.Optional<BigDecimal> getMinAmountForFreeDelivery(BigDecimal distanceKm) {
@@ -117,7 +138,4 @@ public class DynamicPricingService {
     }
 
     
-    public DynamicPricingService(final DynamicPricingConfig config) {
-        this.config = config;
-    }
 }

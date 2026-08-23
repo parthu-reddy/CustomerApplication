@@ -15,6 +15,7 @@ import java.util.UUID;
 
 @Service
 @lombok.extern.slf4j.Slf4j
+@lombok.RequiredArgsConstructor
 public class MenuCacheInvalidationListener {
 
     private final CacheManager cacheManager;
@@ -22,23 +23,15 @@ public class MenuCacheInvalidationListener {
     private final IIdempotencyKeyRepository idempotencyKeyRepository;
     private final TransactionTemplate transactionTemplate;
 
-    public MenuCacheInvalidationListener(CacheManager cacheManager, ObjectMapper objectMapper, IIdempotencyKeyRepository idempotencyKeyRepository, TransactionTemplate transactionTemplate) {
-        this.cacheManager = cacheManager;
-        this.objectMapper = objectMapper;
-        this.idempotencyKeyRepository = idempotencyKeyRepository;
-        this.transactionTemplate = transactionTemplate;
-    }
 
     @KafkaListener(topics = KafkaConstants.TOPIC_MENU_EVENTS, groupId = KafkaConstants.GROUP_FOOD_DELIVERY + "-menucacheinvalidationlistener")
     public void onMenuUpdateEvent(String payload, @org.springframework.messaging.handler.annotation.Headers java.util.Map<String, Object> headers) {
         try {
             String extractedEventId = com.fooddelivery.common.util.KafkaHeaderUtils.extractHeaderValue(headers, "eventId");
-            final String resolvedEventId;
             if (extractedEventId == null) {
-                resolvedEventId = UUID.nameUUIDFromBytes(payload.getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString();
-            } else {
-                resolvedEventId = extractedEventId;
+                throw new IllegalArgumentException("Missing eventId header");
             }
+            final String resolvedEventId = extractedEventId;
 
             String idempotencyKeyStr = "processed_event:menucache:" + resolvedEventId;
 

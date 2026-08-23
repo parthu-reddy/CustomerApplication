@@ -23,6 +23,7 @@ import java.util.UUID;
 
 @Service
 @lombok.extern.slf4j.Slf4j
+@lombok.RequiredArgsConstructor
 public class PaymentEventConsumer {
 
     private static final String FIELD_ORDER_ID = "orderId";
@@ -41,35 +42,16 @@ public class PaymentEventConsumer {
     private final OutboxEventRepository outboxEventRepository;
     private final OrderRefundService orderRefundService;
 
-    public PaymentEventConsumer(IIdempotencyKeyRepository idempotencyKeyRepository,
-                                TransactionTemplate transactionTemplate,
-                                ObjectMapper objectMapper,
-                                IPaymentIntentRepository paymentIntentRepository,
-                                IOrderRepository orderRepository,
-                                OrderActionService orderActionService,
-                                OutboxEventRepository outboxEventRepository,
-                                OrderRefundService orderRefundService) {
-        this.idempotencyKeyRepository = idempotencyKeyRepository;
-        this.transactionTemplate = transactionTemplate;
-        this.objectMapper = objectMapper;
-        this.paymentIntentRepository = paymentIntentRepository;
-        this.orderRepository = orderRepository;
-        this.orderActionService = orderActionService;
-        this.outboxEventRepository = outboxEventRepository;
-        this.orderRefundService = orderRefundService;
-    }
+
 
     @KafkaListener(topics = KafkaConstants.TOPIC_PAYMENT_EVENTS, groupId = KafkaConstants.GROUP_FOOD_DELIVERY + "-paymenteventconsumer")
     public void handlePaymentEvents(String payload, @org.springframework.messaging.handler.annotation.Headers java.util.Map<String, Object> headers) {
         log.info("Received Payment Event: {}", payload);
         String extractedEventId = com.fooddelivery.common.util.KafkaHeaderUtils.extractHeaderValue(headers, "eventId");
-        final String resolvedEventId;
         if (extractedEventId == null) {
-            resolvedEventId = UUID.nameUUIDFromBytes(payload.getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString();
-            log.warn("eventId header missing. Using deterministic payload hash as eventId: {}", resolvedEventId);
-        } else {
-            resolvedEventId = extractedEventId;
+            throw new IllegalArgumentException("Missing eventId header");
         }
+        final String resolvedEventId = extractedEventId;
         try {
             int retries = 0;
             boolean success = false;
@@ -106,7 +88,7 @@ public class PaymentEventConsumer {
                                         if (remainingToRefund.compareTo(java.math.BigDecimal.ZERO) > 0) {
                                             order.setRefundedAmount(order.getTotalAmount());
                                             orderRepository.save(order);
-                                            UUID refundTransferId = UUID.nameUUIDFromBytes((REFUND_TX_PREFIX + order.getId() + "_FULL").getBytes());
+                                            UUID refundTransferId = com.fooddelivery.common.util.DeterministicIdUtils.generateId(REFUND_TX_PREFIX + order.getId() + "_FULL");
                                             orderActionService.recordLedgerTransaction(refundTransferId, order.getId(), PLATFORM_ACCOUNT_ID, AccountType.PLATFORM, order.getCustomerId(), AccountType.CUSTOMER, remainingToRefund, com.fooddelivery.common.enums.ChargeCategory.REFUND);
                                             try {
                                                 Map<String, Object> notifPayload = new HashMap<>();
@@ -157,7 +139,7 @@ public class PaymentEventConsumer {
                                         order.setRefundedAmount(currentRefunded.add(partialAmount));
                                         orderRepository.save(order);
                                         String uniqueSuffix = resolvedEventId != null ? resolvedEventId : String.valueOf(System.currentTimeMillis());
-                                        UUID refundTransferId = UUID.nameUUIDFromBytes((REFUND_TX_PREFIX + "PARTIAL_" + order.getId() + "_" + uniqueSuffix).getBytes());
+                                        UUID refundTransferId = com.fooddelivery.common.util.DeterministicIdUtils.generateId(REFUND_TX_PREFIX + "PARTIAL_" + order.getId() + "_" + uniqueSuffix);
                                         orderActionService.recordLedgerTransaction(refundTransferId, order.getId(), PLATFORM_ACCOUNT_ID, AccountType.PLATFORM, order.getCustomerId(), AccountType.CUSTOMER, partialAmount, com.fooddelivery.common.enums.ChargeCategory.REFUND);
                                         try {
                                             Map<String, Object> notifPayload = new HashMap<>();

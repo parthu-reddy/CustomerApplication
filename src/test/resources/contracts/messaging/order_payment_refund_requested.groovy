@@ -2,7 +2,8 @@ package contracts.messaging
 
 /*
  * Mirrors the real wire payload for order-events / PAYMENT_REFUND_REQUESTED.
- * Produced by CustomerApplication OrderRefundService.
+ * Produced by CustomerApplication OrderRefundService, which writes the outbox row with
+ * AggregateType.PAYMENT -- OutboxProcessor routes that to payment-events, not order-events.
  */
 org.springframework.cloud.contract.spec.Contract.make {
     description("Should publish the serialized PAYMENT_REFUND_REQUESTED event to order-events")
@@ -11,7 +12,7 @@ org.springframework.cloud.contract.spec.Contract.make {
         triggeredBy('firePaymentRefundRequested()')
     }
     outputMessage {
-        sentTo('order-events')
+        sentTo('payment-events')
         headers {
             header('eventType', 'PAYMENT_REFUND_REQUESTED')
             header('aggregateType', 'PAYMENT')

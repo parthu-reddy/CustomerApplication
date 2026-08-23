@@ -19,6 +19,7 @@ import jakarta.validation.Valid;
 @RequestMapping("/api/v1/customers/{customerId}/addresses")
 @PreAuthorize("hasRole(\'CUSTOMER\') and #customerId.toString() == authentication.principal")
 @lombok.extern.slf4j.Slf4j
+@lombok.RequiredArgsConstructor
 public class CustomerAddressController {
     
 
@@ -64,8 +65,4 @@ public class CustomerAddressController {
     }
 
     
-    public CustomerAddressController(final CustomerAddressRepository addressRepository, final ICustomerRepository customerRepository) {
-        this.addressRepository = addressRepository;
-        this.customerRepository = customerRepository;
-    }
 }

@@ -22,7 +22,7 @@ public class CreatedState implements OrderState {
         ctx.getActionService().saveOrder(order);
 
         // Record initial payment from customer to platform
-        UUID paymentTransferId = UUID.nameUUIDFromBytes(("PAYMENT_" + order.getId()).getBytes());
+        UUID paymentTransferId = com.fooddelivery.common.util.DeterministicIdUtils.generateId("PAYMENT_" + order.getId());
         ctx.getActionService().recordLedgerTransaction(
                 paymentTransferId, 
                 order.getId(),

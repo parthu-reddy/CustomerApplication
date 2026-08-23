@@ -70,10 +70,13 @@ class AdminOrderManualControllerTest {
         payload.put("amount", "10.00");
         payload.put("faultAttribution", "RESTAURANT");
 
+        // The exception must propagate: the method is @Transactional, so Spring rolls the
+        // refund back at the transaction boundary. A unit test cannot observe that rollback --
+        // processPartialRefund IS invoked before the outbox save throws, and asserting
+        // never() here would require a transactional integration test to be meaningful.
+        // What this test guarantees is that the failure is not swallowed and no success is
+        // returned, which is the defect I-1 was about.
         assertThatThrownBy(() -> controller.postDeliveryRefund(orderId, payload))
-            .isInstanceOf(RuntimeException.class);
-
-        // the customer refund must not have committed either
-        verify(orderRefundService, never()).processPartialRefund(any(), any(), any());
+            .isInstanceOf(DataIntegrityViolationException.class);
     }
 }

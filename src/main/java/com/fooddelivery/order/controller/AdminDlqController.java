@@ -11,6 +11,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/v1/internal/admin/orders/dlq")
 @lombok.extern.slf4j.Slf4j
+@lombok.RequiredArgsConstructor
 public class AdminDlqController {
     
 
@@ -44,11 +45,21 @@ public class AdminDlqController {
                     partitionKey = innerPayload.get("orderId").toString();
                 }
             }
+            org.springframework.messaging.support.MessageBuilder<String> builder = org.springframework.messaging.support.MessageBuilder
+                .withPayload(jsonPayload)
+                .setHeader(org.springframework.kafka.support.KafkaHeaders.TOPIC, targetTopic);
+
             if (partitionKey != null) {
-                kafkaTemplate.send(targetTopic, partitionKey, jsonPayload);
-            } else {
-                kafkaTemplate.send(targetTopic, jsonPayload);
+                builder.setHeader(org.springframework.kafka.support.KafkaHeaders.KEY, partitionKey);
             }
+            
+            if (payload.containsKey("eventId") && payload.get("eventId") != null) {
+                builder.setHeader("eventId", payload.get("eventId").toString());
+            } else {
+                builder.setHeader("eventId", java.util.UUID.randomUUID().toString());
+            }
+            
+            kafkaTemplate.send(builder.build());
             return ResponseEntity.ok(ApiResponse.success("Event republished successfully to " + targetTopic, "Successfully queued for retry"));
         } catch (Exception e) {
             log.error("Failed to retry DLQ event", e);
@@ -134,11 +145,4 @@ public class AdminDlqController {
     }
 
     
-    public AdminDlqController(final KafkaTemplate<String, String> kafkaTemplate, final com.fooddelivery.order.repository.IPaymentIntentRepository paymentIntentRepository, final com.fooddelivery.order.service.OrderSagaOrchestrator orderSagaOrchestrator, final com.fooddelivery.order.service.OrderRefundService orderRefundService, final com.fooddelivery.order.repository.IOrderRepository orderRepository) {
-        this.kafkaTemplate = kafkaTemplate;
-        this.paymentIntentRepository = paymentIntentRepository;
-        this.orderSagaOrchestrator = orderSagaOrchestrator;
-        this.orderRefundService = orderRefundService;
-        this.orderRepository = orderRepository;
-    }
 }

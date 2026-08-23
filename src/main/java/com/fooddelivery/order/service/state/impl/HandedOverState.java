@@ -35,7 +35,7 @@ public class HandedOverState implements OrderState {
                 AccountType toType = getAccountType(charge.getPayeeType());
                 
                 if (fromId != null && toId != null) {
-                    UUID transferId = UUID.nameUUIDFromBytes(("CHARGE_" + charge.getId()).getBytes());
+                    UUID transferId = com.fooddelivery.common.util.DeterministicIdUtils.generateId("CHARGE_" + charge.getId());
                     ctx.getActionService().recordLedgerTransaction(transferId, order.getId(), fromId, fromType, toId, toType, charge.getAmount(), charge.getCategory());
                 }
                 

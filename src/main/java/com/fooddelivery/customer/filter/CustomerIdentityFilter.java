@@ -12,6 +12,7 @@ import java.io.IOException;
 
 @Component
 @lombok.extern.slf4j.Slf4j
+@lombok.RequiredArgsConstructor
 public class CustomerIdentityFilter extends OncePerRequestFilter {
     
 
@@ -45,7 +46,4 @@ public class CustomerIdentityFilter extends OncePerRequestFilter {
     }
 
     
-    public CustomerIdentityFilter(final ICustomerRepository customerRepository) {
-        this.customerRepository = customerRepository;
-    }
 }

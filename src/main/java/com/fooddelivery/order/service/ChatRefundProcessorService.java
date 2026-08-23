@@ -30,6 +30,7 @@ import java.util.UUID;
 
 @Service
 @lombok.extern.slf4j.Slf4j
+@lombok.RequiredArgsConstructor
 public class ChatRefundProcessorService {
 
     private final IOrderRepository orderRepository;
@@ -39,19 +40,7 @@ public class ChatRefundProcessorService {
     private final ObjectMapper objectMapper;
     private final TransactionTemplate transactionTemplate;
 
-    public ChatRefundProcessorService(IOrderRepository orderRepository,
-                                      SupportTicketRepository supportTicketRepository,
-                                      OutboxEventRepository outboxEventRepository,
-                                      IIdempotencyKeyRepository idempotencyKeyRepository,
-                                      ObjectMapper objectMapper,
-                                      TransactionTemplate transactionTemplate) {
-        this.orderRepository = orderRepository;
-        this.supportTicketRepository = supportTicketRepository;
-        this.outboxEventRepository = outboxEventRepository;
-        this.idempotencyKeyRepository = idempotencyKeyRepository;
-        this.objectMapper = objectMapper;
-        this.transactionTemplate = transactionTemplate;
-    }
+
 
     @KafkaListener(topics = KafkaConstants.TOPIC_CHAT_EVENTS, groupId = "customer-application-chat-group-chatrefundprocessorservice")
     public void handleChatEvents(OutboxEvent event) {

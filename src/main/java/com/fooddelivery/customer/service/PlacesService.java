@@ -8,6 +8,7 @@ import java.util.Map;
 
 @Service
 @lombok.extern.slf4j.Slf4j
+@lombok.RequiredArgsConstructor
 public class PlacesService {
     
 
@@ -34,7 +35,4 @@ public class PlacesService {
     }
 
     
-    public PlacesService(final MapsServiceClient mapsClient) {
-        this.mapsClient = mapsClient;
-    }
 }

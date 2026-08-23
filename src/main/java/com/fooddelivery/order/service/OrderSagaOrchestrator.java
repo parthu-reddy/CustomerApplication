@@ -34,6 +34,7 @@ import java.util.concurrent.ScheduledExecutorService;
 
 @Service
 @lombok.extern.slf4j.Slf4j
+@lombok.RequiredArgsConstructor
 public class OrderSagaOrchestrator {
     
 
@@ -160,44 +161,13 @@ public class OrderSagaOrchestrator {
             this.payload = payload;
         }
 
-        @java.lang.Override
         
-        public boolean equals(final java.lang.Object o) {
-            if (o == this) return true;
-            if (!(o instanceof OrderSagaOrchestrator.WebhookPayloadDTO)) return false;
-            final OrderSagaOrchestrator.WebhookPayloadDTO other = (OrderSagaOrchestrator.WebhookPayloadDTO) o;
-            if (!other.canEqual((java.lang.Object) this)) return false;
-            final java.lang.Object this$event = this.getEvent();
-            final java.lang.Object other$event = other.getEvent();
-            if (this$event == null ? other$event != null : !this$event.equals(other$event)) return false;
-            final java.lang.Object this$payload = this.getPayload();
-            final java.lang.Object other$payload = other.getPayload();
-            if (this$payload == null ? other$payload != null : !this$payload.equals(other$payload)) return false;
-            return true;
-        }
 
         
-        protected boolean canEqual(final java.lang.Object other) {
-            return other instanceof OrderSagaOrchestrator.WebhookPayloadDTO;
-        }
 
-        @java.lang.Override
         
-        public int hashCode() {
-            final int PRIME = 59;
-            int result = 1;
-            final java.lang.Object $event = this.getEvent();
-            result = result * PRIME + ($event == null ? 43 : $event.hashCode());
-            final java.lang.Object $payload = this.getPayload();
-            result = result * PRIME + ($payload == null ? 43 : $payload.hashCode());
-            return result;
-        }
 
-        @java.lang.Override
         
-        public java.lang.String toString() {
-            return "OrderSagaOrchestrator.WebhookPayloadDTO(event=" + this.getEvent() + ", payload=" + this.getPayload() + ")";
-        }
     }
 
     @org.springframework.scheduling.annotation.Scheduled(fixedDelay = 60000) // Runs every minute
@@ -243,39 +213,13 @@ public class OrderSagaOrchestrator {
             this.payment = payment;
         }
 
-        @java.lang.Override
         
-        public boolean equals(final java.lang.Object o) {
-            if (o == this) return true;
-            if (!(o instanceof OrderSagaOrchestrator.PayloadData)) return false;
-            final OrderSagaOrchestrator.PayloadData other = (OrderSagaOrchestrator.PayloadData) o;
-            if (!other.canEqual((java.lang.Object) this)) return false;
-            final java.lang.Object this$payment = this.getPayment();
-            final java.lang.Object other$payment = other.getPayment();
-            if (this$payment == null ? other$payment != null : !this$payment.equals(other$payment)) return false;
-            return true;
-        }
 
         
-        protected boolean canEqual(final java.lang.Object other) {
-            return other instanceof OrderSagaOrchestrator.PayloadData;
-        }
 
-        @java.lang.Override
         
-        public int hashCode() {
-            final int PRIME = 59;
-            int result = 1;
-            final java.lang.Object $payment = this.getPayment();
-            result = result * PRIME + ($payment == null ? 43 : $payment.hashCode());
-            return result;
-        }
 
-        @java.lang.Override
         
-        public java.lang.String toString() {
-            return "OrderSagaOrchestrator.PayloadData(payment=" + this.getPayment() + ")";
-        }
     }
 
 
@@ -296,39 +240,13 @@ public class OrderSagaOrchestrator {
             this.entity = entity;
         }
 
-        @java.lang.Override
         
-        public boolean equals(final java.lang.Object o) {
-            if (o == this) return true;
-            if (!(o instanceof OrderSagaOrchestrator.PaymentData)) return false;
-            final OrderSagaOrchestrator.PaymentData other = (OrderSagaOrchestrator.PaymentData) o;
-            if (!other.canEqual((java.lang.Object) this)) return false;
-            final java.lang.Object this$entity = this.getEntity();
-            final java.lang.Object other$entity = other.getEntity();
-            if (this$entity == null ? other$entity != null : !this$entity.equals(other$entity)) return false;
-            return true;
-        }
 
         
-        protected boolean canEqual(final java.lang.Object other) {
-            return other instanceof OrderSagaOrchestrator.PaymentData;
-        }
 
-        @java.lang.Override
         
-        public int hashCode() {
-            final int PRIME = 59;
-            int result = 1;
-            final java.lang.Object $entity = this.getEntity();
-            result = result * PRIME + ($entity == null ? 43 : $entity.hashCode());
-            return result;
-        }
 
-        @java.lang.Override
         
-        public java.lang.String toString() {
-            return "OrderSagaOrchestrator.PaymentData(entity=" + this.getEntity() + ")";
-        }
     }
 
 
@@ -373,47 +291,13 @@ public class OrderSagaOrchestrator {
             this.amount = amount;
         }
 
-        @java.lang.Override
         
-        public boolean equals(final java.lang.Object o) {
-            if (o == this) return true;
-            if (!(o instanceof OrderSagaOrchestrator.PaymentEntity)) return false;
-            final OrderSagaOrchestrator.PaymentEntity other = (OrderSagaOrchestrator.PaymentEntity) o;
-            if (!other.canEqual((java.lang.Object) this)) return false;
-            if (java.lang.Double.compare(this.getAmount(), other.getAmount()) != 0) return false;
-            final java.lang.Object this$orderId = this.getOrderId();
-            final java.lang.Object other$orderId = other.getOrderId();
-            if (this$orderId == null ? other$orderId != null : !this$orderId.equals(other$orderId)) return false;
-            final java.lang.Object this$status = this.getStatus();
-            final java.lang.Object other$status = other.getStatus();
-            if (this$status == null ? other$status != null : !this$status.equals(other$status)) return false;
-            return true;
-        }
 
         
-        protected boolean canEqual(final java.lang.Object other) {
-            return other instanceof OrderSagaOrchestrator.PaymentEntity;
-        }
 
-        @java.lang.Override
         
-        public int hashCode() {
-            final int PRIME = 59;
-            int result = 1;
-            final long $amount = java.lang.Double.doubleToLongBits(this.getAmount());
-            result = result * PRIME + (int) ($amount >>> 32 ^ $amount);
-            final java.lang.Object $orderId = this.getOrderId();
-            result = result * PRIME + ($orderId == null ? 43 : $orderId.hashCode());
-            final java.lang.Object $status = this.getStatus();
-            result = result * PRIME + ($status == null ? 43 : $status.hashCode());
-            return result;
-        }
 
-        @java.lang.Override
         
-        public java.lang.String toString() {
-            return "OrderSagaOrchestrator.PaymentEntity(orderId=" + this.getOrderId() + ", status=" + this.getStatus() + ", amount=" + this.getAmount() + ")";
-        }
     }
 
     private void sendNotification(String orderId, UUID customerId, String templateCode) {
@@ -436,16 +320,5 @@ public class OrderSagaOrchestrator {
     
     private final OrderRefundService orderRefundService;
 
-    public OrderSagaOrchestrator(final IOrderRepository orderRepository, final OutboxEventRepository outboxEventRepository, final IPaymentIntentRepository paymentIntentRepository, final ObjectMapper objectMapper, final KafkaTemplate<String, String> kafkaTemplate, final com.fooddelivery.common.client.PaymentServiceClient paymentClient, final org.springframework.transaction.support.TransactionTemplate transactionTemplate, final com.fooddelivery.order.service.state.OrderActionService orderActionService, final StringRedisTemplate redisTemplate, final OrderRefundService orderRefundService) {
-        this.orderRepository = orderRepository;
-        this.outboxEventRepository = outboxEventRepository;
-        this.paymentIntentRepository = paymentIntentRepository;
-        this.objectMapper = objectMapper;
-        this.kafkaTemplate = kafkaTemplate;
-        this.paymentClient = paymentClient;
-        this.transactionTemplate = transactionTemplate;
-        this.orderActionService = orderActionService;
-        this.redisTemplate = redisTemplate;
-        this.orderRefundService = orderRefundService;
-    }
 }
+// @Getter

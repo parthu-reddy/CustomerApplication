@@ -17,6 +17,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 @RestController
 @RequestMapping("/api/v1/internal/admin/customers")
 @lombok.extern.slf4j.Slf4j
+@lombok.RequiredArgsConstructor
 public class AdminCustomerController {
     
 
@@ -37,8 +38,4 @@ public class AdminCustomerController {
     }
 
     
-    public AdminCustomerController(final CustomerAddressRepository addressRepository, final ICustomerRepository customerRepository) {
-        this.addressRepository = addressRepository;
-        this.customerRepository = customerRepository;
-    }
 }

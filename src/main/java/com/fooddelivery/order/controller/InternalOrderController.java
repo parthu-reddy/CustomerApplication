@@ -16,6 +16,7 @@ import java.util.Arrays;
 @RestController
 @RequestMapping("/api/v1/internal/orders")
 @lombok.extern.slf4j.Slf4j
+@lombok.RequiredArgsConstructor
 public class InternalOrderController {
 
     private final IOrderRepository orderRepository;
@@ -74,7 +75,7 @@ public class InternalOrderController {
     }
 
     @GetMapping("/{orderId}/participants")
-    @PreAuthorize("hasAnyRole('ADMIN', 'CUSTOMER', 'RESTAURANT', 'DELIVERY')")
+    @PreAuthorize("@orderSecurityHelper.isOrderParticipant(#orderId, authentication.name) or hasRole('ADMIN')")
     public ResponseEntity<List<String>> getOrderParticipants(@PathVariable UUID orderId) {
         log.debug("Fetching authorized participants for order {}", orderId);
         return orderRepository.findById(orderId).map(order -> {
@@ -87,7 +88,7 @@ public class InternalOrderController {
     }
 
     @GetMapping("/{orderId}/invoice")
-    @PreAuthorize("hasAnyRole('ADMIN', 'CUSTOMER', 'RESTAURANT')")
+    @PreAuthorize("@orderSecurityHelper.isOrderParticipant(#orderId, authentication.name) or hasRole('ADMIN')")
     public ResponseEntity<com.fooddelivery.customer.dto.OrderResponse> getOrderInvoice(@PathVariable UUID orderId) {
         return orderRepository.findById(orderId).map(order -> {
             com.fooddelivery.customer.dto.OrderResponse response = com.fooddelivery.customer.mapper.OrderMapper.mapToResponse(order);
@@ -120,9 +121,4 @@ public class InternalOrderController {
     }
 
     
-    public InternalOrderController(final IOrderRepository orderRepository, final com.fooddelivery.order.service.OrderSagaOrchestrator orderSagaOrchestrator, final com.fooddelivery.order.service.OrderRefundService orderRefundService) {
-        this.orderRepository = orderRepository;
-        this.orderSagaOrchestrator = orderSagaOrchestrator;
-        this.orderRefundService = orderRefundService;
-    }
 }

@@ -21,6 +21,7 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/v1/delivery/orders")
 @PreAuthorize("hasRole(\'DELIVERY\')")
 @lombok.extern.slf4j.Slf4j
+@lombok.RequiredArgsConstructor
 public class DriverOrderController {
     
 
@@ -118,8 +119,4 @@ public class DriverOrderController {
     }
 
     
-    public DriverOrderController(final IOrderRepository orderRepository, final StringRedisTemplate redisTemplate) {
-        this.orderRepository = orderRepository;
-        this.redisTemplate = redisTemplate;
-    }
 }

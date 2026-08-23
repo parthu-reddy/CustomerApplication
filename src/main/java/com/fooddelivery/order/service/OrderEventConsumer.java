@@ -18,6 +18,7 @@ import java.util.UUID;
 
 @Service
 @lombok.extern.slf4j.Slf4j
+@lombok.RequiredArgsConstructor
 public class OrderEventConsumer {
 
     private static final java.util.Map<String, java.util.function.BiConsumer<com.fooddelivery.order.service.state.OrderState, com.fooddelivery.order.service.state.OrderContext>> EVENT_HANDLERS = new java.util.HashMap<>();
@@ -44,32 +45,17 @@ public class OrderEventConsumer {
     private final OrderActionService orderActionService;
     private final OrderRefundService orderRefundService;
 
-    public OrderEventConsumer(IIdempotencyKeyRepository idempotencyKeyRepository,
-                              TransactionTemplate transactionTemplate,
-                              ObjectMapper objectMapper,
-                              IOrderRepository orderRepository,
-                              OrderActionService orderActionService,
-                              OrderRefundService orderRefundService) {
-        this.idempotencyKeyRepository = idempotencyKeyRepository;
-        this.transactionTemplate = transactionTemplate;
-        this.objectMapper = objectMapper;
-        this.orderRepository = orderRepository;
-        this.orderActionService = orderActionService;
-        this.orderRefundService = orderRefundService;
-    }
+
 
     @RetryableTopic(attempts = "4", backoff = @Backoff(delay = 2000, multiplier = 2.0, maxDelay = 10000))
     @KafkaListener(topics = KafkaConstants.TOPIC_ORDER_EVENTS, groupId = KafkaConstants.GROUP_FOOD_DELIVERY + "-ordereventconsumer")
     public void handleOrderEvents(String payload, @org.springframework.messaging.handler.annotation.Headers java.util.Map<String, Object> headers) {
         log.info("OrderEventConsumer received event: {}", payload);
         String extractedEventId = com.fooddelivery.common.util.KafkaHeaderUtils.extractHeaderValue(headers, "eventId");
-        final String resolvedEventId;
         if (extractedEventId == null) {
-            resolvedEventId = UUID.nameUUIDFromBytes(payload.getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString();
-            log.warn("eventId header missing in handleOrderEvents. Using deterministic payload hash as eventId: {}", resolvedEventId);
-        } else {
-            resolvedEventId = extractedEventId;
+            throw new IllegalArgumentException("Missing eventId header");
         }
+        final String resolvedEventId = extractedEventId;
 
         String idempotencyKeyStr = "processed_event:" + resolvedEventId;
 

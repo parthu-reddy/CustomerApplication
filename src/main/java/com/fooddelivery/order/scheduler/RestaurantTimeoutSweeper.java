@@ -15,6 +15,7 @@ import java.util.List;
 
 @Component
 @lombok.extern.slf4j.Slf4j
+@lombok.RequiredArgsConstructor
 public class RestaurantTimeoutSweeper {
     
 
@@ -137,12 +138,4 @@ public class RestaurantTimeoutSweeper {
     }
 
     
-    public RestaurantTimeoutSweeper(final IOrderRepository orderRepository, final OrderActionService orderActionService, final OrderSagaOrchestrator orderSagaOrchestrator, final com.fooddelivery.order.service.OrderRefundService orderRefundService, final TransactionTemplate transactionTemplate, final StringRedisTemplate redisTemplate) {
-        this.orderRepository = orderRepository;
-        this.orderActionService = orderActionService;
-        this.orderSagaOrchestrator = orderSagaOrchestrator;
-        this.orderRefundService = orderRefundService;
-        this.transactionTemplate = transactionTemplate;
-        this.redisTemplate = redisTemplate;
-    }
 }

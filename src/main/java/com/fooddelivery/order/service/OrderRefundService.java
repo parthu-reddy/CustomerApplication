@@ -19,6 +19,7 @@ import java.util.UUID;
 
 @Service
 @lombok.extern.slf4j.Slf4j
+@lombok.RequiredArgsConstructor
 public class OrderRefundService {
 
     private static final String REFUND_TX_PREFIX = "REFUND_";
@@ -31,19 +32,7 @@ public class OrderRefundService {
     private final TransactionTemplate transactionTemplate;
     private final ObjectMapper objectMapper;
 
-    public OrderRefundService(IPaymentIntentRepository paymentIntentRepository,
-                              IOrderRepository orderRepository,
-                              OutboxEventRepository outboxEventRepository,
-                              OrderActionService orderActionService,
-                              TransactionTemplate transactionTemplate,
-                              ObjectMapper objectMapper) {
-        this.paymentIntentRepository = paymentIntentRepository;
-        this.orderRepository = orderRepository;
-        this.outboxEventRepository = outboxEventRepository;
-        this.orderActionService = orderActionService;
-        this.transactionTemplate = transactionTemplate;
-        this.objectMapper = objectMapper;
-    }
+
 
     @io.micrometer.core.annotation.Timed(value = "order.saga.refund.process", description = "Time taken to process full refund")
     public void processRefund(Order order) {

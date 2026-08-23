@@ -11,7 +11,10 @@ import java.util.stream.Collectors;
 public class OrderMapper {
     
     public static OrderResponse mapToResponse(Order order) {
-        List<OrderItemResponse> itemResponses = order.getOrderItems().stream()
+        // a partially-loaded or newly-built Order can have a null orderItems set
+        List<OrderItemResponse> itemResponses = (order.getOrderItems() == null
+                ? java.util.Set.<com.fooddelivery.order.entity.OrderItem>of()
+                : order.getOrderItems()).stream()
             .map(item -> OrderItemResponse.builder()
                 .id(item.getId())
                 .menuItemId(item.getMenuItemId())
@@ -66,8 +69,6 @@ public class OrderMapper {
             .items(itemResponses)
             .createdAt(order.getCreatedAt())
             .updatedAt(order.getUpdatedAt())
-            .otp(order.getOtp())
-            .pickupOtp(order.getPickupOtp())
             .estimatedCompletionTime(order.getEstimatedCompletionTime())
             .build();
     }

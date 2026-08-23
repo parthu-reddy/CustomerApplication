@@ -15,6 +15,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 @RequestMapping("/api/v1/places")
 @PreAuthorize("hasRole(\'CUSTOMER\')")
 @lombok.extern.slf4j.Slf4j
+@lombok.RequiredArgsConstructor
 public class PlacesController {
     
 
@@ -31,7 +32,4 @@ public class PlacesController {
     }
 
     
-    public PlacesController(final PlacesService placesService) {
-        this.placesService = placesService;
-    }
 }

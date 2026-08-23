@@ -24,6 +24,9 @@ org.springframework.cloud.contract.spec.Contract.make {
         headers {
             // Phase 7: OutboxProcessor now publishes the event type it has always stored.
             header('eventType', 'ORDER_CREATED')
+            // consumer side needs a concrete value: the stub replays this header verbatim and
+            // consumers now reject a message without it.
+            header('eventId', $(producer(regex('[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}')), consumer('3f2504e0-4f89-41d3-9a0c-0305e82c3301')))
             header('aggregateType', 'ORDER')
         }
         body([

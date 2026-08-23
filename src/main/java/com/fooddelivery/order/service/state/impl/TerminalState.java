@@ -19,7 +19,7 @@ public class TerminalState implements OrderState {
         
         ctx.getActionService().updatePaymentIntentStatus(order.getId(), com.fooddelivery.common.constants.PaymentIntentStatus.SUCCESS);
         
-        java.util.UUID paymentTransferId = java.util.UUID.nameUUIDFromBytes(("PAYMENT_" + order.getId()).getBytes());
+        java.util.UUID paymentTransferId = com.fooddelivery.common.util.DeterministicIdUtils.generateId("PAYMENT_" + order.getId());
         ctx.getActionService().recordLedgerTransaction(
                 paymentTransferId, 
                 order.getId(),

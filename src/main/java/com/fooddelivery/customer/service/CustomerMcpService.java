@@ -12,6 +12,7 @@ import java.util.List;
 
 @Service
 @lombok.extern.slf4j.Slf4j
+@lombok.RequiredArgsConstructor
 public class CustomerMcpService {
     
 
@@ -25,17 +26,6 @@ public class CustomerMcpService {
     private final DriverOrderController driverOrderController;
     private final ObjectMapper objectMapper;
 
-    public CustomerMcpService(CustomerAddressController addressController, CustomerRestaurantController restaurantController, OrderController orderController, PlacesController placesController, CustomerTrackingController trackingController, AdminOrderController adminOrderController, AdminCustomerController adminCustomerController, DriverOrderController driverOrderController, ObjectMapper objectMapper) {
-        this.addressController = addressController;
-        this.restaurantController = restaurantController;
-        this.orderController = orderController;
-        this.placesController = placesController;
-        this.trackingController = trackingController;
-        this.adminOrderController = adminOrderController;
-        this.adminCustomerController = adminCustomerController;
-        this.driverOrderController = driverOrderController;
-        this.objectMapper = objectMapper;
-    }
 
     private Principal createMockPrincipal(String customerId) {
         return () -> customerId;
@@ -209,3 +199,4 @@ public class CustomerMcpService {
         }
     }
 }
+// @Getter

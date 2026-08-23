@@ -18,17 +18,13 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/customer/orders")
 @lombok.extern.slf4j.Slf4j
+@lombok.RequiredArgsConstructor
 public class CustomerOrderController {
 
     private final IOrderRepository orderRepository;
     private final SupportTicketRepository supportTicketRepository;
     private final com.fooddelivery.common.service.RateLimitingService rateLimitingService;
 
-    public CustomerOrderController(IOrderRepository orderRepository, SupportTicketRepository supportTicketRepository, com.fooddelivery.common.service.RateLimitingService rateLimitingService) {
-        this.orderRepository = orderRepository;
-        this.supportTicketRepository = supportTicketRepository;
-        this.rateLimitingService = rateLimitingService;
-    }
 
     private boolean isRateLimited(String clientKey) {
         if (clientKey == null || clientKey.isBlank() || clientKey.equals("unknown")) return true;

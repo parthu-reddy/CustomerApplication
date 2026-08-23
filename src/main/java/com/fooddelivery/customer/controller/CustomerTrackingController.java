@@ -18,6 +18,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 @RequestMapping("/api/v1/orders/{orderId}/live-tracking")
 @PreAuthorize("hasRole(\'CUSTOMER\') and @customerSecurityHelper.isOrderOwner(#orderId, authentication.principal)")
 @lombok.extern.slf4j.Slf4j
+@lombok.RequiredArgsConstructor
 public class CustomerTrackingController {
     
 
@@ -85,9 +86,4 @@ public class CustomerTrackingController {
     }
 
     
-    public CustomerTrackingController(final StringRedisTemplate redisTemplate, final com.fooddelivery.order.repository.IOrderRepository orderRepository, final org.springframework.data.redis.listener.RedisMessageListenerContainer redisMessageListenerContainer) {
-        this.redisTemplate = redisTemplate;
-        this.orderRepository = orderRepository;
-        this.redisMessageListenerContainer = redisMessageListenerContainer;
-    }
 }

@@ -12,6 +12,7 @@ import java.util.List;
 
 @Component
 @lombok.extern.slf4j.Slf4j
+@lombok.RequiredArgsConstructor
 public class AbandonedDeliverySweeper {
     
 
@@ -59,10 +60,4 @@ public class AbandonedDeliverySweeper {
     }
 
     
-    public AbandonedDeliverySweeper(final IOrderRepository orderRepository, final OrderActionService orderActionService, final TransactionTemplate transactionTemplate, final org.springframework.data.redis.core.StringRedisTemplate redisTemplate) {
-        this.orderRepository = orderRepository;
-        this.orderActionService = orderActionService;
-        this.transactionTemplate = transactionTemplate;
-        this.redisTemplate = redisTemplate;
-    }
 }

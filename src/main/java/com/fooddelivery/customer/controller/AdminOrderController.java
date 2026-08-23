@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 @RestController
 @RequestMapping("/api/v1/internal/admin/orders")
 @lombok.extern.slf4j.Slf4j
+@lombok.RequiredArgsConstructor
 public class AdminOrderController {
     
 
@@ -189,11 +190,4 @@ public class AdminOrderController {
     }
 
     
-    public AdminOrderController(final IOrderRepository orderRepository, final RestaurantClient restaurantClient, final com.fooddelivery.order.service.OrderSagaOrchestrator orderSagaOrchestrator, final com.fooddelivery.order.service.OrderRefundService orderRefundService, final com.fooddelivery.order.service.state.OrderActionService orderActionService) {
-        this.orderRepository = orderRepository;
-        this.restaurantClient = restaurantClient;
-        this.orderSagaOrchestrator = orderSagaOrchestrator;
-        this.orderRefundService = orderRefundService;
-        this.orderActionService = orderActionService;
-    }
 }

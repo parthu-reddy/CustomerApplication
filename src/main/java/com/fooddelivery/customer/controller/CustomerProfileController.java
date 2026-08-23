@@ -12,15 +12,13 @@ import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/v1/customers")
+@lombok.RequiredArgsConstructor
 public class CustomerProfileController {
 
     private final ICustomerRepository customerRepository;
     private final com.fooddelivery.customer.repository.CustomerAddressRepository addressRepository;
 
-    public CustomerProfileController(ICustomerRepository customerRepository, com.fooddelivery.customer.repository.CustomerAddressRepository addressRepository) {
-        this.customerRepository = customerRepository;
-        this.addressRepository = addressRepository;
-    }
+
 
     @GetMapping("/profile")
     @PreAuthorize("hasRole('CUSTOMER')")

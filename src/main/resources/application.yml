@@ -2,13 +2,15 @@ spring:
   application:
     name: customer-service
   config:
-    import: optional:classpath:config/platform-defaults.yml,configserver:${CONFIG_SERVER_URL:http://localhost:8888}
+    import: optional:classpath:config/platform-defaults.yml,optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}
   cache:
     type: redis
     redis:
       time-to-live: 10m
       cache-null-values: false
   cloud:
+    config:
+      fail-fast: true
     openfeign:
       circuitbreaker:
         enabled: true

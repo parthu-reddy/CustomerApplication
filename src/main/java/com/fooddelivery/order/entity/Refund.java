@@ -13,6 +13,11 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "refunds")
+@lombok.Getter
+@lombok.Setter
+@lombok.Builder
+@lombok.NoArgsConstructor
+@lombok.AllArgsConstructor
 public class Refund {
     @Id
     @Column(name = "id")
@@ -29,198 +34,36 @@ public class Refund {
 
 
     
-    public static class RefundBuilder {
-        
-        private UUID id;
-        
-        private UUID paymentIntentId;
-        
-        private BigDecimal amount;
-        
-        private RefundStatus status;
-        
-        private LocalDateTime createdAt;
-
-        
-        RefundBuilder() {
-        }
-
-        /**
-         * @return {@code this}.
-         */
-        
-        public Refund.RefundBuilder id(final UUID id) {
-            this.id = id;
-            return this;
-        }
-
-        /**
-         * @return {@code this}.
-         */
-        
-        public Refund.RefundBuilder paymentIntentId(final UUID paymentIntentId) {
-            this.paymentIntentId = paymentIntentId;
-            return this;
-        }
-
-        /**
-         * @return {@code this}.
-         */
-        
-        public Refund.RefundBuilder amount(final BigDecimal amount) {
-            this.amount = amount;
-            return this;
-        }
-
-        /**
-         * @return {@code this}.
-         */
-        
-        public Refund.RefundBuilder status(final RefundStatus status) {
-            this.status = status;
-            return this;
-        }
-
-        /**
-         * @return {@code this}.
-         */
-        
-        public Refund.RefundBuilder createdAt(final LocalDateTime createdAt) {
-            this.createdAt = createdAt;
-            return this;
-        }
-
-        
-        public Refund build() {
-            return new Refund(this.id, this.paymentIntentId, this.amount, this.status, this.createdAt);
-        }
-
-        @java.lang.Override
-        
-        public java.lang.String toString() {
-            return "Refund.RefundBuilder(id=" + this.id + ", paymentIntentId=" + this.paymentIntentId + ", amount=" + this.amount + ", status=" + this.status + ", createdAt=" + this.createdAt + ")";
-        }
-    }
 
     
-    public static Refund.RefundBuilder builder() {
-        return new Refund.RefundBuilder();
-    }
 
     
-    public UUID getId() {
-        return this.id;
-    }
 
     
-    public UUID getPaymentIntentId() {
-        return this.paymentIntentId;
-    }
 
     
-    public BigDecimal getAmount() {
-        return this.amount;
-    }
 
     
-    public RefundStatus getStatus() {
-        return this.status;
-    }
 
     
-    public LocalDateTime getCreatedAt() {
-        return this.createdAt;
-    }
 
     
-    public void setId(final UUID id) {
-        this.id = id;
-    }
 
     
-    public void setPaymentIntentId(final UUID paymentIntentId) {
-        this.paymentIntentId = paymentIntentId;
-    }
 
     
-    public void setAmount(final BigDecimal amount) {
-        this.amount = amount;
-    }
 
     
-    public void setStatus(final RefundStatus status) {
-        this.status = status;
-    }
 
     
-    public void setCreatedAt(final LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    @java.lang.Override
-    
-    public boolean equals(final java.lang.Object o) {
-        if (o == this) return true;
-        if (!(o instanceof Refund)) return false;
-        final Refund other = (Refund) o;
-        if (!other.canEqual((java.lang.Object) this)) return false;
-        final java.lang.Object this$id = this.getId();
-        final java.lang.Object other$id = other.getId();
-        if (this$id == null ? other$id != null : !this$id.equals(other$id)) return false;
-        final java.lang.Object this$paymentIntentId = this.getPaymentIntentId();
-        final java.lang.Object other$paymentIntentId = other.getPaymentIntentId();
-        if (this$paymentIntentId == null ? other$paymentIntentId != null : !this$paymentIntentId.equals(other$paymentIntentId)) return false;
-        final java.lang.Object this$amount = this.getAmount();
-        final java.lang.Object other$amount = other.getAmount();
-        if (this$amount == null ? other$amount != null : !this$amount.equals(other$amount)) return false;
-        final java.lang.Object this$status = this.getStatus();
-        final java.lang.Object other$status = other.getStatus();
-        if (this$status == null ? other$status != null : !this$status.equals(other$status)) return false;
-        final java.lang.Object this$createdAt = this.getCreatedAt();
-        final java.lang.Object other$createdAt = other.getCreatedAt();
-        if (this$createdAt == null ? other$createdAt != null : !this$createdAt.equals(other$createdAt)) return false;
-        return true;
-    }
 
     
-    protected boolean canEqual(final java.lang.Object other) {
-        return other instanceof Refund;
-    }
-
-    @java.lang.Override
-    
-    public int hashCode() {
-        final int PRIME = 59;
-        int result = 1;
-        final java.lang.Object $id = this.getId();
-        result = result * PRIME + ($id == null ? 43 : $id.hashCode());
-        final java.lang.Object $paymentIntentId = this.getPaymentIntentId();
-        result = result * PRIME + ($paymentIntentId == null ? 43 : $paymentIntentId.hashCode());
-        final java.lang.Object $amount = this.getAmount();
-        result = result * PRIME + ($amount == null ? 43 : $amount.hashCode());
-        final java.lang.Object $status = this.getStatus();
-        result = result * PRIME + ($status == null ? 43 : $status.hashCode());
-        final java.lang.Object $createdAt = this.getCreatedAt();
-        result = result * PRIME + ($createdAt == null ? 43 : $createdAt.hashCode());
-        return result;
-    }
-
-    @java.lang.Override
-    
-    public java.lang.String toString() {
-        return "Refund(id=" + this.getId() + ", paymentIntentId=" + this.getPaymentIntentId() + ", amount=" + this.getAmount() + ", status=" + this.getStatus() + ", createdAt=" + this.getCreatedAt() + ")";
-    }
 
     
-    public Refund() {
-    }
 
     
-    public Refund(final UUID id, final UUID paymentIntentId, final BigDecimal amount, final RefundStatus status, final LocalDateTime createdAt) {
-        this.id = id;
-        this.paymentIntentId = paymentIntentId;
-        this.amount = amount;
-        this.status = status;
-        this.createdAt = createdAt;
-    }
+
+    
+
+    
 }

@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.UUID;
 
 @Component("customerRestaurantClientFallback")
+@lombok.RequiredArgsConstructor
 public class RestaurantClientFallback implements RestaurantClient {
 
     @Override

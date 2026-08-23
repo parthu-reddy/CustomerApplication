@@ -16,6 +16,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 
 @Service
 @lombok.extern.slf4j.Slf4j
+@lombok.RequiredArgsConstructor
 public class PaymentGatewayOrchestrator {
     
 
@@ -65,9 +66,4 @@ public class PaymentGatewayOrchestrator {
     }
 
     
-    public PaymentGatewayOrchestrator(final IPaymentIntentRepository paymentIntentRepository, final IOrderRepository orderRepository, final PaymentServiceClient paymentClient) {
-        this.paymentIntentRepository = paymentIntentRepository;
-        this.orderRepository = orderRepository;
-        this.paymentClient = paymentClient;
-    }
 }

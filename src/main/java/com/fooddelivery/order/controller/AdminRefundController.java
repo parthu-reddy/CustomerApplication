@@ -23,6 +23,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 @RestController
 @RequestMapping("/api/v1/internal/admin/refunds")
 @PreAuthorize("hasRole('ADMIN')")
+@lombok.RequiredArgsConstructor
 public class AdminRefundController {
 
     private final SupportTicketRepository supportTicketRepository;
@@ -30,15 +31,7 @@ public class AdminRefundController {
     private final IOrderRepository orderRepository;
     private final ObjectMapper objectMapper;
 
-    public AdminRefundController(SupportTicketRepository supportTicketRepository,
-                                 OrderRefundService orderRefundService,
-                                 IOrderRepository orderRepository,
-                                 ObjectMapper objectMapper) {
-        this.supportTicketRepository = supportTicketRepository;
-        this.orderRefundService = orderRefundService;
-        this.orderRepository = orderRepository;
-        this.objectMapper = objectMapper;
-    }
+
 
     @GetMapping
     public ResponseEntity<Page<SupportTicket>> getTickets(
