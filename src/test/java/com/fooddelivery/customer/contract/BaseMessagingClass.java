@@ -149,9 +149,9 @@ public abstract class BaseMessagingClass {
         eventPayload.put("referenceId", "REV_" + orderId + "_1699999999999");
         eventPayload.put("description", "Reversal for order " + orderId);
         eventPayload.put("chargeCategory", com.fooddelivery.common.enums.ChargeCategory.REFUND.name());
-        eventPayload.put("eventType", "REVERSAL_GENERATED");
+        eventPayload.put("eventType", com.fooddelivery.common.constants.EventType.REVERSAL_GENERATED.name());
         publishViaOutbox(com.fooddelivery.common.constants.AggregateType.WALLET, orderId,
-                com.fooddelivery.common.constants.EventType.REFUND_GENERATED, eventPayload);
+                com.fooddelivery.common.constants.EventType.REVERSAL_GENERATED, eventPayload);
     }
 
     protected void publishViaOutbox(com.fooddelivery.common.constants.AggregateType aggregateType,

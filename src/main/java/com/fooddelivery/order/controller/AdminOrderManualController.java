@@ -230,8 +230,7 @@ public class AdminOrderManualController {
                 eventPayload.put("referenceId", "REV_" + order.getId().toString() + "_" + System.currentTimeMillis());
                 eventPayload.put("description", "Reversal for order " + order.getId() + " due to post-delivery refund");
                 eventPayload.put("chargeCategory", com.fooddelivery.common.enums.ChargeCategory.REFUND.name());
-                
-                eventPayload.put("eventType", "REVERSAL_GENERATED");
+                eventPayload.put("eventType", com.fooddelivery.common.constants.EventType.REVERSAL_GENERATED.name());
                 
                 com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
                 String jsonMessage = mapper.writeValueAsString(eventPayload);
@@ -239,7 +238,7 @@ public class AdminOrderManualController {
                     .id(java.util.UUID.randomUUID())
                     .aggregateType(com.fooddelivery.common.constants.AggregateType.WALLET)
                     .aggregateId(order.getId().toString())
-                    .eventType(com.fooddelivery.common.constants.EventType.REFUND_GENERATED)
+                    .eventType(com.fooddelivery.common.constants.EventType.REVERSAL_GENERATED)
                     .payload(jsonMessage)
                     .createdAt(java.time.LocalDateTime.now())
                     .build();
