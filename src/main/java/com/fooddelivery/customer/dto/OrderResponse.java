@@ -1,6 +1,7 @@
 package com.fooddelivery.customer.dto;
 
 import com.fooddelivery.common.enums.OrderStatus;
+import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -11,32 +12,48 @@ import java.util.UUID;
 @lombok.NoArgsConstructor
 @lombok.AllArgsConstructor
 public class OrderResponse {
+    @NotNull
     private UUID id;
+    @NotNull
     private UUID customerId;
+    @NotNull
     private UUID restaurantId;
+    @NotNull
     private String restaurantName;
+    @NotNull
     private OrderStatus status;
+    @NotNull
     private com.fooddelivery.common.enums.DeliveryStatus deliveryStatus;
+    @NotNull
     private BigDecimal totalAmount;
+    @NotNull
     private BigDecimal itemTotal;
+    @NotNull
     private BigDecimal foodCost;
+    @NotNull
     private BigDecimal customerPlatformFee;
     private BigDecimal restaurantPlatformFee;
     private BigDecimal platformBonus;
     private BigDecimal restaurantDeliveryContribution;
     private BigDecimal restaurantPayout;
+    @NotNull
     private BigDecimal sgst;
+    @NotNull
     private BigDecimal cgst;
+    @NotNull
     private BigDecimal deliveryFee;
 
     private BigDecimal driverGrossPayout;
     private BigDecimal driverTaxes;
     private BigDecimal driverNetPayout;
 
+    @NotNull
     private String deliveryAddress;
     private Double deliveryLat;
     private Double deliveryLng;
+    @NotNull
     private List<OrderItemResponse> items;
+    @NotNull
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private UUID riderId;

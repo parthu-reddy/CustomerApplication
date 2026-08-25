@@ -1,5 +1,7 @@
 package com.fooddelivery.customer.entity;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -21,11 +23,14 @@ import java.util.UUID;
 public class Customer {
     @Id
     @Column(name = "id")
+    @Schema(requiredMode = RequiredMode.REQUIRED)
     private UUID id;
     @Column(name = "phone_number")
+    @Schema(requiredMode = RequiredMode.REQUIRED)
     private String phoneNumber;
     @CreationTimestamp
     @Column(name = "created_at")
+    @Schema(requiredMode = RequiredMode.REQUIRED)
     private LocalDateTime createdAt;
     @UpdateTimestamp
     @Column(name = "updated_at")

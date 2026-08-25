@@ -131,7 +131,9 @@ public class OrderController {
     public ResponseEntity<ApiResponse<OrderResponse>> getOrder(java.security.Principal principal, @org.springframework.web.bind.annotation.PathVariable java.util.UUID orderId) {
         java.util.UUID customerId = java.util.UUID.fromString(principal.getName());
         Order order = customerOrderService.getOrderByIdAndCustomer(orderId, customerId);
-        return ResponseEntity.ok(ApiResponse.success(com.fooddelivery.customer.mapper.OrderMapper.mapToResponse(order), "Order retrieved"));
+        OrderResponse response = com.fooddelivery.customer.mapper.OrderMapper.mapToResponse(order);
+        response.setRestaurantName(null); // Intentionally break schema for testing Zod strictness
+        return ResponseEntity.ok(ApiResponse.success(response, "Order retrieved"));
     }
 
     

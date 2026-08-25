@@ -82,8 +82,7 @@ import org.springframework.data.redis.connection.ReactiveRedisConnectionFactory;
 public class OpenApiGenerationTest {
 
     // Mock critical infrastructure so the context loads
-    @MockBean
-    private DataSource dataSource;
+    
     @MockBean
     private KafkaTemplate<?, ?> kafkaTemplate;
     @MockBean
@@ -97,6 +96,8 @@ public class OpenApiGenerationTest {
     private com.fooddelivery.common.service.RateLimitingService rateLimitingService;
     @MockBean
     private org.springframework.data.redis.listener.RedisMessageListenerContainer redisMessageListenerContainer;
+    @MockBean
+    private com.fooddelivery.common.filter.IdempotencyFilter idempotencyFilter;
 
     @Autowired(required = false)
     private MockMvc mockMvc;
