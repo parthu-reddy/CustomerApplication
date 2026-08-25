@@ -23,22 +23,21 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.connection.ReactiveRedisConnectionFactory;
 
-@SpringBootTest(classes = com.fooddelivery.FoodDeliveryApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
+@SpringBootTest(classes = OpenApiGenerationTest.TestApp.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
+    "spring.datasource.url=jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=PostgreSQL",
+    "spring.datasource.driver-class-name=org.h2.Driver",
+    "spring.datasource.username=sa",
+    "spring.datasource.password=sa",
+    "spring.jpa.database-platform=org.hibernate.dialect.H2Dialect",
+    "springdoc.writer-with-default-pretty-printer=true",
     "spring.cloud.config.enabled=false",
     "eureka.client.enabled=false",
     "spring.kafka.bootstrap-servers=localhost:9092", "spring.kafka.listener.auto-startup=false", "spring.kafka.admin.fail-fast=true",
-    "spring.flyway.enabled=false",
-    "spring.datasource.url=jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE",
-    "spring.datasource.driver-class-name=org.h2.Driver",
-    "spring.datasource.username=sa",
-    "spring.datasource.password=",
-    "spring.sql.init.mode=never",
+    "spring.flyway.enabled=false",    "spring.sql.init.mode=never",
     "spring.main.allow-bean-definition-overriding=true",
     "spring.jpa.hibernate.ddl-auto=none",
     "spring.redis.enabled=false", 
-    "management.health.redis.enabled=false",
-    "spring.jpa.database-platform=org.hibernate.dialect.H2Dialect",
-    "jwt.secret=dummy",
+    "management.health.redis.enabled=false",    "jwt.secret=dummy",
     "jwt.expiration=3600000",
     "google.maps.api.key=dummy",
     "stripe.api.key=dummy",
@@ -77,21 +76,90 @@ import org.springframework.data.redis.connection.ReactiveRedisConnectionFactory;
     "vyapargateway.webhook.secret=dummy"
 })
 @ActiveProfiles("test")
-@AutoConfigureMockMvc
+@AutoConfigureMockMvc(addFilters = false)
 @AutoConfigureWebTestClient
 public class OpenApiGenerationTest {
 
+    @org.springframework.boot.test.mock.mockito.MockBean
+    private com.fooddelivery.customer.service.PlacesService placesService;
+
+
+    @org.springframework.boot.test.mock.mockito.MockBean
+    private com.fooddelivery.customer.service.CustomerOrderService customerOrderService;
+
+
+    @org.springframework.boot.test.mock.mockito.MockBean
+    private com.fooddelivery.customer.client.AdvertisementClient advertisementClient;
+
+
+    @org.springframework.boot.test.mock.mockito.MockBean
+    private com.fooddelivery.customer.config.DynamicPricingConfig dynamicPricingConfig;
+
+
+    @org.springframework.boot.test.mock.mockito.MockBean
+    private com.fooddelivery.customer.service.DynamicPricingService dynamicPricingService;
+
+
+    @org.springframework.boot.test.mock.mockito.MockBean
+    private com.fooddelivery.common.client.MapsServiceClient mapsServiceClient;
+
+
+    @org.springframework.boot.test.mock.mockito.MockBean
+    private com.fooddelivery.order.service.state.OrderActionService orderActionService;
+
+
+    @org.springframework.boot.test.mock.mockito.MockBean
+    private com.fooddelivery.customer.client.RestaurantClient restaurantClient;
+
+
+    @org.springframework.boot.test.mock.mockito.MockBean
+    private com.fooddelivery.customer.repository.ICustomerRepository iCustomerRepository;
+
+
+    @org.springframework.boot.test.mock.mockito.MockBean
+    private com.fooddelivery.customer.repository.CustomerAddressRepository customerAddressRepository;
+
+
+    @org.springframework.boot.test.mock.mockito.MockBean
+    private com.fooddelivery.order.repository.SupportTicketRepository supportTicketRepository;
+
+
+    @org.springframework.boot.test.mock.mockito.MockBean
+    private com.fooddelivery.order.repository.IOrderRepository iOrderRepository;
+
+
+    @org.springframework.boot.test.mock.mockito.MockBean
+    private com.fooddelivery.order.service.OrderRefundService orderRefundService;
+
+
+    @org.springframework.boot.test.mock.mockito.MockBean
+    private com.fooddelivery.order.service.OrderSagaOrchestrator orderSagaOrchestrator;
+
+
+    @org.springframework.boot.test.mock.mockito.MockBean
+    private com.fooddelivery.order.repository.IPaymentIntentRepository iPaymentIntentRepository;
+
+    @org.springframework.boot.autoconfigure.SpringBootApplication(scanBasePackages = {"com.fooddelivery.order.controller", "com.fooddelivery.customer.controller"}, excludeName = {"org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration", "org.springframework.boot.actuate.autoconfigure.security.servlet.ManagementWebSecurityAutoConfiguration", "org.springframework.boot.autoconfigure.security.reactive.ReactiveSecurityAutoConfiguration", "org.springframework.boot.actuate.autoconfigure.security.reactive.ManagementReactiveSecurityAutoConfiguration", "org.springframework.boot.autoconfigure.security.oauth2.resource.servlet.OAuth2ResourceServerAutoConfiguration"})
+    static class TestApp {
+    }
+
+
+    @org.springframework.boot.test.mock.mockito.MockBean
+    private org.springframework.data.redis.core.RedisTemplate<String, Object> redisTemplate;
+
+    @org.springframework.boot.test.mock.mockito.MockBean(name = "kafkaTemplate")
+
+    private org.springframework.kafka.core.KafkaTemplate kafkaTemplate;
+
+    @org.springframework.boot.test.mock.mockito.MockBean
+    private org.springframework.data.redis.connection.ReactiveRedisConnectionFactory reactiveRedisConnectionFactory;
+
+
     // Mock critical infrastructure so the context loads
     
-    @MockBean
-    private KafkaTemplate<?, ?> kafkaTemplate;
-    @MockBean
-    private org.springframework.kafka.core.KafkaAdmin kafkaAdmin;
     
     @MockBean
     private RedisConnectionFactory redisConnectionFactory;
-    @MockBean
-    private ReactiveRedisConnectionFactory reactiveRedisConnectionFactory;
     @MockBean
     private com.fooddelivery.common.service.RateLimitingService rateLimitingService;
     @MockBean
@@ -129,7 +197,7 @@ public class OpenApiGenerationTest {
         }
 
         if (openApiJson != null && !openApiJson.isEmpty()) {
-            Path path = Paths.get("openapi.json");
+            Path path = Paths.get("target/openapi.json");
             if (path.getParent() != null) Files.createDirectories(path.getParent());
             Files.write(path, openApiJson.getBytes(StandardCharsets.UTF_8));
             System.out.println("OpenAPI spec written to target/openapi.json");

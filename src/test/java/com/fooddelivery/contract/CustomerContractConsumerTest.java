@@ -49,8 +49,8 @@ public class CustomerContractConsumerTest {
     @MockBean
     private RestaurantClientFallback restaurantClientFallback;
 
-    @Configuration
-    @EnableAutoConfiguration(exclude = {
+    @org.springframework.boot.SpringBootConfiguration
+    @org.springframework.boot.autoconfigure.EnableAutoConfiguration(exclude = {
             DataSourceAutoConfiguration.class,
             DataSourceTransactionManagerAutoConfiguration.class,
             HibernateJpaAutoConfiguration.class

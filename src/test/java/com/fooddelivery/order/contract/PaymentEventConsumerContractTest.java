@@ -49,6 +49,7 @@ class PaymentEventConsumerContractTest {
 
     @org.springframework.boot.SpringBootConfiguration
     @org.springframework.boot.autoconfigure.EnableAutoConfiguration
+    
     @Import(PaymentEventConsumer.class)
     static class TestConfig {
         @Bean

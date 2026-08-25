@@ -32,8 +32,8 @@ import org.mockito.Mockito;
 @ActiveProfiles("contract-test")
 public class PaymentContractConsumerTest {
 
-    @Configuration
-    @EnableAutoConfiguration(exclude = {
+    @org.springframework.boot.SpringBootConfiguration
+    @org.springframework.boot.autoconfigure.EnableAutoConfiguration(exclude = {
             DataSourceAutoConfiguration.class,
             DataSourceTransactionManagerAutoConfiguration.class,
             HibernateJpaAutoConfiguration.class
