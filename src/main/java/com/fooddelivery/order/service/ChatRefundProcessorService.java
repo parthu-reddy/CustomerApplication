@@ -140,7 +140,7 @@ public class ChatRefundProcessorService {
                 ticket.setReason(reason + (description.isEmpty() ? "" : " - " + description));
                 ticket.setStatus(SupportTicket.TicketStatus.OPEN);
                 ticket.setChatSessionId(UUID.fromString(event.getAggregateId()));
-                ticket.setRefundAmount(quoteAmount.doubleValue());
+                ticket.setRefundAmount(quoteAmount);
                 if (payload.has("items")) {
                     ticket.setRequestedRefundItems(payload.get("items").toString());
                 }

@@ -3,6 +3,7 @@ package com.fooddelivery.order.entity;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.UUID;
+import java.math.BigDecimal;
 
 @Entity
 @Table(name = "support_tickets", indexes = {
@@ -55,7 +56,7 @@ public class SupportTicket {
     private String requestedRefundItems;
 
     @Column(name = "refund_amount")
-    private Double refundAmount;
+    private BigDecimal refundAmount;
 
     @Column(name = "restaurant_comments", length = 2000)
     private String restaurantComments;
@@ -103,8 +104,8 @@ public class SupportTicket {
     public String getRequestedRefundItems() { return requestedRefundItems; }
     public void setRequestedRefundItems(String requestedRefundItems) { this.requestedRefundItems = requestedRefundItems; }
 
-    public Double getRefundAmount() { return refundAmount; }
-    public void setRefundAmount(Double refundAmount) { this.refundAmount = refundAmount; }
+    public BigDecimal getRefundAmount() { return refundAmount; }
+    public void setRefundAmount(BigDecimal refundAmount) { this.refundAmount = refundAmount; }
 
     public String getRestaurantComments() { return restaurantComments; }
     public void setRestaurantComments(String restaurantComments) { this.restaurantComments = restaurantComments; }

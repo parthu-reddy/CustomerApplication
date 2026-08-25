@@ -30,8 +30,7 @@ public class AdminRefundController {
     private final OrderRefundService orderRefundService;
     private final IOrderRepository orderRepository;
     private final ObjectMapper objectMapper;
-
-
+    private final com.fooddelivery.common.service.RateLimitingService rateLimitingService;
 
     @GetMapping
     public ResponseEntity<Page<SupportTicket>> getTickets(
@@ -70,6 +69,13 @@ public class AdminRefundController {
             @PathVariable UUID ticketId,
             @RequestBody ResolveRequest request,
             @RequestHeader("X-Admin-Id") UUID adminId) {
+        
+        // Phase 3: Limit 30 requests per minute
+        io.github.bucket4j.Bucket bucket = rateLimitingService.resolveBucket("admin_refund:" + adminId.toString(), 30, 30, java.time.Duration.ofMinutes(1));
+        if (!bucket.tryConsume(1)) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.TOO_MANY_REQUESTS).build();
+        }
+
         SupportTicket ticket = supportTicketRepository.findById(ticketId)
                 .orElseThrow(() -> new IllegalArgumentException("Ticket not found"));
 
@@ -84,7 +90,7 @@ public class AdminRefundController {
         if (request.approved()) {
             ticket.setStatus(SupportTicket.TicketStatus.RESOLVED);
             Order order = orderRepository.findById(ticket.getOrderId()).orElseThrow(() -> new IllegalArgumentException("Order not found"));
-            BigDecimal refundAmount = BigDecimal.valueOf(ticket.getRefundAmount());
+            BigDecimal refundAmount = ticket.getRefundAmount();
             
             com.fooddelivery.common.enums.FaultType faultType = request.faultType() != null 
                     ? com.fooddelivery.common.enums.FaultType.valueOf(request.faultType()) 

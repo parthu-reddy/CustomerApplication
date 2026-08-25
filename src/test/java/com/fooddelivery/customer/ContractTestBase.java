@@ -5,6 +5,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.mockito.Mockito;
 
 import com.fooddelivery.order.controller.InternalOrderController;
+import com.fooddelivery.common.service.RateLimitingService;
+import io.github.bucket4j.Bucket;
 import com.fooddelivery.order.repository.IOrderRepository;
 import com.fooddelivery.order.service.OrderSagaOrchestrator;
 import com.fooddelivery.order.service.OrderRefundService;
@@ -65,10 +67,15 @@ public abstract class ContractTestBase {
         Mockito.when(orderRepository.findById(Mockito.any(java.util.UUID.class)))
                .thenReturn(java.util.Optional.of(order));
 
+        RateLimitingService rateLimitingService = Mockito.mock(RateLimitingService.class);
+        Bucket mockBucket = Mockito.mock(Bucket.class);
+        Mockito.when(mockBucket.tryConsume(Mockito.anyLong())).thenReturn(true);
+        Mockito.when(rateLimitingService.resolveBucket(Mockito.anyString(), Mockito.anyInt(), Mockito.anyInt(), Mockito.any())).thenReturn(mockBucket);
         InternalOrderController internalOrderController = new InternalOrderController(
                 orderRepository,
                 orderSagaOrchestrator,
-                orderRefundService
+                orderRefundService,
+                rateLimitingService
         );
 
         // Standalone MockMvc registers NO custom argument resolvers, so a handler taking Pageable

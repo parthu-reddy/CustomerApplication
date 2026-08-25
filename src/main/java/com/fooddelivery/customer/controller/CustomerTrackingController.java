@@ -24,7 +24,7 @@ public class CustomerTrackingController {
 
     private final StringRedisTemplate redisTemplate;
     private final com.fooddelivery.order.repository.IOrderRepository orderRepository;
-    private final org.springframework.data.redis.listener.RedisMessageListenerContainer redisMessageListenerContainer;
+    private final ObjectProvider<RedisMessageListenerContainer> redisMessageListenerContainerProvider;
     private final java.util.concurrent.ScheduledExecutorService scheduler = java.util.concurrent.Executors.newScheduledThreadPool(4);
 
     @GetMapping(produces = MediaType.TEXT_EVENT_STREAM_VALUE)
@@ -41,7 +41,7 @@ public class CustomerTrackingController {
             }
         };
         org.springframework.data.redis.listener.ChannelTopic topic = new org.springframework.data.redis.listener.ChannelTopic(trackingChannel);
-        redisMessageListenerContainer.addMessageListener(listener, topic);
+        redisMessageListenerContainerProvider.ifAvailable(container -> container.addMessageListener(listener, topic));
         java.util.concurrent.ScheduledFuture<?> heartbeatTask = scheduler.scheduleAtFixedRate(() -> {
             try {
                 emitter.send(SseEmitter.event().comment("ping"));
@@ -54,7 +54,7 @@ public class CustomerTrackingController {
         Runnable cleanup = () -> {
             try {
                 heartbeatTask.cancel(false);
-                redisMessageListenerContainer.removeMessageListener(listener, topic);
+                redisMessageListenerContainerProvider.ifAvailable(container -> container.removeMessageListener(listener, topic));
                 log.info("Cleaned up Redis subscription for order: {}", orderId);
             } catch (Exception e) {
                 log.warn("Error during Redis subscription cleanup for order: {}", orderId, e);

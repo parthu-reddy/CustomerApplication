@@ -233,7 +233,7 @@ CREATE TABLE support_tickets (
     resolved_at TIMESTAMP,
     chat_session_id UUID,
     requested_refund_items TEXT,
-    refund_amount DOUBLE PRECISION,
+    refund_amount DECIMAL(10, 2),
     restaurant_comments VARCHAR(2000),
     rider_comments VARCHAR(2000),
     version BIGINT DEFAULT 0,

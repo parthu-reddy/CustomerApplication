@@ -86,7 +86,7 @@ public class RefundRetrySweeper {
                             
                             if (resolvedTicket != null) {
                                 log.info("Retrying partial refund of {} for Order {}", resolvedTicket.getRefundAmount(), order.getId());
-                                orderRefundService.processPartialRefund(order, java.math.BigDecimal.valueOf(resolvedTicket.getRefundAmount()));
+                                orderRefundService.processPartialRefund(order, resolvedTicket.getRefundAmount());
                             } else {
                                 log.warn("Skipping auto-retry for Order {}. Status is HANDED_OVER but no resolved SupportTicket found.", order.getId());
                             }

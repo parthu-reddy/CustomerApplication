@@ -22,6 +22,7 @@ public class InternalOrderController {
     private final IOrderRepository orderRepository;
     private final com.fooddelivery.order.service.OrderSagaOrchestrator orderSagaOrchestrator;
     private final com.fooddelivery.order.service.OrderRefundService orderRefundService;
+    private final com.fooddelivery.common.service.RateLimitingService rateLimitingService;
 
     @GetMapping("/driver/{driverId}/active")
     @PreAuthorize("hasAnyRole('ADMIN', 'DELIVERY')")
@@ -98,7 +99,13 @@ public class InternalOrderController {
 
     @PostMapping("/{orderId}/partial-refund")
     @PreAuthorize("hasAnyRole('ADMIN', 'RESTAURANT')")
-    public ResponseEntity<com.fooddelivery.common.dto.ApiResponse<String>> partialRefund(@PathVariable UUID orderId, @RequestBody java.util.Map<String, String> payload) {
+    public ResponseEntity<com.fooddelivery.common.dto.ApiResponse<String>> partialRefund(@PathVariable UUID orderId, @RequestBody java.util.Map<String, String> payload, java.security.Principal principal) {
+        // Phase 3: Limit 30 requests per minute
+        io.github.bucket4j.Bucket bucket = rateLimitingService.resolveBucket("internal_refund:" + (principal != null ? principal.getName() : "anonymous"), 30, 30, java.time.Duration.ofMinutes(1));
+        if (!bucket.tryConsume(1)) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.TOO_MANY_REQUESTS).build();
+        }
+
         String amountStr = payload.get("amount");
         if (amountStr == null || amountStr.trim().isEmpty()) {
             return ResponseEntity.badRequest().body(com.fooddelivery.common.dto.ApiResponse.error("amount is required"));

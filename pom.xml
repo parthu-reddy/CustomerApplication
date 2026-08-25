@@ -38,10 +38,10 @@
         <dependency>
             <groupId>com.fooddelivery</groupId>
             <artifactId>common-library</artifactId>
+            <version>1.0-SNAPSHOT</version>
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
-        
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
@@ -212,8 +212,6 @@
 
     <dependencyManagement>
         <dependencies>
-
-
             <dependency>
                 <groupId>org.springframework.ai</groupId>
                 <artifactId>spring-ai-bom</artifactId>
@@ -221,7 +219,7 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
-    </dependencies>
+        </dependencies>
     </dependencyManagement>
 
     <build>
@@ -240,32 +238,7 @@
 
             
 
-            <plugin>
-                <groupId>org.openapitools</groupId>
-                <artifactId>openapi-generator-maven-plugin</artifactId>
-                <version>7.0.1</version>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>generate</goal>
-                        </goals>
-                        <configuration>
-                            <inputSpec>${project.basedir}/../openapi.yaml</inputSpec>
-                            <generatorName>spring</generatorName>
-                            <apiPackage>com.fooddelivery.api</apiPackage>
-                            <modelPackage>com.fooddelivery.model</modelPackage>
-                            <supportingFilesToGenerate>ApiUtil.java</supportingFilesToGenerate>
-                            <configOptions>
-                                <delegatePattern>true</delegatePattern>
-                                <useSpringBoot3>true</useSpringBoot3>
-                                <useBeanValidation>true</useBeanValidation>
-                            </configOptions>
-                        
-                    
-                </configuration>
-                    </execution>
-                </executions>
-            </plugin>
+            
                         <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -300,15 +273,8 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <argLine>-XX:+EnableDynamicAgentLoading -Xshare:off -Dnet.bytebuddy.experimental=true -Dspring.cloud.config.fail-fast=false</argLine>
-                <systemPropertyVariables>
-                        <!-- Config Server is mandatory in production (I-34) but must not be
-                             contacted from tests. This has to be a system property: the
-                             configserver: import in application.yml is resolved before any
-                             profile-specific YAML is read, so an override there is too late. -->
-                        <spring.cloud.config.fail-fast>false</spring.cloud.config.fail-fast>
-                    </systemPropertyVariables>
-                    </configuration>
+                    <argLine>-XX:+EnableDynamicAgentLoading -Xshare:off -Dnet.bytebuddy.experimental=true</argLine>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
