@@ -62,6 +62,8 @@ public class OrderMapper {
             .driverGrossPayout(driverGrossPayout)
             .driverTaxes(driverTaxes)
             .driverNetPayout(driverNetPayout)
+            .pickupOtp(order.getPickupOtp())
+            .otp(order.getOtp())
             .deliveryAddress(order.getDeliveryAddress())
             .deliveryLat(order.getDeliveryLat())
             .deliveryLng(order.getDeliveryLng())
