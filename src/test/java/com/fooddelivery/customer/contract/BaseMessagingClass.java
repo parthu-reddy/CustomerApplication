@@ -21,8 +21,8 @@ import org.springframework.context.annotation.Bean;
 @EmbeddedKafka(partitions = 1, topics = {"order-events", "payment-events", "chat-events", "wallet-events", "ledger-events", "platform.notifications.dispatch"})
 public abstract class BaseMessagingClass {
 
-    @org.springframework.boot.test.context.TestConfiguration
-    
+    @org.springframework.boot.SpringBootConfiguration
+    @org.springframework.boot.autoconfigure.EnableAutoConfiguration
     static class TestConfig {
         @Bean
         public KafkaMessageVerifier kafkaMessageVerifier() {
