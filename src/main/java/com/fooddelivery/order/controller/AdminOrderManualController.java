@@ -204,9 +204,12 @@ public class AdminOrderManualController {
         java.math.BigDecimal amount = new java.math.BigDecimal(amountObj.toString());
         
         Object faultAttributionObj = payload.get("faultAttribution");
-        String faultAttribution = faultAttributionObj != null ? faultAttributionObj.toString().toUpperCase() : "PLATFORM";
+        String faultAttributionStr = faultAttributionObj != null ? faultAttributionObj.toString().toUpperCase() : "PLATFORM";
         
-        if (!faultAttribution.equals("RESTAURANT") && !faultAttribution.equals("DRIVER") && !faultAttribution.equals("PLATFORM")) {
+        com.fooddelivery.order.enums.FaultAttribution faultAttribution;
+        try {
+            faultAttribution = com.fooddelivery.order.enums.FaultAttribution.valueOf(faultAttributionStr);
+        } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(ApiResponse.error("Invalid faultAttribution. Must be RESTAURANT, DRIVER, or PLATFORM"));
         }
         
@@ -214,18 +217,18 @@ public class AdminOrderManualController {
         orderRefundService.processPartialRefund(order, amount, com.fooddelivery.common.enums.RefundDestination.GATEWAY);
         
         // If fault lies with the restaurant or driver, publish a REVERSAL_GENERATED event to debit their earnings
-        if (!faultAttribution.equals("PLATFORM")) {
+        if (faultAttribution != com.fooddelivery.order.enums.FaultAttribution.PLATFORM) {
             UUID entityId = null;
-            if (faultAttribution.equals("RESTAURANT") && order.getRestaurantId() != null) {
+            if (faultAttribution == com.fooddelivery.order.enums.FaultAttribution.RESTAURANT && order.getRestaurantId() != null) {
                 entityId = order.getRestaurantId();
-            } else if (faultAttribution.equals("DRIVER") && order.getDeliveryExecutiveId() != null) {
+            } else if (faultAttribution == com.fooddelivery.order.enums.FaultAttribution.DRIVER && order.getDeliveryExecutiveId() != null) {
                 entityId = order.getDeliveryExecutiveId();
             }
             
             if (entityId != null) {
                 Map<String, Object> eventPayload = new HashMap<>();
                 eventPayload.put("entityId", entityId.toString());
-                eventPayload.put("entityType", faultAttribution);
+                eventPayload.put("entityType", faultAttribution.name());
                 eventPayload.put("amount", amount.toString());
                 eventPayload.put("referenceId", "REV_" + order.getId().toString() + "_" + System.currentTimeMillis());
                 eventPayload.put("description", "Reversal for order " + order.getId() + " due to post-delivery refund");

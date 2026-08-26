@@ -24,7 +24,7 @@ public class CustomerProfileController {
     @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> getProfile(
             java.security.Principal principal,
-            @org.springframework.web.bind.annotation.RequestHeader(value = "X-User-Id", required = false) String headerUserId) {
+            @org.springframework.web.bind.annotation.RequestHeader(value = com.fooddelivery.common.constants.HeaderConstants.HEADER_USER_ID, required = false) String headerUserId) {
         
         String userIdStr = (principal != null && principal.getName() != null) ? principal.getName() : headerUserId;
         if (userIdStr == null) {
@@ -51,7 +51,7 @@ public class CustomerProfileController {
     @PreAuthorize("hasRole('CUSTOMER')")
     public ResponseEntity<ApiResponse<Customer>> createProfile(
             java.security.Principal principal, 
-            @org.springframework.web.bind.annotation.RequestHeader(value = "X-User-Id", required = false) String headerUserId,
+            @org.springframework.web.bind.annotation.RequestHeader(value = com.fooddelivery.common.constants.HeaderConstants.HEADER_USER_ID, required = false) String headerUserId,
             @RequestBody Customer newCustomer) {
         
         String userIdStr = (principal != null && principal.getName() != null) ? principal.getName() : headerUserId;

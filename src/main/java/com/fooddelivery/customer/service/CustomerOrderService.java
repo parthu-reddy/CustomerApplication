@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
 @lombok.extern.slf4j.Slf4j
 @lombok.RequiredArgsConstructor
 public class CustomerOrderService {
-    
+    private static final String SERVICE_NAME = "CustomerService";
 
     private final IOrderRepository orderRepository;
     private final OrderSagaOrchestrator orderSagaOrchestrator;
@@ -107,7 +107,7 @@ public class CustomerOrderService {
                         txReq.setAmount(order.getTotalAmount());
                         txReq.setReferenceId(intent);
                         txReq.setDescription("Order " + order.getId());
-                        walletServiceClient.debit("CUSTOMER", order.getCustomerId(), txReq, "CustomerService");
+                        walletServiceClient.debit(com.fooddelivery.common.enums.EntityType.CUSTOMER.name(), order.getCustomerId(), txReq, SERVICE_NAME);
                     }
                     String payload = String.format("{\"eventType\":\"PAYMENT_COMPLETED\", \"orderId\":\"%s\", \"gatewayOrderId\":\"%s\"}", order.getId(), intent);
                     com.fooddelivery.common.outbox.entity.OutboxEventEntity evt = com.fooddelivery.common.outbox.entity.OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.PAYMENT).aggregateId(intent).eventType(com.fooddelivery.common.constants.EventType.PAYMENT_COMPLETED).payload(payload).createdAt(java.time.LocalDateTime.now()).build();

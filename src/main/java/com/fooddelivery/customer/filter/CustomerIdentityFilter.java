@@ -27,7 +27,7 @@ public class CustomerIdentityFilter extends OncePerRequestFilter {
             java.util.UUID jwtUserId = java.util.UUID.fromString(userId);
             String roles = request.getHeader(com.fooddelivery.common.constants.HeaderConstants.HEADER_USER_ROLES);
             // Only synchronize/create customer records if the user actually has the CUSTOMER role
-            if (roles != null && roles.contains("CUSTOMER")) {
+            if (roles != null && roles.contains(com.fooddelivery.common.enums.UserRole.CUSTOMER.name())) {
                 // First, try to find by the JWT user ID (the canonical identity)
                 Customer customer = customerRepository.findById(jwtUserId).orElseGet(() -> {
                     try {
