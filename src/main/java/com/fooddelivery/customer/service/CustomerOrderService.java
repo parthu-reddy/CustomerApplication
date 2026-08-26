@@ -411,6 +411,8 @@ public class CustomerOrderService {
 
             return java.util.concurrent.CompletableFuture.allOf(menuFuture, restaurantDataFuture)
                 .orTimeout(10, java.util.concurrent.TimeUnit.SECONDS).thenApplyAsync(v -> {
+                org.springframework.web.context.request.RequestContextHolder.setRequestAttributes(requestAttributes);
+                org.springframework.security.core.context.SecurityContextHolder.setContext(securityContext);
                 try {
                     java.util.Map<String, Object> restaurantData = restaurantDataFuture.join();
                     Double rLat = (Double) restaurantData.get("lat");
