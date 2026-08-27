@@ -27,7 +27,7 @@ import org.mockito.Mockito;
 @SpringBootTest(classes = PaymentContractConsumerTest.TestConfig.class, webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @AutoConfigureStubRunner(
         stubsMode = StubRunnerProperties.StubsMode.LOCAL,
-        ids = {"com.fooddelivery:payment-service:+:stubs:8093"}
+        ids = {"com.fooddelivery:payment-service:+:stubs:8093", "com.fooddelivery:ledger-service:+:stubs:8094"}
 )
 @ActiveProfiles("contract-test")
 public class PaymentContractConsumerTest {
