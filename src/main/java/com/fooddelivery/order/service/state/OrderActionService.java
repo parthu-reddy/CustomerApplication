@@ -165,7 +165,24 @@ public class OrderActionService {
             } catch (Exception ex) {
                 log.error("Failed to serialize items", ex);
             }
-            com.fooddelivery.common.event.OrderPaidEvent paidEvent = com.fooddelivery.common.event.OrderPaidEvent.builder().orderId(order.getId()).restaurantId(order.getRestaurantId()).customerName(order.getCustomerName()).estimatedPrepTimeMinutes(order.getEstimatedPrepTimeMinutes()).deliveryLat(order.getDeliveryLat()).deliveryLng(order.getDeliveryLng()).deliveryAddress(order.getDeliveryAddress()).itemsJson(itemsJsonStr).pickupOtp(order.getPickupOtp()).deliveryOtp(order.getOtp()).build();
+            com.fooddelivery.common.event.OrderPaidEvent paidEvent = com.fooddelivery.common.event.OrderPaidEvent.builder()
+                    .orderId(order.getId())
+                    .restaurantId(order.getRestaurantId())
+                    .customerName(order.getCustomerName())
+                    .estimatedPrepTimeMinutes(order.getEstimatedPrepTimeMinutes())
+                    .deliveryLat(order.getDeliveryLat())
+                    .deliveryLng(order.getDeliveryLng())
+                    .deliveryAddress(order.getDeliveryAddress())
+                    .itemsJson(itemsJsonStr)
+                    .pickupOtp(order.getPickupOtp())
+                    .deliveryOtp(order.getOtp())
+                    .totalAmount(order.getTotalAmount())
+                    .itemTotal(order.getItemTotal())
+                    .restaurantPlatformFee(order.getRestaurantPlatformFee())
+                    .restaurantDeliveryContribution(order.getRestaurantDeliveryContribution())
+                    .platformBonus(order.getPlatformBonus())
+                    .restaurantPayout(order.getRestaurantPayout())
+                    .build();
             OutboxEventEntity outboxEvent = OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER).aggregateId(order.getId().toString()).eventType(EventType.ORDER_PAID).payload(objectMapper.writeValueAsString(paidEvent)).createdAt(LocalDateTime.now()).status(com.fooddelivery.common.enums.OutboxStatus.UNPROCESSED).build();
             log.info("Triggering event: {} for order: {}", EventType.ORDER_PAID.name(), order.getId());
             outboxEventRepository.save(outboxEvent);

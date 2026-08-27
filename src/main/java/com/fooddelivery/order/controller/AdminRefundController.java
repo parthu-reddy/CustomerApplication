@@ -134,7 +134,7 @@ public class AdminRefundController {
     }
 
     public record ReviewRequest(String notes) {}
-    public record ResolveRequest(boolean approved, String notes, String faultType) {}
+    public record ResolveRequest(@io.swagger.v3.oas.annotations.media.Schema(requiredMode = io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED) boolean approved, String notes, String faultType) {}
 
     @ExceptionHandler(org.springframework.orm.ObjectOptimisticLockingFailureException.class)
     public ResponseEntity<String> handleOptimisticLockingFailure(org.springframework.orm.ObjectOptimisticLockingFailureException ex) {

@@ -181,7 +181,7 @@ public abstract class BaseMessagingClass {
         payloadMap.put("intentId", "3f2504e0-4f89-41d3-9a0c-0305e82c3301");
         payloadMap.put("gatewayOrderId", "pay_12345");
         payloadMap.put("amountInInr", 15.50);
-        payloadMap.put("gatewayName", "STRIPE");
+        payloadMap.put("gatewayName", "RAZORPAY");
         payloadMap.put("orderId", "6b1d3c22-9f45-4a7e-8c11-2d4e6f8a9b02");
         payloadMap.put("refundDestination", "GATEWAY");
         publishViaOutbox(com.fooddelivery.common.constants.AggregateType.PAYMENT,

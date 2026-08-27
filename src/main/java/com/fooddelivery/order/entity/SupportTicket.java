@@ -22,19 +22,24 @@ public class SupportTicket {
 
     @Id
     @Column(name = "id")
+    @io.swagger.v3.oas.annotations.media.Schema(requiredMode = io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED)
     private UUID id;
 
     @Column(name = "order_id", nullable = false)
+    @io.swagger.v3.oas.annotations.media.Schema(requiredMode = io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED)
     private UUID orderId;
 
     @Column(name = "customer_id", nullable = false)
+    @io.swagger.v3.oas.annotations.media.Schema(requiredMode = io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED)
     private UUID customerId;
 
     @Column(name = "reason", nullable = false, length = 2000)
+    @io.swagger.v3.oas.annotations.media.Schema(requiredMode = io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED)
     private String reason;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 50)
+    @io.swagger.v3.oas.annotations.media.Schema(requiredMode = io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED)
     private TicketStatus status = TicketStatus.OPEN;
 
     @Column(name = "resolution_notes", length = 2000)
@@ -44,6 +49,7 @@ public class SupportTicket {
     private UUID resolvedBy;
 
     @Column(name = "created_at", nullable = false)
+    @io.swagger.v3.oas.annotations.media.Schema(requiredMode = io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED)
     private LocalDateTime createdAt;
 
     @Column(name = "resolved_at")

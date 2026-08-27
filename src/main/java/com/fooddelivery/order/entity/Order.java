@@ -43,17 +43,21 @@ public class Order {
 
     @Id
     @Column(name = "id")
+    @io.swagger.v3.oas.annotations.media.Schema(requiredMode = io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED)
     private UUID id;
     @Column(name = "customer_id")
+    @io.swagger.v3.oas.annotations.media.Schema(requiredMode = io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED)
     private UUID customerId;
     @Column(name = "customer_name")
     private String customerName;
     @Column(name = "restaurant_id")
+    @io.swagger.v3.oas.annotations.media.Schema(requiredMode = io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED)
     private UUID restaurantId;
     @Column(name = "restaurant_name")
     private String restaurantName;
     @Enumerated(EnumType.STRING)
     @Column(name = "status")
+    @io.swagger.v3.oas.annotations.media.Schema(requiredMode = io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED)
     private OrderStatus status;
     @Enumerated(EnumType.STRING)
     @Column(name = "delivery_status")
@@ -76,6 +80,7 @@ public class Order {
     }
 
     @Column(name = "total_amount")
+    @io.swagger.v3.oas.annotations.media.Schema(requiredMode = io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED)
     private BigDecimal totalAmount;
 
     @Column(name = "item_total")
@@ -140,9 +145,11 @@ public class Order {
     private Set<OrderItem> orderItems = new HashSet<>();
     @CreationTimestamp
     @Column(name = "created_at")
+    @io.swagger.v3.oas.annotations.media.Schema(requiredMode = io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED)
     private LocalDateTime createdAt;
     @UpdateTimestamp
     @Column(name = "updated_at")
+    @io.swagger.v3.oas.annotations.media.Schema(requiredMode = io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED)
     private LocalDateTime updatedAt;
 
     @Column(name = "delivered_at")
