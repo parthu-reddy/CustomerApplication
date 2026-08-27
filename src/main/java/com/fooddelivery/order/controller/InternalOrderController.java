@@ -77,6 +77,7 @@ public class InternalOrderController {
 
     @GetMapping("/{orderId}/participants")
     @PreAuthorize("@orderSecurityHelper.isOrderParticipant(#orderId, authentication.name) or hasRole('ADMIN')")
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public ResponseEntity<List<String>> getOrderParticipants(@PathVariable UUID orderId) {
         log.debug("Fetching authorized participants for order {}", orderId);
         return orderRepository.findById(orderId).map(order -> {
@@ -90,6 +91,7 @@ public class InternalOrderController {
 
     @GetMapping("/{orderId}/invoice")
     @PreAuthorize("@orderSecurityHelper.isOrderParticipant(#orderId, authentication.name) or hasRole('ADMIN')")
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public ResponseEntity<com.fooddelivery.customer.dto.OrderResponse> getOrderInvoice(@PathVariable UUID orderId) {
         return orderRepository.findById(orderId).map(order -> {
             com.fooddelivery.customer.dto.OrderResponse response = com.fooddelivery.customer.mapper.OrderMapper.mapToResponse(order);
