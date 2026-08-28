@@ -68,7 +68,7 @@ public class AdminRefundController {
     public ResponseEntity<SupportTicket> resolveTicket(
             @PathVariable UUID ticketId,
             @RequestBody ResolveRequest request,
-            @RequestHeader("X-Admin-Id") UUID adminId) {
+            @RequestHeader("X-User-Id") UUID adminId) {
         
         // Phase 3: Limit 30 requests per minute
         io.github.bucket4j.Bucket bucket = rateLimitingService.resolveBucket("admin_refund:" + adminId.toString(), 30, 30, java.time.Duration.ofMinutes(1));
@@ -92,6 +92,9 @@ public class AdminRefundController {
             Order order = orderRepository.findById(ticket.getOrderId()).orElseThrow(() -> new IllegalArgumentException("Order not found"));
             BigDecimal refundAmount = ticket.getRefundAmount();
             if (request.overrideAmount() != null) {
+                if (request.overrideAmount().compareTo(BigDecimal.ZERO) <= 0) {
+                    throw new IllegalArgumentException("Override amount must be greater than zero");
+                }
                 if (request.overrideAmount().compareTo(ticket.getRefundAmount()) > 0) {
                     throw new IllegalArgumentException("Override amount cannot be greater than original quote");
                 }

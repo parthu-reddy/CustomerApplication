@@ -21,6 +21,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -73,7 +74,7 @@ class AdminRefundControllerTest {
         when(supportTicketRepository.findById(ticketId)).thenReturn(Optional.of(ticket));
         when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
 
-        AdminRefundController.ResolveRequest request = new AdminRefundController.ResolveRequest(true, "Approved", "RESTAURANT_FAULT");
+        AdminRefundController.ResolveRequest request = new AdminRefundController.ResolveRequest(true, "Approved", "RESTAURANT_FAULT", null);
 
         io.github.bucket4j.Bucket bucket = mock(io.github.bucket4j.Bucket.class);
         when(rateLimitingService.resolveBucket(anyString(), anyInt(), anyInt(), any())).thenReturn(bucket);
@@ -100,12 +101,76 @@ class AdminRefundControllerTest {
         when(rateLimitingService.resolveBucket(anyString(), anyInt(), anyInt(), any())).thenReturn(bucket);
         when(bucket.tryConsume(1)).thenReturn(false);
 
-        AdminRefundController.ResolveRequest request = new AdminRefundController.ResolveRequest(true, "Approved", "RESTAURANT_FAULT");
+        AdminRefundController.ResolveRequest request = new AdminRefundController.ResolveRequest(true, "Approved", "RESTAURANT_FAULT", null);
 
         // Act
         ResponseEntity<SupportTicket> response = controller.resolveTicket(ticketId, request, adminId);
 
         // Assert
         assertEquals(429, response.getStatusCodeValue());
+    }
+
+    @Test
+    void overrideBelowTheQuoteRefundsTheOverriddenAmount() {
+        SupportTicket ticket = new SupportTicket();
+        ticket.setId(ticketId);
+        ticket.setOrderId(orderId);
+        ticket.setStatus(SupportTicket.TicketStatus.OPEN);
+        ticket.setRefundAmount(new BigDecimal("10.10"));
+
+        Order order = new Order();
+        order.setId(orderId);
+        order.setTotalAmount(new BigDecimal("10.10"));
+
+        when(supportTicketRepository.findById(ticketId)).thenReturn(Optional.of(ticket));
+        when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+
+        io.github.bucket4j.Bucket bucket = mock(io.github.bucket4j.Bucket.class);
+        when(rateLimitingService.resolveBucket(anyString(), anyInt(), anyInt(), any())).thenReturn(bucket);
+        when(bucket.tryConsume(1)).thenReturn(true);
+
+        AdminRefundController.ResolveRequest request =
+                new AdminRefundController.ResolveRequest(true, "Approved", "RESTAURANT_FAULT", new BigDecimal("5.00"));
+
+        ResponseEntity<SupportTicket> response = adminRefundController.resolveTicket(ticketId, request, adminId);
+
+        assertEquals(200, response.getStatusCodeValue());
+        // The override must reach the refund, not the original quote, and must be written back to
+        // the ticket -- otherwise the ledger and the ticket disagree about what was refunded.
+        assertEquals(new BigDecimal("5.00"), ticket.getRefundAmount());
+        verify(orderRefundService).processPartialRefund(
+                order, new BigDecimal("5.00"), RefundDestination.GATEWAY, FaultType.RESTAURANT_FAULT);
+        verify(orderRefundService, never()).processRefund(any(), any(), any());
+    }
+
+    @Test
+    void overrideAboveTheQuoteIsRejectedAndRefundsNothing() {
+        SupportTicket ticket = new SupportTicket();
+        ticket.setId(ticketId);
+        ticket.setOrderId(orderId);
+        ticket.setStatus(SupportTicket.TicketStatus.OPEN);
+        ticket.setRefundAmount(new BigDecimal("10.10"));
+
+        Order order = new Order();
+        order.setId(orderId);
+        order.setTotalAmount(new BigDecimal("10.10"));
+
+        when(supportTicketRepository.findById(ticketId)).thenReturn(Optional.of(ticket));
+        when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+
+        io.github.bucket4j.Bucket bucket = mock(io.github.bucket4j.Bucket.class);
+        when(rateLimitingService.resolveBucket(anyString(), anyInt(), anyInt(), any())).thenReturn(bucket);
+        when(bucket.tryConsume(1)).thenReturn(true);
+
+        AdminRefundController.ResolveRequest request =
+                new AdminRefundController.ResolveRequest(true, "Approved", "RESTAURANT_FAULT", new BigDecimal("20.00"));
+
+        IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class,
+                () -> adminRefundController.resolveTicket(ticketId, request, adminId));
+        assertEquals("Override amount cannot be greater than original quote", thrown.getMessage());
+
+        // The guard exists to stop an admin refunding more than was quoted: nothing may be paid out.
+        verify(orderRefundService, never()).processRefund(any(), any(), any());
+        verify(orderRefundService, never()).processPartialRefund(any(), any(), any(), any());
     }
 }
