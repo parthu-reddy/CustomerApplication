@@ -91,6 +91,13 @@ public class AdminRefundController {
             ticket.setStatus(SupportTicket.TicketStatus.RESOLVED);
             Order order = orderRepository.findById(ticket.getOrderId()).orElseThrow(() -> new IllegalArgumentException("Order not found"));
             BigDecimal refundAmount = ticket.getRefundAmount();
+            if (request.overrideAmount() != null) {
+                if (request.overrideAmount().compareTo(ticket.getRefundAmount()) > 0) {
+                    throw new IllegalArgumentException("Override amount cannot be greater than original quote");
+                }
+                refundAmount = request.overrideAmount();
+                ticket.setRefundAmount(refundAmount);
+            }
             
             com.fooddelivery.common.enums.FaultType faultType = request.faultType() != null 
                     ? com.fooddelivery.common.enums.FaultType.valueOf(request.faultType()) 
@@ -134,7 +141,7 @@ public class AdminRefundController {
     }
 
     public record ReviewRequest(String notes) {}
-    public record ResolveRequest(@io.swagger.v3.oas.annotations.media.Schema(requiredMode = io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED) boolean approved, String notes, String faultType) {}
+    public record ResolveRequest(@io.swagger.v3.oas.annotations.media.Schema(requiredMode = io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED) boolean approved, String notes, String faultType, BigDecimal overrideAmount) {}
 
     @ExceptionHandler(org.springframework.orm.ObjectOptimisticLockingFailureException.class)
     public ResponseEntity<String> handleOptimisticLockingFailure(org.springframework.orm.ObjectOptimisticLockingFailureException ex) {

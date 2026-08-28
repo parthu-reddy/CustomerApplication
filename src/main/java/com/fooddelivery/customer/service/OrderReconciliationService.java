@@ -14,6 +14,13 @@ import java.util.UUID;
 @Service
 @lombok.extern.slf4j.Slf4j
 @lombok.RequiredArgsConstructor
+/**
+ * <strong>@replication-safe: optimistic-lock</strong> -- re-reads each order inside the transaction and Order carries @Version, so a concurrent duplicate cancel fails the version check and rolls back with its outbox row.
+ *
+ * <p>Classification recorded 2026-08-27 (Phase 7). Every @Scheduled class in this workspace
+ * carries one of these markers; the BOOT-SCHEDULE-CLASSIFIED check fails on a new one that
+ * does not. Change the marker only after re-reading what the job actually does.
+ */
 public class OrderReconciliationService {
     
 

@@ -16,6 +16,13 @@ import java.util.List;
 @Component
 @lombok.extern.slf4j.Slf4j
 @lombok.RequiredArgsConstructor
+/**
+ * <strong>@replication-safe: distributed-lock</strong> -- guarded by a Redis lock before any timeout is actioned.
+ *
+ * <p>Classification recorded 2026-08-27 (Phase 7). Every @Scheduled class in this workspace
+ * carries one of these markers; the BOOT-SCHEDULE-CLASSIFIED check fails on a new one that
+ * does not. Change the marker only after re-reading what the job actually does.
+ */
 public class RestaurantTimeoutSweeper {
     
 
