@@ -36,8 +36,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 })
 @AutoConfigureStubRunner(
     ids = {
-        "com.fooddelivery:restaurant-application:+:stubs:8091",
-        "com.fooddelivery:bidding-engine:+:stubs:8093"
+        "com.fooddelivery:restaurant-application:+:stubs",
+        "com.fooddelivery:bidding-engine:+:stubs"
     },
     stubsMode = StubRunnerProperties.StubsMode.LOCAL
 )

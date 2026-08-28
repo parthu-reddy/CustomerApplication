@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import org.springframework.boot.test.mock.mockito.MockBean;
 
 @SpringBootTest(classes = WalletContractConsumerTest.TestConfig.class, webEnvironment = SpringBootTest.WebEnvironment.NONE)
-@AutoConfigureStubRunner(ids = "com.fooddelivery:wallet-service:+:stubs:8090", stubsMode = StubRunnerProperties.StubsMode.LOCAL)
+@AutoConfigureStubRunner(ids = "com.fooddelivery:wallet-service:+:stubs", stubsMode = StubRunnerProperties.StubsMode.LOCAL)
 @org.springframework.test.context.ActiveProfiles("contract-test")
 public class WalletContractConsumerTest {
 

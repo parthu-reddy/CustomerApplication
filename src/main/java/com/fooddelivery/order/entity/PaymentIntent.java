@@ -35,6 +35,15 @@ public class PaymentIntent {
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
+    /**
+     * Maintained by Hibernate on every update. RefundRetrySweeper sweeps on this, not createdAt:
+     * an intent sitting in REFUND_PENDING is stuck if it has not changed recently, regardless of
+     * how long ago the payment itself was created.
+     */
+    @org.hibernate.annotations.UpdateTimestamp
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
 
     
 

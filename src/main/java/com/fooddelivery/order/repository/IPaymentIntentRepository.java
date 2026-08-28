@@ -31,5 +31,12 @@ public interface IPaymentIntentRepository extends JpaRepository<PaymentIntent, U
     org.springframework.data.domain.Page<PaymentIntent> findByStatusAndCreatedAtBefore(@Param("status") PaymentIntentStatus status, @Param("cutoffTime") LocalDateTime cutoffTime, org.springframework.data.domain.Pageable pageable);
 
     @Query("SELECT p FROM PaymentIntent p WHERE p.status = :status AND p.createdAt >= :minTime AND p.createdAt < :cutoffTime")
+    /**
+     * Intents stuck in a transient state. OrderRefundService sets REFUND_PENDING when it enqueues the
+     * refund and only sets REFUND_FAILED if that enqueue throws, which it does not -- so a refund that
+     * is never completed downstream stays REFUND_PENDING forever and no status-based sweep sees it.
+     */
+    org.springframework.data.domain.Page<PaymentIntent> findByStatusAndUpdatedAtBefore(PaymentIntentStatus status, LocalDateTime cutoffTime, org.springframework.data.domain.Pageable pageable);
+
     org.springframework.data.domain.Page<PaymentIntent> findByStatusAndCreatedAtBetween(@Param("status") PaymentIntentStatus status, @Param("minTime") LocalDateTime minTime, @Param("cutoffTime") LocalDateTime cutoffTime, org.springframework.data.domain.Pageable pageable);
 }

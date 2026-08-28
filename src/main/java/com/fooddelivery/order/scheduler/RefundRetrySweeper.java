@@ -34,6 +34,13 @@ public class RefundRetrySweeper {
     private final com.fooddelivery.order.repository.SupportTicketRepository supportTicketRepository;
 
     // Runs every 5 minutes
+    /**
+     * How long an intent may sit in REFUND_PENDING before it is treated as stuck. The outbox is
+     * drained continuously, so a healthy refund settles in seconds; this is deliberately far longer
+     * so a slow-but-working refund is never retried underneath itself.
+     */
+    static final long STUCK_REFUND_PENDING_MINUTES = 30;
+
     @Scheduled(fixedDelay = 300000)
     public void retryFailedRefunds() {
         Boolean locked = redisTemplate.opsForValue().setIfAbsent(com.fooddelivery.common.constants.RedisKeyConstants.LOCK_SWEEP_REFUND_RETRIES, "1", java.time.Duration.ofSeconds(200));
@@ -43,9 +50,31 @@ public class RefundRetrySweeper {
         java.time.LocalDateTime now = java.time.LocalDateTime.now();
         java.time.LocalDateTime minTime = now.minusHours(48);
         org.springframework.data.domain.Page<PaymentIntent> failedIntentsPage = paymentIntentRepository.findByStatusAndCreatedAtBetween(PaymentIntentStatus.REFUND_FAILED, minTime, now, org.springframework.data.domain.PageRequest.of(0, 500));
-        List<PaymentIntent> failedIntents = failedIntentsPage.getContent();
+
+        // REFUND_PENDING is the state OrderRefundService actually leaves an intent in: it sets
+        // REFUND_FAILED only when the outbox enqueue itself throws, and enqueuing does not throw. So a
+        // refund that is enqueued but never completed downstream stays REFUND_PENDING forever, and a
+        // sweep that only looks at REFUND_FAILED is watching a status the failure mode never produces.
+        //
+        // Swept on updatedAt, not createdAt: an intent is stuck if it has not changed for a while,
+        // whereas createdAt would make every refund of an older order look stale and retry a healthy
+        // in-flight one. PaymentEventConsumer moves a completed refund to REFUNDED or
+        // PARTIALLY_REFUNDED, which takes it out of this query.
+        java.time.LocalDateTime stuckBefore = now.minusMinutes(STUCK_REFUND_PENDING_MINUTES);
+        List<PaymentIntent> stuckPending = paymentIntentRepository
+                .findByStatusAndUpdatedAtBefore(PaymentIntentStatus.REFUND_PENDING, stuckBefore,
+                        org.springframework.data.domain.PageRequest.of(0, 500))
+                .getContent();
+
+        List<PaymentIntent> failedIntents = new java.util.ArrayList<>(failedIntentsPage.getContent());
+        if (!stuckPending.isEmpty()) {
+            log.warn("Found {} intents stuck in REFUND_PENDING for over {} minutes. Retrying...", stuckPending.size(), STUCK_REFUND_PENDING_MINUTES);
+            io.micrometer.core.instrument.Metrics.counter("refund.retry.sweeper.stuck_pending").increment(stuckPending.size());
+            failedIntents.addAll(stuckPending);
+        }
+
         if (!failedIntents.isEmpty()) {
-            log.info("Found {} intents with REFUND_FAILED status. Retrying...", failedIntents.size());
+            log.info("Retrying {} refund intent(s) ({} failed, {} stuck pending).", failedIntents.size(), failedIntentsPage.getNumberOfElements(), stuckPending.size());
             for (PaymentIntent intent : failedIntents) {
                 try {
                     if (intent.getRetryCount() >= 5) {

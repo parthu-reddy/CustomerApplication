@@ -84,6 +84,10 @@ CREATE TABLE payment_intents (
     refunded_amount DECIMAL(15,2) DEFAULT 0.00 CHECK (refunded_amount <= amount),
     status VARCHAR(50) DEFAULT 'INITIATED',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    -- When the row last changed state. RefundRetrySweeper needs this to find intents STUCK in
+    -- REFUND_PENDING: created_at is when the payment began, which for an old order refunded today
+    -- would look stale and cause a healthy in-flight refund to be retried.
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     retry_count INT NOT NULL DEFAULT 0
 );
 

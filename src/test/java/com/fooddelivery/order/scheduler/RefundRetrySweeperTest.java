@@ -13,6 +13,7 @@ import com.fooddelivery.order.service.OrderSagaOrchestrator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -61,6 +62,10 @@ public class RefundRetrySweeperTest {
     @BeforeEach
     void setUp() {
         lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        // Default: nothing stuck. Tests that care override this.
+        lenient().when(paymentIntentRepository.findByStatusAndUpdatedAtBefore(
+                eq(PaymentIntentStatus.REFUND_PENDING), any(LocalDateTime.class), any(Pageable.class)
+        )).thenReturn(Page.empty());
     }
 
     @Test
@@ -130,6 +135,64 @@ public class RefundRetrySweeperTest {
 
         // Assert
         verify(paymentIntentRepository, never()).findByStatusAndCreatedAtBetween(any(), any(), any(), any());
+        verify(orderRefundService, never()).processRefund(any());
+    }
+
+    /**
+     * The failure this sweeper exists to catch. OrderRefundService leaves an intent in REFUND_PENDING
+     * once it enqueues the refund, and only sets REFUND_FAILED if that enqueue throws -- which it does
+     * not. So the refund-routing defect left intents pending forever while the sweeper watched
+     * REFUND_FAILED, a status the failure mode never produces.
+     */
+    @Test
+    void shouldRetryIntentStuckInRefundPending() {
+        when(valueOperations.setIfAbsent(anyString(), anyString(), any())).thenReturn(true);
+        when(paymentIntentRepository.findByStatusAndCreatedAtBetween(
+                eq(PaymentIntentStatus.REFUND_FAILED), any(LocalDateTime.class), any(LocalDateTime.class), any(Pageable.class)
+        )).thenReturn(Page.empty());
+
+        UUID orderId = UUID.randomUUID();
+        PaymentIntent stuck = new PaymentIntent();
+        stuck.setId(UUID.randomUUID());
+        stuck.setInternalOrderId(orderId);
+        stuck.setStatus(PaymentIntentStatus.REFUND_PENDING);
+        stuck.setRetryCount(0);
+
+        when(paymentIntentRepository.findByStatusAndUpdatedAtBefore(
+                eq(PaymentIntentStatus.REFUND_PENDING), any(LocalDateTime.class), any(Pageable.class)
+        )).thenReturn(new PageImpl<>(List.of(stuck)));
+
+        Order order = new Order();
+        order.setId(orderId);
+        order.setStatus(OrderStatus.CANCELLED);
+        when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+
+        refundRetrySweeper.retryFailedRefunds();
+
+        verify(orderRefundService, times(1)).processRefund(order);
+        verify(paymentIntentRepository, times(1)).save(stuck);
+    }
+
+    /**
+     * A refund that is merely in flight must not be retried underneath itself, so the sweep is keyed
+     * on updatedAt with a cutoff rather than on status alone.
+     */
+    @Test
+    void shouldNotRetryRecentlyUpdatedPendingIntents() {
+        when(valueOperations.setIfAbsent(anyString(), anyString(), any())).thenReturn(true);
+        when(paymentIntentRepository.findByStatusAndCreatedAtBetween(
+                eq(PaymentIntentStatus.REFUND_FAILED), any(LocalDateTime.class), any(LocalDateTime.class), any(Pageable.class)
+        )).thenReturn(Page.empty());
+
+        refundRetrySweeper.retryFailedRefunds();
+
+        // The cutoff passed to the finder must be in the past by the stuck threshold, so a
+        // just-updated intent is outside it.
+        org.mockito.ArgumentCaptor<LocalDateTime> cutoff = org.mockito.ArgumentCaptor.forClass(LocalDateTime.class);
+        verify(paymentIntentRepository).findByStatusAndUpdatedAtBefore(
+                eq(PaymentIntentStatus.REFUND_PENDING), cutoff.capture(), any(Pageable.class));
+        assertTrue(cutoff.getValue().isBefore(LocalDateTime.now().minusMinutes(RefundRetrySweeper.STUCK_REFUND_PENDING_MINUTES - 1)),
+                "cutoff must exclude recently-updated intents");
         verify(orderRefundService, never()).processRefund(any());
     }
 }

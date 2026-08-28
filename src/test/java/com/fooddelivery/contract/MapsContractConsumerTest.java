@@ -25,7 +25,7 @@ import org.mockito.Mockito;
 @SpringBootTest(classes = MapsContractConsumerTest.TestConfig.class, webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @AutoConfigureStubRunner(
         stubsMode = StubRunnerProperties.StubsMode.LOCAL,
-        ids = {"com.fooddelivery:mapsintegration:+:stubs:8092"}
+        ids = {"com.fooddelivery:mapsintegration:+:stubs"}
 )
 @ActiveProfiles("contract-test")
 public class MapsContractConsumerTest {
