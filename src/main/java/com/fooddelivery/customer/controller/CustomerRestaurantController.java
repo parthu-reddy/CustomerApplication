@@ -109,18 +109,8 @@ public class CustomerRestaurantController {
         if (restaurant == null) {
             throw new IllegalArgumentException(com.fooddelivery.common.constants.AppConstants.ERROR_MSG_RESTAURANT_NOT_FOUND + id);
         }
-        Double lat = null;
-        Double lng = null;
-        Object latObj = restaurant.get("lat");
-        Object lngObj = restaurant.get("lng");
-        
-        if (latObj instanceof Number) {
-            lat = ((Number) latObj).doubleValue();
-        }
-        if (lngObj instanceof Number) {
-            lng = ((Number) lngObj).doubleValue();
-        }
-        
+        Double lat = com.fooddelivery.common.util.JsonNumberUtils.toDouble(restaurant.get("lat"));
+        Double lng = com.fooddelivery.common.util.JsonNumberUtils.toDouble(restaurant.get("lng"));
         if (lat == null || lng == null) {
             throw new IllegalStateException(com.fooddelivery.common.constants.AppConstants.ERROR_MSG_RESTAURANT_UNKNOWN);
         }
@@ -175,18 +165,9 @@ public class CustomerRestaurantController {
             throw new IllegalArgumentException(com.fooddelivery.common.constants.AppConstants.ERROR_MSG_RESTAURANT_NOT_FOUND + id);
         }
         Map<String, Object> restaurant = (Map<String, Object>) responseBody.get("data");
-        Double rLat = null;
-        Double rLng = null;
-        Object rLatObj = restaurant.get("lat");
-        Object rLngObj = restaurant.get("lng");
-        
-        if (rLatObj instanceof Number) {
-            rLat = ((Number) rLatObj).doubleValue();
-        }
-        if (rLngObj instanceof Number) {
-            rLng = ((Number) rLngObj).doubleValue();
-        }
-        if (rLat == null || rLng == null) {
+        Double rLat = com.fooddelivery.common.util.JsonNumberUtils.toDouble(restaurant.get("lat"));
+        Double rLng = com.fooddelivery.common.util.JsonNumberUtils.toDouble(restaurant.get("lng"));
+if (rLat == null || rLng == null) {
             throw new IllegalStateException(com.fooddelivery.common.constants.AppConstants.ERROR_MSG_RESTAURANT_UNKNOWN);
         }
         String distanceCacheKey = "distance_cache:" + addressId + ":" + id;

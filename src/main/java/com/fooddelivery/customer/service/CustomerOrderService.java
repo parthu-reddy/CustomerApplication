@@ -201,8 +201,8 @@ public class CustomerOrderService {
                     if (isOpen != null && !isOpen) {
                         throw new IllegalArgumentException("Restaurant is currently closed for the day or shift: " + restaurantData.get("name"));
                     }
-                    Double rLat = (Double) restaurantData.get("lat");
-                    Double rLng = (Double) restaurantData.get("lng");
+                    Double rLat = com.fooddelivery.common.util.JsonNumberUtils.toDouble(restaurantData.get("lat"));
+                    Double rLng = com.fooddelivery.common.util.JsonNumberUtils.toDouble(restaurantData.get("lng"));
                     if (rLat == null || rLng == null) {
                         throw new IllegalStateException(com.fooddelivery.common.constants.AppConstants.ERROR_MSG_RESTAURANT_UNKNOWN);
                     }
@@ -217,8 +217,8 @@ public class CustomerOrderService {
                 org.springframework.web.context.request.RequestContextHolder.setRequestAttributes(requestAttributes);
                 org.springframework.security.core.context.SecurityContextHolder.setContext(securityContext);
                 try {
-                    Double rLat = (Double) restaurantData.get("lat");
-                    Double rLng = (Double) restaurantData.get("lng");
+                    Double rLat = com.fooddelivery.common.util.JsonNumberUtils.toDouble(restaurantData.get("lat"));
+                    Double rLng = com.fooddelivery.common.util.JsonNumberUtils.toDouble(restaurantData.get("lng"));
                     try {
                         java.util.Map<String, Object> mapsResponse = mapsClient.checkFleetAvailability("BLR", rLat, rLng, com.fooddelivery.common.constants.AppConstants.MAX_DELIVERY_RADIUS_KM);
                         if (mapsResponse != null) {
@@ -237,8 +237,8 @@ public class CustomerOrderService {
             return java.util.concurrent.CompletableFuture.allOf(menuFuture, restaurantDataFuture, mapsFuture).orTimeout(10, java.util.concurrent.TimeUnit.SECONDS).thenApplyAsync(v -> {
                 try {
                     java.util.Map<String, Object> restaurantData = restaurantDataFuture.join();
-                    Double rLat = (Double) restaurantData.get("lat");
-                    Double rLng = (Double) restaurantData.get("lng");
+                    Double rLat = com.fooddelivery.common.util.JsonNumberUtils.toDouble(restaurantData.get("lat"));
+                    Double rLng = com.fooddelivery.common.util.JsonNumberUtils.toDouble(restaurantData.get("lng"));
                     boolean hasDrivers = mapsFuture.join();
                     if (!hasDrivers) {
                         throw new com.fooddelivery.customer.exception.DeliveryPartnerUnavailableException(com.fooddelivery.common.constants.AppConstants.ERROR_MSG_NO_DELIVERY_PARTNER_NEARBY, com.fooddelivery.common.constants.AppConstants.ERROR_NO_DELIVERY_PARTNER_NEARBY);
@@ -399,8 +399,8 @@ public class CustomerOrderService {
                     if (responseBody == null) throw new IllegalArgumentException("Restaurant not found");
                     java.util.Map<String, Object> restaurantData = (java.util.Map<String, Object>) responseBody.get("data");
                     if (restaurantData == null) throw new IllegalArgumentException("Restaurant not found");
-                    Double rLat = (Double) restaurantData.get("lat");
-                    Double rLng = (Double) restaurantData.get("lng");
+                    Double rLat = com.fooddelivery.common.util.JsonNumberUtils.toDouble(restaurantData.get("lat"));
+                    Double rLng = com.fooddelivery.common.util.JsonNumberUtils.toDouble(restaurantData.get("lng"));
                     if (rLat == null || rLng == null) throw new IllegalStateException("Unknown restaurant location");
                     return restaurantData;
                 } finally {
@@ -415,8 +415,8 @@ public class CustomerOrderService {
                 org.springframework.security.core.context.SecurityContextHolder.setContext(securityContext);
                 try {
                     java.util.Map<String, Object> restaurantData = restaurantDataFuture.join();
-                    Double rLat = (Double) restaurantData.get("lat");
-                    Double rLng = (Double) restaurantData.get("lng");
+                    Double rLat = com.fooddelivery.common.util.JsonNumberUtils.toDouble(restaurantData.get("lat"));
+                    Double rLng = com.fooddelivery.common.util.JsonNumberUtils.toDouble(restaurantData.get("lng"));
                     Boolean isActive = (Boolean) restaurantData.get("isActive");
                     Boolean isOpen = (Boolean) restaurantData.get("isOpen");
 

@@ -72,7 +72,7 @@ public class CustomerMcpService {
     public String createOrder(String customerId, String orderRequestJson) {
         try {
             OrderRequest req = objectMapper.readValue(orderRequestJson, OrderRequest.class);
-            return objectMapper.writeValueAsString(orderController.createOrder(createMockPrincipal(customerId), req).join().getBody());
+            return objectMapper.writeValueAsString(orderController.createOrder(createMockPrincipal(customerId), req).getBody());
         } catch (Exception e) {
             return "Error: " + e.getMessage();
         }
