@@ -109,8 +109,18 @@ public class CustomerRestaurantController {
         if (restaurant == null) {
             throw new IllegalArgumentException(com.fooddelivery.common.constants.AppConstants.ERROR_MSG_RESTAURANT_NOT_FOUND + id);
         }
-        Double lat = (Double) restaurant.get("lat");
-        Double lng = (Double) restaurant.get("lng");
+        Double lat = null;
+        Double lng = null;
+        Object latObj = restaurant.get("lat");
+        Object lngObj = restaurant.get("lng");
+        
+        if (latObj instanceof Number) {
+            lat = ((Number) latObj).doubleValue();
+        }
+        if (lngObj instanceof Number) {
+            lng = ((Number) lngObj).doubleValue();
+        }
+        
         if (lat == null || lng == null) {
             throw new IllegalStateException(com.fooddelivery.common.constants.AppConstants.ERROR_MSG_RESTAURANT_UNKNOWN);
         }
@@ -165,8 +175,17 @@ public class CustomerRestaurantController {
             throw new IllegalArgumentException(com.fooddelivery.common.constants.AppConstants.ERROR_MSG_RESTAURANT_NOT_FOUND + id);
         }
         Map<String, Object> restaurant = (Map<String, Object>) responseBody.get("data");
-        Double rLat = (Double) restaurant.get("lat");
-        Double rLng = (Double) restaurant.get("lng");
+        Double rLat = null;
+        Double rLng = null;
+        Object rLatObj = restaurant.get("lat");
+        Object rLngObj = restaurant.get("lng");
+        
+        if (rLatObj instanceof Number) {
+            rLat = ((Number) rLatObj).doubleValue();
+        }
+        if (rLngObj instanceof Number) {
+            rLng = ((Number) rLngObj).doubleValue();
+        }
         if (rLat == null || rLng == null) {
             throw new IllegalStateException(com.fooddelivery.common.constants.AppConstants.ERROR_MSG_RESTAURANT_UNKNOWN);
         }

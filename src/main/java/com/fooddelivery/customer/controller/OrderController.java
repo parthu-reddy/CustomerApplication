@@ -37,40 +37,42 @@ public class OrderController {
     }
 
     @PostMapping("/quote")
-    public java.util.concurrent.CompletableFuture<ResponseEntity<ApiResponse<com.fooddelivery.customer.dto.QuoteResponse>>> quoteOrder(java.security.Principal principal, @Valid @RequestBody com.fooddelivery.customer.dto.QuoteRequest request) {
+    public ResponseEntity<ApiResponse<com.fooddelivery.customer.dto.QuoteResponse>> quoteOrder(java.security.Principal principal, @Valid @RequestBody com.fooddelivery.customer.dto.QuoteRequest request) {
         java.util.UUID customerId = java.util.UUID.fromString(principal.getName());
         if (isRateLimited(customerId.toString())) {
-            return java.util.concurrent.CompletableFuture.completedFuture(ResponseEntity.status(org.springframework.http.HttpStatus.TOO_MANY_REQUESTS).build());
+            return ResponseEntity.status(org.springframework.http.HttpStatus.TOO_MANY_REQUESTS).build();
         }
-        return customerOrderService.calculateOrderQuote(customerId, request).thenApply(response -> {
+        try {
+            com.fooddelivery.customer.dto.QuoteResponse response = customerOrderService.calculateOrderQuote(customerId, request).join();
             return ResponseEntity.ok(ApiResponse.success(response, "Quote generated successfully."));
-        }).exceptionally(ex -> {
+        } catch (java.util.concurrent.CompletionException ex) {
             Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
-            if (cause instanceof com.fooddelivery.customer.exception.DeliveryPartnerUnavailableException || cause instanceof com.fooddelivery.customer.exception.MenuItemsUnavailableException || cause instanceof IllegalArgumentException) {
+            if (cause instanceof RuntimeException) {
                 throw (RuntimeException) cause;
             }
             throw new RuntimeException("Failed to generate quote", cause);
-        });
+        }
     }
 
     @PostMapping
-    public java.util.concurrent.CompletableFuture<ResponseEntity<ApiResponse<OrderResponse>>> createOrder(java.security.Principal principal, @Valid @RequestBody OrderRequest request) {
+    public ResponseEntity<ApiResponse<OrderResponse>> createOrder(java.security.Principal principal, @Valid @RequestBody OrderRequest request) {
         java.util.UUID customerId = java.util.UUID.fromString(principal.getName());
         if (isRateLimited(customerId.toString())) {
-            return java.util.concurrent.CompletableFuture.completedFuture(ResponseEntity.status(org.springframework.http.HttpStatus.TOO_MANY_REQUESTS).build());
+            return ResponseEntity.status(org.springframework.http.HttpStatus.TOO_MANY_REQUESTS).build();
         }
         request.setCustomerId(customerId); // ensure customerId is set from principal
-        return customerOrderService.createOrderWithPayment(request).thenApply(result -> {
+        try {
+            var result = customerOrderService.createOrderWithPayment(request).join();
             OrderResponse response = com.fooddelivery.customer.mapper.OrderMapper.mapToResponse(result.order());
             response.setPaymentIntent(result.paymentIntent());
             return ResponseEntity.ok(ApiResponse.success(response, "Order created successfully. Please complete payment."));
-        }).exceptionally(ex -> {
+        } catch (java.util.concurrent.CompletionException ex) {
             Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
-            if (cause instanceof com.fooddelivery.customer.exception.DeliveryPartnerUnavailableException || cause instanceof com.fooddelivery.customer.exception.MenuItemsUnavailableException || cause instanceof IllegalArgumentException) {
+            if (cause instanceof RuntimeException) {
                 throw (RuntimeException) cause;
             }
             throw new RuntimeException("Failed to create order", cause);
-        });
+        }
     }
 
     @PostMapping("/{orderId}/delay-approval")
