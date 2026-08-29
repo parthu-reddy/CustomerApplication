@@ -23,6 +23,26 @@ public class DynamicPricingConfig {
     public DynamicPricingConfig() {
     }
 
+    /**
+     * Captures the live rates as an immutable snapshot.
+     *
+     * <p>Read once per calculation and stored alongside the result. Because this class is
+     * {@code @RefreshScope}, reading a rate twice within one order flow can return two different
+     * values; everything downstream works from the snapshot instead.
+     */
+    public com.fooddelivery.customer.model.PricingRates currentRates() {
+        return new com.fooddelivery.customer.model.PricingRates(
+                basePrice,
+                perKmRate,
+                restMaxContributionPercent,
+                fixedPlatformFee,
+                platformExcessCutPercent,
+                sgstPercent,
+                cgstPercent,
+                deliverySgstPercent,
+                deliveryCgstPercent);
+    }
+
     
     public BigDecimal getBasePrice() {
         return this.basePrice;

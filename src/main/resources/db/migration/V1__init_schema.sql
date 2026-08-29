@@ -60,7 +60,20 @@ CREATE TABLE orders (
     delivery_fee DECIMAL(10,2),
     driver_gross_payout DECIMAL(10,2),
     driver_taxes DECIMAL(10,2),
-    driver_net_payout DECIMAL(10,2)
+    driver_net_payout DECIMAL(10,2),
+    -- The quote this order was priced from, and the rates that were in force when it was issued.
+    -- Pricing config is @RefreshScope, so without this snapshot an order cannot be repriced or
+    -- audited after the live rates move.
+    quote_id UUID,
+    rate_base_price DECIMAL(10,2),
+    rate_per_km DECIMAL(10,2),
+    rate_rest_max_contribution_percent DECIMAL(6,4),
+    rate_fixed_platform_fee DECIMAL(10,2),
+    rate_platform_excess_cut_percent DECIMAL(6,4),
+    rate_sgst_percent DECIMAL(6,4),
+    rate_cgst_percent DECIMAL(6,4),
+    rate_delivery_sgst_percent DECIMAL(6,4),
+    rate_delivery_cgst_percent DECIMAL(6,4)
 );
 
 CREATE TABLE order_items (
@@ -74,6 +87,46 @@ CREATE TABLE order_items (
     name VARCHAR(255),
     refunded_quantity INT DEFAULT 0
 );
+
+CREATE TABLE order_quotes (
+    id UUID PRIMARY KEY,
+    customer_id UUID NOT NULL,
+    restaurant_id UUID NOT NULL,
+    delivery_address_id UUID NOT NULL REFERENCES customer_addresses(id),
+    -- pricing inputs, replayed at checkout
+    item_total DECIMAL(10,2) NOT NULL CHECK (item_total >= 0),
+    distance_km DECIMAL(10,2) NOT NULL CHECK (distance_km >= 0),
+    -- output, kept only to assert the replay reproduces it
+    quoted_customer_total DECIMAL(10,2) NOT NULL CHECK (quoted_customer_total >= 0),
+    rate_base_price DECIMAL(10,2) NOT NULL,
+    rate_per_km DECIMAL(10,2) NOT NULL,
+    rate_rest_max_contribution_percent DECIMAL(6,4) NOT NULL,
+    rate_fixed_platform_fee DECIMAL(10,2) NOT NULL,
+    rate_platform_excess_cut_percent DECIMAL(6,4) NOT NULL,
+    rate_sgst_percent DECIMAL(6,4) NOT NULL,
+    rate_cgst_percent DECIMAL(6,4) NOT NULL,
+    rate_delivery_sgst_percent DECIMAL(6,4) NOT NULL,
+    rate_delivery_cgst_percent DECIMAL(6,4) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMP NOT NULL,
+    consumed_at TIMESTAMP,
+    consumed_order_id UUID
+);
+
+CREATE INDEX idx_order_quotes_customer ON order_quotes(customer_id);
+CREATE INDEX idx_order_quotes_expiry ON order_quotes(expires_at) WHERE consumed_at IS NULL;
+
+CREATE TABLE order_quote_items (
+    id UUID PRIMARY KEY,
+    quote_id UUID NOT NULL REFERENCES order_quotes(id) ON DELETE CASCADE,
+    menu_item_id UUID NOT NULL,
+    name VARCHAR(255),
+    quantity INT NOT NULL CHECK (quantity > 0),
+    unit_price DECIMAL(10,2) NOT NULL CHECK (unit_price >= 0),
+    prep_time_minutes INT
+);
+
+CREATE INDEX idx_order_quote_items_quote ON order_quote_items(quote_id);
 
 CREATE TABLE payment_intents (
     id UUID PRIMARY KEY,

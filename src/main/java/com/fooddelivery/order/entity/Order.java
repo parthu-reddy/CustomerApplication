@@ -108,6 +108,47 @@ public class Order {
     @Column(name = "driver_net_payout")
     private BigDecimal driverNetPayout;
 
+    /** The quote this order was priced from. */
+    @Column(name = "quote_id")
+    private UUID quoteId;
+
+    /**
+     * The rates in force when the quote was issued. Pricing config is {@code @RefreshScope}, so
+     * without this an order cannot be reproduced once the live rates move — which is precisely what
+     * a restaurant or driver payout dispute asks for.
+     */
+    @Column(name = "rate_base_price")
+    private BigDecimal rateBasePrice;
+    @Column(name = "rate_per_km")
+    private BigDecimal ratePerKm;
+    @Column(name = "rate_rest_max_contribution_percent")
+    private BigDecimal rateRestMaxContributionPercent;
+    @Column(name = "rate_fixed_platform_fee")
+    private BigDecimal rateFixedPlatformFee;
+    @Column(name = "rate_platform_excess_cut_percent")
+    private BigDecimal ratePlatformExcessCutPercent;
+    @Column(name = "rate_sgst_percent")
+    private BigDecimal rateSgstPercent;
+    @Column(name = "rate_cgst_percent")
+    private BigDecimal rateCgstPercent;
+    @Column(name = "rate_delivery_sgst_percent")
+    private BigDecimal rateDeliverySgstPercent;
+    @Column(name = "rate_delivery_cgst_percent")
+    private BigDecimal rateDeliveryCgstPercent;
+
+    /** Records which rate set produced this order's charges. */
+    public void applyRates(com.fooddelivery.customer.model.PricingRates rates) {
+        this.rateBasePrice = rates.basePrice();
+        this.ratePerKm = rates.perKmRate();
+        this.rateRestMaxContributionPercent = rates.restMaxContributionPercent();
+        this.rateFixedPlatformFee = rates.fixedPlatformFee();
+        this.ratePlatformExcessCutPercent = rates.platformExcessCutPercent();
+        this.rateSgstPercent = rates.sgstPercent();
+        this.rateCgstPercent = rates.cgstPercent();
+        this.rateDeliverySgstPercent = rates.deliverySgstPercent();
+        this.rateDeliveryCgstPercent = rates.deliveryCgstPercent();
+    }
+
     @Column(name = "refunded_amount")
     private BigDecimal refundedAmount;
     @Column(name = "distance_km")

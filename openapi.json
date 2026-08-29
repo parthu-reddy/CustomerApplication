@@ -1963,9 +1963,13 @@
         }
       },
       "OrderRequest" : {
-        "required" : [ "customerId", "deliveryAddressId", "items", "restaurantId" ],
+        "required" : [ "customerId", "deliveryAddressId", "items", "quoteId", "restaurantId" ],
         "type" : "object",
         "properties" : {
+          "quoteId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
           "customerId" : {
             "type" : "string",
             "format" : "uuid"
@@ -2237,9 +2241,17 @@
         }
       },
       "QuoteResponse" : {
-        "required" : [ "cgst", "deliveryFee", "distanceKm", "driverPayout", "minAmountForFreeDelivery", "platformFee", "restaurantDeliveryContribution", "sgst", "subtotal", "total" ],
+        "required" : [ "cgst", "deliveryFee", "distanceKm", "driverPayout", "expiresAt", "minAmountForFreeDelivery", "platformFee", "quoteId", "restaurantDeliveryContribution", "sgst", "subtotal", "total" ],
         "type" : "object",
         "properties" : {
+          "quoteId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "expiresAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
           "subtotal" : {
             "type" : "number"
           },
@@ -2679,9 +2691,6 @@
             "type" : "integer",
             "format" : "int64"
           },
-          "unpaged" : {
-            "type" : "boolean"
-          },
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
@@ -2695,6 +2704,9 @@
           "pageSize" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "unpaged" : {
+            "type" : "boolean"
           }
         }
       },
@@ -2809,6 +2821,37 @@
             "type" : "number"
           },
           "driverNetPayout" : {
+            "type" : "number"
+          },
+          "quoteId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "rateBasePrice" : {
+            "type" : "number"
+          },
+          "ratePerKm" : {
+            "type" : "number"
+          },
+          "rateRestMaxContributionPercent" : {
+            "type" : "number"
+          },
+          "rateFixedPlatformFee" : {
+            "type" : "number"
+          },
+          "ratePlatformExcessCutPercent" : {
+            "type" : "number"
+          },
+          "rateSgstPercent" : {
+            "type" : "number"
+          },
+          "rateCgstPercent" : {
+            "type" : "number"
+          },
+          "rateDeliverySgstPercent" : {
+            "type" : "number"
+          },
+          "rateDeliveryCgstPercent" : {
             "type" : "number"
           },
           "refundedAmount" : {

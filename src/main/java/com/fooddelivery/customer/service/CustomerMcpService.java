@@ -68,7 +68,19 @@ public class CustomerMcpService {
         }
     }
 
-    @Tool(description = "Create a customer order. Provide customerId and a JSON string representing the OrderRequest object.")
+    @Tool(description = "Get a binding price quote for a basket. Provide customerId and a JSON string representing the QuoteRequest object (restaurantId, deliveryAddressId, items). Returns a quoteId that must be passed to createOrder; the quote expires after 15 minutes.")
+    public String quoteOrder(String customerId, String quoteRequestJson) {
+        try {
+            com.fooddelivery.customer.dto.QuoteRequest req =
+                objectMapper.readValue(quoteRequestJson, com.fooddelivery.customer.dto.QuoteRequest.class);
+            return objectMapper.writeValueAsString(
+                orderController.quoteOrder(createMockPrincipal(customerId), req).getBody());
+        } catch (Exception e) {
+            return "Error: " + e.getMessage();
+        }
+    }
+
+    @Tool(description = "Create a customer order. Provide customerId and a JSON string representing the OrderRequest object, which must include the quoteId returned by quoteOrder -- the order is charged the quoted price and cannot be placed without one.")
     public String createOrder(String customerId, String orderRequestJson) {
         try {
             OrderRequest req = objectMapper.readValue(orderRequestJson, OrderRequest.class);

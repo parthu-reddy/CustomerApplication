@@ -9,6 +9,10 @@ import java.util.Set;
 @lombok.NoArgsConstructor
 @lombok.AllArgsConstructor
 public class PricingBreakdown {
+    /** What the customer pays: itemTotal + totalCustomerDeliveryFee + sgst + cgst. */
+    private BigDecimal customerTotal;
+    /** The rate snapshot this breakdown was computed against. */
+    private PricingRates appliedRates;
     private BigDecimal totalCustomerDeliveryFee;
     private BigDecimal sgst;
     private BigDecimal cgst;

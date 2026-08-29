@@ -12,6 +12,12 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class QuoteResponse {
+    /** Redeem this at checkout; the order is charged exactly what this quote says. */
+    @NotNull
+    private java.util.UUID quoteId;
+    /** After this instant the quote is dead and the customer must re-quote. */
+    @NotNull
+    private java.time.LocalDateTime expiresAt;
     @NotNull
     private BigDecimal subtotal;
     @NotNull

@@ -2,6 +2,7 @@ package com.fooddelivery.customer.service;
 
 import com.fooddelivery.customer.config.DynamicPricingConfig;
 import com.fooddelivery.customer.model.PricingBreakdown;
+import com.fooddelivery.customer.model.PricingRates;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -20,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class DynamicPricingServiceTest {
 
     private DynamicPricingService pricingService;
+    private PricingRates rates;
 
     @BeforeEach
     void setUp() {
@@ -36,12 +38,13 @@ class DynamicPricingServiceTest {
         config.setDeliveryCgstPercent(new BigDecimal("0.09"));
         
         pricingService = new DynamicPricingService(config);
+        rates = config.currentRates();
     }
 
     @Test
     void testSmallFarOrder() {
         // Food Cost = 200, Dist = 5km
-        PricingBreakdown result = pricingService.calculatePricing(new BigDecimal("200.00"), new BigDecimal("5.00"));
+        PricingBreakdown result = pricingService.calculatePricing(new BigDecimal("200.00"), new BigDecimal("5.00"), rates);
         
         assertEquals(new BigDecimal("30.00"), result.getTotalCustomerDeliveryFee());
         
@@ -60,7 +63,7 @@ class DynamicPricingServiceTest {
     @Test
     void testMedMedOrder() {
         // Food Cost = 500, Dist = 3km
-        PricingBreakdown result = pricingService.calculatePricing(new BigDecimal("500.00"), new BigDecimal("3.00"));
+        PricingBreakdown result = pricingService.calculatePricing(new BigDecimal("500.00"), new BigDecimal("3.00"), rates);
         
         assertEquals(new BigDecimal("5.00"), result.getTotalCustomerDeliveryFee());
         
@@ -79,7 +82,7 @@ class DynamicPricingServiceTest {
     @Test
     void testLargeNearOrder() {
         // Food Cost = 1000, Dist = 2km
-        PricingBreakdown result = pricingService.calculatePricing(new BigDecimal("1000.00"), new BigDecimal("2.00"));
+        PricingBreakdown result = pricingService.calculatePricing(new BigDecimal("1000.00"), new BigDecimal("2.00"), rates);
         
         assertEquals(new BigDecimal("5.00"), result.getTotalCustomerDeliveryFee());
         

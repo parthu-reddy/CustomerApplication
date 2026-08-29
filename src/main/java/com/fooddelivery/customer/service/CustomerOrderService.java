@@ -29,7 +29,14 @@ import java.util.stream.Collectors;
 public class CustomerOrderService {
     private static final String SERVICE_NAME = "CustomerService";
 
+    /**
+     * How long a quoted price is honoured. Long enough to finish checkout, short enough that a
+     * rate change or a menu price change is not held off indefinitely.
+     */
+    private static final int QUOTE_VALIDITY_MINUTES = 15;
+
     private final IOrderRepository orderRepository;
+    private final com.fooddelivery.order.repository.OrderQuoteRepository orderQuoteRepository;
     private final OrderSagaOrchestrator orderSagaOrchestrator;
     private final java.util.concurrent.ExecutorService executorService = java.util.concurrent.Executors.newFixedThreadPool(50);
 
@@ -160,6 +167,10 @@ public class CustomerOrderService {
             if (!address.getCustomerId().equals(customerId)) {
                 throw new IllegalArgumentException("Address does not belong to customer");
             }
+
+            // The quote is the price. Load and validate it before doing any work, so a stale or
+            // stolen quote fails before we touch the restaurant or the payment gateway.
+            com.fooddelivery.order.entity.OrderQuote quote = loadRedeemableQuote(request);
             for (OrderItemRequest req : requestedItems) {
                 if (req.getQuantity() == null || req.getQuantity() <= 0) {
                     throw new IllegalArgumentException("Quantity must be strictly positive");
@@ -243,13 +254,10 @@ public class CustomerOrderService {
                     if (!hasDrivers) {
                         throw new com.fooddelivery.customer.exception.DeliveryPartnerUnavailableException(com.fooddelivery.common.constants.AppConstants.ERROR_MSG_NO_DELIVERY_PARTNER_NEARBY, com.fooddelivery.common.constants.AppConstants.ERROR_NO_DELIVERY_PARTNER_NEARBY);
                     }
-                    double distance = resolveDistanceKm(address, request.getRestaurantId(), rLat, rLng);
-                    if (distance > 7.0) {
-                        throw new IllegalArgumentException("The restaurant is too far away (over 7km). Please select a closer restaurant.");
-                    }
-                    
-                    BigDecimal totalAmount = BigDecimal.ZERO;
-                    Set<OrderItem> orderItems = new HashSet<>();
+                    // Everything fetched above is a freshness check -- restaurant open, items in
+                    // stock, a driver nearby. None of it is an input to the amount charged: distance
+                    // and item prices come from the quote, so a repopulated distance cache or an
+                    // edited menu price cannot move the total the customer already agreed to.
                     List<MenuItemDTO> fetchedItems = menuFuture.get();
                     if (fetchedItems == null) {
                         throw new IllegalArgumentException("Failed to fetch menu items");
@@ -265,29 +273,48 @@ public class CustomerOrderService {
                     if (!unavailableItemIds.isEmpty()) {
                         throw new com.fooddelivery.customer.exception.MenuItemsUnavailableException("Some menu items are currently unavailable or not found.", unavailableItemIds);
                     }
+
+                    // Order lines are built from the quoted prices, so they sum to what is charged.
+                    BigDecimal totalAmount = BigDecimal.ZERO;
+                    Set<OrderItem> orderItems = new HashSet<>();
                     int maxPrepTime = 15; // default minimum
-                    for (OrderItemRequest req : requestedItems) {
-                        MenuItemDTO menuItem = menuItemMap.get(req.getMenuItemId());
-                        if (menuItem.prepTimeMinutes() != null && menuItem.prepTimeMinutes() > maxPrepTime) {
-                            maxPrepTime = menuItem.prepTimeMinutes();
+                    for (com.fooddelivery.order.entity.OrderQuoteItem quoteItem : quote.getItems()) {
+                        if (quoteItem.getPrepTimeMinutes() != null && quoteItem.getPrepTimeMinutes() > maxPrepTime) {
+                            maxPrepTime = quoteItem.getPrepTimeMinutes();
                         }
-                        BigDecimal itemTotal = menuItem.price().multiply(BigDecimal.valueOf(req.getQuantity()));
-                        totalAmount = totalAmount.add(itemTotal);
-                        OrderItem orderItem = OrderItem.builder().id(UUID.randomUUID()).menuItemId(menuItem.id()).name(menuItem.name()).quantity(req.getQuantity()).price(menuItem.price()).build();
-                        orderItems.add(orderItem);
+                        totalAmount = totalAmount.add(quoteItem.getUnitPrice().multiply(BigDecimal.valueOf(quoteItem.getQuantity())));
+                        orderItems.add(OrderItem.builder()
+                            .id(UUID.randomUUID())
+                            .menuItemId(quoteItem.getMenuItemId())
+                            .name(quoteItem.getName())
+                            .quantity(quoteItem.getQuantity())
+                            .price(quoteItem.getUnitPrice())
+                            .build());
                     }
-                    Order order = Order.builder().id(UUID.randomUUID()).customerId(customerId).customerName(request.getCustomerName()).restaurantId(restaurantId).restaurantName((String) restaurantData.get("name")).deliveryAddressId(deliveryAddressId).deliveryAddress(formatAddress(address)).deliveryLat(address.getLatitude()).deliveryLng(address.getLongitude()).otp(String.format("%06d", new java.security.SecureRandom().nextInt(1000000))).status(OrderStatus.CREATED).orderItems(new HashSet<>()).estimatedPrepTimeMinutes(maxPrepTime).build();
+                    if (totalAmount.compareTo(quote.getItemTotal()) != 0) {
+                        throw new IllegalStateException("Quote " + quote.getId() + " line items sum to "
+                            + totalAmount + " but its item total is " + quote.getItemTotal());
+                    }
+
+                    Order order = Order.builder().id(UUID.randomUUID()).customerId(customerId).customerName(request.getCustomerName()).restaurantId(restaurantId).restaurantName((String) restaurantData.get("name")).deliveryAddressId(deliveryAddressId).deliveryAddress(formatAddress(address)).deliveryLat(address.getLatitude()).deliveryLng(address.getLongitude()).otp(String.format("%06d", new java.security.SecureRandom().nextInt(1000000))).status(OrderStatus.CREATED).orderItems(new HashSet<>()).estimatedPrepTimeMinutes(maxPrepTime).quoteId(quote.getId()).build();
                     for (OrderItem item : orderItems) {
                         item.setOrder(order);
                     }
                     order.setOrderItems(orderItems);
-                    // We no longer add the restaurant's fixed delivery fee. We use dynamic pricing below.
-                    // Call the dynamic pricing service
-                    com.fooddelivery.customer.model.PricingBreakdown pricing = dynamicPricingService.calculatePricing(totalAmount,  // Treat the whole subtotal + existing delivery fee as the base cost
-                    new BigDecimal(String.valueOf(distance)));
-                    // totalAmount sent to payment gateway now explicitly includes the calculated customerDeliveryFee, SGST, and CGST instead of the old fixed fee
-                    // We should overwrite totalAmount here so the customer pays exactly Food Cost + Customer Delivery Fee + Taxes
-                    totalAmount = totalAmount.add(pricing.getTotalCustomerDeliveryFee()).add(pricing.getSgst()).add(pricing.getCgst());
+
+                    // Replay the quote's own inputs against its own rate snapshot. calculatePricing is
+                    // pure in those arguments, so this reproduces exactly what the customer was shown,
+                    // including the charge rows the ledger settles against.
+                    com.fooddelivery.customer.model.PricingRates rates = quote.appliedRates();
+                    com.fooddelivery.customer.model.PricingBreakdown pricing =
+                        dynamicPricingService.calculatePricing(quote.getItemTotal(), quote.getDistanceKm(), rates);
+                    if (pricing.getCustomerTotal().compareTo(quote.getQuotedCustomerTotal()) != 0) {
+                        throw new IllegalStateException("Replaying quote " + quote.getId() + " produced "
+                            + pricing.getCustomerTotal() + " but the customer was quoted "
+                            + quote.getQuotedCustomerTotal());
+                    }
+
+                    totalAmount = pricing.getCustomerTotal();
                     order.setTotalAmount(totalAmount);
                     order.setItemTotal(pricing.getItemTotal());
                     order.setCustomerPlatformFee(pricing.getCustomerPlatformFee());
@@ -301,12 +328,21 @@ public class CustomerOrderService {
                     order.setDriverNetPayout(pricing.getDriverNetPayout());
                     order.setSgst(pricing.getSgst());
                     order.setCgst(pricing.getCgst());
-                    
-                    order.setDistanceKm(new BigDecimal(String.valueOf(distance)));
+                    order.setDistanceKm(quote.getDistanceKm());
+                    order.applyRates(rates);
                     for (com.fooddelivery.order.entity.OrderCharge charge : pricing.getCharges()) {
                         charge.setOrder(order);
                     }
                     order.setCharges(pricing.getCharges());
+
+                    // Claim the quote for this order. The unconsumed-and-unexpired test lives in the
+                    // UPDATE, so two concurrent checkouts cannot both redeem it. If the saga fails
+                    // after this the quote is spent and the customer re-quotes -- the conservative
+                    // direction, as against charging one quote twice.
+                    int claimed = orderQuoteRepository.claim(quote.getId(), order.getId(), java.time.LocalDateTime.now());
+                    if (claimed != 1) {
+                        throw new IllegalStateException("This quote has already been used or has expired. Please request a new quote.");
+                    }
                     orderSagaOrchestrator.startOrderSaga(order);
                     log.info("Created order {} for customer {} with total amount {}", order.getId(), customerId, totalAmount);
                     return order;
@@ -430,6 +466,7 @@ public class CustomerOrderService {
                     }
 
                     BigDecimal totalAmount = BigDecimal.ZERO;
+                    java.util.Set<com.fooddelivery.order.entity.OrderQuoteItem> quoteItems = new HashSet<>();
                     if (!requestedItems.isEmpty()) {
                         List<MenuItemDTO> fetchedItems = menuFuture.get();
                         if (fetchedItems == null) throw new IllegalArgumentException("Failed to fetch menu items");
@@ -441,22 +478,55 @@ public class CustomerOrderService {
                                 throw new com.fooddelivery.customer.exception.MenuItemsUnavailableException("Menu item unavailable", List.of(req.getMenuItemId()));
                             }
                             totalAmount = totalAmount.add(menuItem.price().multiply(BigDecimal.valueOf(req.getQuantity())));
+                            // The quoted unit price is stored, not re-read at checkout: otherwise the
+                            // order lines would not sum to the total the customer agreed to.
+                            quoteItems.add(com.fooddelivery.order.entity.OrderQuoteItem.builder()
+                                .id(UUID.randomUUID())
+                                .menuItemId(menuItem.id())
+                                .name(menuItem.name())
+                                .quantity(req.getQuantity())
+                                .unitPrice(menuItem.price())
+                                .prepTimeMinutes(menuItem.prepTimeMinutes())
+                                .build());
                         }
                     }
 
-                    com.fooddelivery.customer.model.PricingBreakdown pricing = dynamicPricingService.calculatePricing(totalAmount, new BigDecimal(String.valueOf(distance)));
-                    
-                    BigDecimal finalTotal = totalAmount.add(pricing.getTotalCustomerDeliveryFee()).add(pricing.getSgst()).add(pricing.getCgst());
+                    BigDecimal quotedDistance = new BigDecimal(String.valueOf(distance));
+                    // Read the live rates exactly once. They are @RefreshScope and can move between
+                    // this quote and the checkout that redeems it; from here on everything -- including
+                    // the replay at checkout -- works from this snapshot.
+                    com.fooddelivery.customer.model.PricingRates rates = dynamicPricingService.currentRates();
+                    com.fooddelivery.customer.model.PricingBreakdown pricing =
+                        dynamicPricingService.calculatePricing(totalAmount, quotedDistance, rates);
+
+                    com.fooddelivery.order.entity.OrderQuote quote = com.fooddelivery.order.entity.OrderQuote.builder()
+                        .id(UUID.randomUUID())
+                        .customerId(customerId)
+                        .restaurantId(restaurantId)
+                        .deliveryAddressId(deliveryAddressId)
+                        .itemTotal(pricing.getItemTotal())
+                        .distanceKm(quotedDistance)
+                        .quotedCustomerTotal(pricing.getCustomerTotal())
+                        .expiresAt(java.time.LocalDateTime.now().plusMinutes(QUOTE_VALIDITY_MINUTES))
+                        .build();
+                    quote.applyRates(rates);
+                    for (com.fooddelivery.order.entity.OrderQuoteItem quoteItem : quoteItems) {
+                        quoteItem.setQuote(quote);
+                    }
+                    quote.setItems(quoteItems);
+                    orderQuoteRepository.save(quote);
 
                     return com.fooddelivery.customer.dto.QuoteResponse.builder()
+                        .quoteId(quote.getId())
+                        .expiresAt(quote.getExpiresAt())
                         .subtotal(pricing.getItemTotal())
                         .deliveryFee(pricing.getDeliveryFee())
                         .platformFee(pricing.getCustomerPlatformFee())
                         .sgst(pricing.getSgst())
                         .cgst(pricing.getCgst())
-                        .total(finalTotal)
-                        .minAmountForFreeDelivery(dynamicPricingService.getMinAmountForFreeDelivery(new BigDecimal(String.valueOf(distance))).orElse(null))
-                        .distanceKm(new BigDecimal(String.valueOf(distance)))
+                        .total(pricing.getCustomerTotal())
+                        .minAmountForFreeDelivery(dynamicPricingService.getMinAmountForFreeDelivery(quotedDistance, rates).orElse(null))
+                        .distanceKm(quotedDistance)
                         .driverPayout(pricing.getDriverGrossPayout())
                         .restaurantDeliveryContribution(pricing.getRestaurantDeliveryContribution())
                         .build();
@@ -472,6 +542,51 @@ public class CustomerOrderService {
             log.error("Failed to generate quote", e);
             return java.util.concurrent.CompletableFuture.failedFuture(e);
         }
+    }
+
+    /**
+     * Loads the quote being redeemed and proves it describes this exact order.
+     *
+     * <p>Without the basket comparison a customer could quote a cheap basket and redeem it against
+     * an expensive one, since checkout no longer prices the items itself. Restaurant and address are
+     * checked for the same reason -- delivery distance and the restaurant's commercial terms both
+     * feed the price.
+     *
+     * <p>A quote that is missing, belongs to someone else, or does not match is reported
+     * identically, so the endpoint cannot be used to probe which quote ids exist.
+     */
+    private com.fooddelivery.order.entity.OrderQuote loadRedeemableQuote(com.fooddelivery.customer.dto.OrderRequest request) {
+        UUID quoteId = request.getQuoteId();
+        if (quoteId == null) {
+            throw new IllegalArgumentException("A quote is required to place an order.");
+        }
+        com.fooddelivery.order.entity.OrderQuote quote = orderQuoteRepository.findById(quoteId)
+            .orElseThrow(() -> new IllegalArgumentException("Quote not found or not valid for this order."));
+
+        if (!quote.getCustomerId().equals(request.getCustomerId())
+                || !quote.getRestaurantId().equals(request.getRestaurantId())
+                || !quote.getDeliveryAddressId().equals(request.getDeliveryAddressId())) {
+            throw new IllegalArgumentException("Quote not found or not valid for this order.");
+        }
+        if (quote.getConsumedAt() != null) {
+            throw new IllegalStateException("This quote has already been used. Please request a new quote.");
+        }
+        if (quote.getExpiresAt().isBefore(java.time.LocalDateTime.now())) {
+            throw new IllegalStateException("This quote has expired. Please request a new quote.");
+        }
+
+        Map<UUID, Integer> quoted = new HashMap<>();
+        for (com.fooddelivery.order.entity.OrderQuoteItem item : quote.getItems()) {
+            quoted.merge(item.getMenuItemId(), item.getQuantity(), Integer::sum);
+        }
+        Map<UUID, Integer> requested = new HashMap<>();
+        for (OrderItemRequest req : request.getItems()) {
+            requested.merge(req.getMenuItemId(), req.getQuantity(), Integer::sum);
+        }
+        if (!quoted.equals(requested)) {
+            throw new IllegalArgumentException("The order does not match the quote. Please request a new quote.");
+        }
+        return quote;
     }
 
     private String formatAddress(com.fooddelivery.customer.entity.CustomerAddress address) {

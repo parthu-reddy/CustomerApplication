@@ -12,6 +12,12 @@ import com.fooddelivery.common.enums.PaymentMethod;
 @lombok.NoArgsConstructor
 @lombok.AllArgsConstructor
 public class OrderRequest {
+    /**
+     * The quote being redeemed. Required: checkout charges the quoted price rather than
+     * recomputing one, so an order without a quote has no price.
+     */
+    @NotNull
+    private UUID quoteId;
     @NotNull
     private UUID customerId;
     private String customerName;
