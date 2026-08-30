@@ -1,7 +1,7 @@
 # Builder stage
 FROM eclipse-temurin:17-jre-jammy as builder
 WORKDIR /builder
-COPY CustomerApplication/target/*.jar app.jar
+COPY CustomerApplication/target/*-SNAPSHOT.jar app.jar
 RUN java -Djarmode=tools -jar app.jar extract --layers --launcher --destination extracted
 
 # Final stage
