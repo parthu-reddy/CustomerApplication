@@ -30,13 +30,18 @@ public interface IPaymentIntentRepository extends JpaRepository<PaymentIntent, U
     @Query("SELECT p FROM PaymentIntent p WHERE p.status = :status AND p.createdAt < :cutoffTime")
     org.springframework.data.domain.Page<PaymentIntent> findByStatusAndCreatedAtBefore(@Param("status") PaymentIntentStatus status, @Param("cutoffTime") LocalDateTime cutoffTime, org.springframework.data.domain.Pageable pageable);
 
-    @Query("SELECT p FROM PaymentIntent p WHERE p.status = :status AND p.createdAt >= :minTime AND p.createdAt < :cutoffTime")
     /**
      * Intents stuck in a transient state. OrderRefundService sets REFUND_PENDING when it enqueues the
      * refund and only sets REFUND_FAILED if that enqueue throws, which it does not -- so a refund that
      * is never completed downstream stays REFUND_PENDING forever and no status-based sweep sees it.
+     *
+     * <p>Derived from the method name deliberately -- no {@code @Query}. An annotation placed above
+     * this method would bind to it rather than to whatever it was written for, which is exactly how
+     * the ':minTime' binding failure below was introduced.
      */
     org.springframework.data.domain.Page<PaymentIntent> findByStatusAndUpdatedAtBefore(PaymentIntentStatus status, LocalDateTime cutoffTime, org.springframework.data.domain.Pageable pageable);
 
+    // Half-open on purpose: BETWEEN would include cutoffTime, so the derived query cannot express this.
+    @Query("SELECT p FROM PaymentIntent p WHERE p.status = :status AND p.createdAt >= :minTime AND p.createdAt < :cutoffTime")
     org.springframework.data.domain.Page<PaymentIntent> findByStatusAndCreatedAtBetween(@Param("status") PaymentIntentStatus status, @Param("minTime") LocalDateTime minTime, @Param("cutoffTime") LocalDateTime cutoffTime, org.springframework.data.domain.Pageable pageable);
 }
