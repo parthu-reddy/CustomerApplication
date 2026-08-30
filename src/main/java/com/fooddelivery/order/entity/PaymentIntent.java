@@ -28,7 +28,7 @@ public class PaymentIntent {
     private PaymentIntentStatus status;
     
     @Column(name = "retry_count", nullable = false)
-    private int retryCount = 0;
+    private int retryCount;   // primitive: 0 by default; an initializer here only warns
 
     @Column(name = "gateway_name")
     private String gatewayName;
