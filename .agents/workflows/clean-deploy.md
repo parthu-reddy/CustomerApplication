@@ -1,15 +1,45 @@
 ---
 description: create a clean fresh deployment on oracle
 ---
-[01_oci_setup_guide.md](file;file:///Users/parthureddy/Documents/Food%20Delivery.nosync/Deployment/OracleDeployment/01_oci_setup_guide.md)[02_vm_init.sh](file;file:///Users/parthureddy/Documents/Food%20Delivery.nosync/Deployment/OracleDeployment/02_vm_init.sh)[03_deploy_all.sh](file;file:///Users/parthureddy/Documents/Food%20Delivery.nosync/Deployment/OracleDeployment/03_deploy_all.sh)[03_deploy_dev.sh](file;file:///Users/parthureddy/Documents/Food%20Delivery.nosync/Deployment/OracleDeployment/03_deploy_dev.sh)[ORACLE_CONFIG.md](file;file:///Users/parthureddy/Documents/Food%20Delivery.nosync/Deployment/OracleDeployment/ORACLE_CONFIG.md)  understand these thoroughly. make sure you keep local code changes in sync on remote oracle.
 
-### Mistakes to Avoid (Learned from Past Failures)
-- **Mistake 1**: Do NOT copy `target/*.jar` from a local directory directly unless you have run `mvn clean package`.
-- **Mistake 2**: When recreating `config-service`, dependent services might fail with `Connection Refused` on port 8888 because they restart faster than the config-server initializes.
-- **Mistake 3 (CRITICAL)**: When running `rsync` to a remote host containing spaces in the path (e.g. `"/home/ubuntu/Food Delivery.nosync/"`), if you pass multiple source directories, `rsync` will fail silently if the space is not properly escaped in the destination string (e.g., `ubuntu@host:"/home/ubuntu/Food\ Delivery.nosync/"`). This leaves remote JARs stale, and Docker will build old code! Always check `rsync` exit codes and escape spaces carefully!
+```bash
+export REGISTRY=hyd.ocir.io/axekmbadoczl
+Deployment/OracleDeployment/03_clean_deploy.sh          # keeps the databases
+Deployment/OracleDeployment/03_clean_deploy.sh --wipe   # destroys volumes too (prompts)
+```
 
-Now what I need is to you to completely clean everything in oracle clound and deploy all services as fresh. Deploy as Dev profile. check logs and make sure every service started without any errors.
+Deploys every service: syncs the image tags to the VM, starts infrastructure, waits for Postgres,
+then deploys config + discovery first and the remaining 17 services second. Starting 27 JVMs at
+once on a 4-core box drove load average past 120, which is why it runs in waves. It finishes by
+reconciling declared against running.
 
-**CRITICAL RULE FOR AGENT:** Always monitor logs yourself for at least 2 minutes for EACH service after you run the deploy remote script. Do not blindly trust that the script finished successfully. This manual monitoring step is crucial for catching silent failures (e.g., Flyway exceptions, bean creation failures, database connection leaks) that happen during the application boot process.
+`--wipe` destroys all data. Recreate it afterwards with `Deployment/dummy-data.sh`.
 
-add your learning to [GENERALIZED_DEPLOYMENT_STEPS.md](file;file:///Users/parthureddy/Documents/Food%20Delivery.nosync/Deployment/DeploymentSteps/GENERALIZED_DEPLOYMENT_STEPS.md) if you face any errors and the procedure you followed to fix them so that when I deploy new services I don't face same errors
+To deploy just one service, use `Deployment/ship.sh <service>` instead — see
+[deploy-one-service.md](deploy-one-service.md).
+
+## How it works
+
+The VM builds nothing. It holds only `Deployment/` — no source, no jars. Images are built on this
+Mac (or by CI), pushed to OCIR tagged by git sha, and pulled by the VM.
+
+The profile is already `dev` (`SPRING_PROFILES_ACTIVE=dev` in the VM's `.env`); do not set it
+per-deploy.
+
+## Mistakes to avoid
+
+- **Trusting "healthy" as "correct".** `deploy.sh` verifies each container ended up on the image it
+  was told to run. A deploy that pulls nothing and changes nothing still reports healthy.
+- **Publishing a stale jar.** `publish.sh` refuses a jar older than its sources — `mvn compile`
+  produces no jar, and publishing after it once shipped an image without the change.
+- **Config changes do not travel in the image.** `config-service` bind-mounts the VM's
+  `Deployment/` directory, so editing `<service>.yml` means rsyncing it and restarting the readers.
+- **Migrations are immutable.** Never edit an applied one; add a new one. Flyway runs with
+  `validate-on-migrate`, and `ddl-auto: validate` means Hibernate creates nothing.
+
+**CRITICAL RULE FOR AGENT:** after deploying, read each service's logs yourself. Healthy is not
+error-free — Flyway validation failures, bean creation errors and pool exhaustion all happen after
+the container reports up. Then run `Deployment/reconcile.sh` and confirm nothing is undeclared and
+nothing has drifted.
+
+Record anything you had to fix in `Deployment/DeploymentSteps/GENERALIZED_DEPLOYMENT_STEPS.md`.
