@@ -3,7 +3,7 @@ description: clean database in oracle and recreate dummy data
 ---
 
 ```bash
-Deployment/dummy-data.sh              # wipe every database, let Flyway rebuild, then load
+Deployment/dummy-data.sh --all        # wipe every database, let Flyway rebuild, then load
 Deployment/dummy-data.sh --load-only  # load into the existing schemas, no wipe
 ```
 
