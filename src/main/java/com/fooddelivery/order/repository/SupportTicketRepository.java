@@ -19,4 +19,7 @@ public interface SupportTicketRepository extends JpaRepository<SupportTicket, UU
     List<SupportTicket> findByOrderId(UUID orderId);
 
     boolean existsByOrderIdAndCustomerIdAndStatus(UUID orderId, UUID customerId, SupportTicket.TicketStatus status);
+
+    @org.springframework.data.jpa.repository.Query("SELECT st FROM SupportTicket st JOIN Order o ON st.orderId = o.id WHERE o.restaurantId = :restaurantId AND st.status = :status ORDER BY st.createdAt DESC")
+    List<SupportTicket> findByRestaurantIdAndStatus(@org.springframework.data.repository.query.Param("restaurantId") UUID restaurantId, @org.springframework.data.repository.query.Param("status") SupportTicket.TicketStatus status);
 }
