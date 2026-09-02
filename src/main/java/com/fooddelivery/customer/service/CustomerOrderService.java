@@ -1,6 +1,7 @@
 package com.fooddelivery.customer.service;
 
 import com.fooddelivery.customer.dto.OrderItemRequest;
+import com.fooddelivery.customer.exception.QuoteExpiredException;
 import com.fooddelivery.order.entity.Order;
 import com.fooddelivery.order.entity.OrderItem;
 import com.fooddelivery.common.enums.OrderStatus;
@@ -339,9 +340,9 @@ public class CustomerOrderService {
                     // UPDATE, so two concurrent checkouts cannot both redeem it. If the saga fails
                     // after this the quote is spent and the customer re-quotes -- the conservative
                     // direction, as against charging one quote twice.
-                    int claimed = orderQuoteRepository.claim(quote.getId(), order.getId(), java.time.LocalDateTime.now());
-                    if (claimed != 1) {
-                        throw new IllegalStateException("This quote has already been used or has expired. Please request a new quote.");
+                    int updated = orderQuoteRepository.claim(quote.getId(), order.getId(), java.time.LocalDateTime.now());
+                    if (updated == 0) {
+                        throw new com.fooddelivery.customer.exception.QuoteExpiredException("This quote has already been used or has expired. Please request a new quote.");
                     }
                     orderSagaOrchestrator.startOrderSaga(order);
                     log.info("Created order {} for customer {} with total amount {}", order.getId(), customerId, totalAmount);
@@ -569,10 +570,10 @@ public class CustomerOrderService {
             throw new IllegalArgumentException("Quote not found or not valid for this order.");
         }
         if (quote.getConsumedAt() != null) {
-            throw new IllegalStateException("This quote has already been used. Please request a new quote.");
+            throw new QuoteExpiredException("This quote has already been used. Please request a new quote.");
         }
         if (quote.getExpiresAt().isBefore(java.time.LocalDateTime.now())) {
-            throw new IllegalStateException("This quote has expired. Please request a new quote.");
+            throw new QuoteExpiredException("This quote has expired. Please request a new quote.");
         }
 
         Map<UUID, Integer> quoted = new HashMap<>();
@@ -584,7 +585,7 @@ public class CustomerOrderService {
             requested.merge(req.getMenuItemId(), req.getQuantity(), Integer::sum);
         }
         if (!quoted.equals(requested)) {
-            throw new IllegalArgumentException("The order does not match the quote. Please request a new quote.");
+            throw new QuoteExpiredException("The order does not match the quote. Please request a new quote.");
         }
         return quote;
     }

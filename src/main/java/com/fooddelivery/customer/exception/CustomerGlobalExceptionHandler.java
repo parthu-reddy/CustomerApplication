@@ -17,6 +17,12 @@ public class CustomerGlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(ex.getMessage()));
     }
 
+    @ExceptionHandler(QuoteExpiredException.class)
+    public ResponseEntity<ApiResponse<Void>> handleQuoteExpiredException(QuoteExpiredException ex) {
+        log.warn("QuoteExpiredException: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.error(ex.getMessage(), "QUOTE_EXPIRED"));
+    }
+
     @ExceptionHandler(MenuItemsUnavailableException.class)
     public ResponseEntity<ApiResponse<Object>> handleMenuItemsUnavailableException(MenuItemsUnavailableException ex) {
         log.warn("MenuItemsUnavailableException: {}", ex.getMessage());
