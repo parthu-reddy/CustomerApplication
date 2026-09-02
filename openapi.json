@@ -1350,6 +1350,33 @@
         }
       }
     },
+    "/api/v1/internal/restaurants/outlets/{outletId}/refund-requests" : {
+      "get" : {
+        "tags" : [ "restaurant-support-ticket-controller" ],
+        "operationId" : "getActiveRefundRequests",
+        "parameters" : [ {
+          "name" : "outletId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListSupportTicket"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/internal/orders/{orderId}/participants" : {
       "get" : {
         "tags" : [ "internal-order-controller" ],
@@ -2648,6 +2675,10 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "size" : {
             "type" : "integer",
             "format" : "int32"
@@ -2658,9 +2689,8 @@
               "$ref" : "#/components/schemas/OrderResponse"
             }
           },
-          "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
           },
           "number" : {
             "type" : "integer",
@@ -2675,9 +2705,6 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
-          },
           "empty" : {
             "type" : "boolean"
           }
@@ -2687,13 +2714,6 @@
         "required" : [ "offset", "pageNumber", "pageSize", "paged", "unpaged" ],
         "type" : "object",
         "properties" : {
-          "offset" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "sort" : {
-            "$ref" : "#/components/schemas/SortObject"
-          },
           "paged" : {
             "type" : "boolean"
           },
@@ -2704,6 +2724,13 @@
           "pageSize" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "offset" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sort" : {
+            "$ref" : "#/components/schemas/SortObject"
           },
           "unpaged" : {
             "type" : "boolean"
@@ -2742,6 +2769,31 @@
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/OrderResponse"
+            }
+          },
+          "timestamp" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "ApiResponseListSupportTicket" : {
+        "required" : [ "message", "success", "timestamp" ],
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "errorCode" : {
+            "type" : "string"
+          },
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SupportTicket"
             }
           },
           "timestamp" : {
@@ -2944,6 +2996,10 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "size" : {
             "type" : "integer",
             "format" : "int32"
@@ -2954,9 +3010,8 @@
               "$ref" : "#/components/schemas/Order"
             }
           },
-          "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
           },
           "number" : {
             "type" : "integer",
@@ -2970,9 +3025,6 @@
           },
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
-          },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
           },
           "empty" : {
             "type" : "boolean"
@@ -2991,6 +3043,10 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "size" : {
             "type" : "integer",
             "format" : "int32"
@@ -3001,9 +3057,8 @@
               "$ref" : "#/components/schemas/SupportTicket"
             }
           },
-          "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
           },
           "number" : {
             "type" : "integer",
@@ -3017,9 +3072,6 @@
           },
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
-          },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
           },
           "empty" : {
             "type" : "boolean"
@@ -3038,6 +3090,10 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "size" : {
             "type" : "integer",
             "format" : "int32"
@@ -3051,9 +3107,8 @@
               }
             }
           },
-          "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
           },
           "number" : {
             "type" : "integer",
@@ -3067,9 +3122,6 @@
           },
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
-          },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
           },
           "empty" : {
             "type" : "boolean"
@@ -3110,6 +3162,10 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "size" : {
             "type" : "integer",
             "format" : "int32"
@@ -3120,9 +3176,8 @@
               "$ref" : "#/components/schemas/CustomerAddressDto"
             }
           },
-          "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
           },
           "number" : {
             "type" : "integer",
@@ -3136,9 +3191,6 @@
           },
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
-          },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
           },
           "empty" : {
             "type" : "boolean"
