@@ -4,6 +4,7 @@ import com.fooddelivery.common.dto.ApiResponse;
 import com.fooddelivery.order.entity.SupportTicket;
 import com.fooddelivery.order.repository.SupportTicketRepository;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,6 +20,7 @@ public class RestaurantSupportTicketController {
 
     private final SupportTicketRepository supportTicketRepository;
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'RESTAURANT')")
     @GetMapping("/{outletId}/refund-requests")
     public ResponseEntity<ApiResponse<List<SupportTicket>>> getActiveRefundRequests(
             @PathVariable UUID outletId) {
