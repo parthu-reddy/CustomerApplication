@@ -57,6 +57,7 @@ public class OrderResponse {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private UUID riderId;
+    private UUID deliveryExecutiveId;
     private String paymentIntent;
     private String pickupOtp;
     private String otp;

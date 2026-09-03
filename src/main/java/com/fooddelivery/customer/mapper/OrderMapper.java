@@ -72,6 +72,8 @@ public class OrderMapper {
             .createdAt(order.getCreatedAt())
             .updatedAt(order.getUpdatedAt())
             .estimatedCompletionTime(order.getEstimatedCompletionTime())
+            .riderId(order.getDeliveryExecutiveId())
+            .deliveryExecutiveId(order.getDeliveryExecutiveId())
             .build();
     }
 }
