@@ -30,8 +30,8 @@ public class CustomerRestaurantController {
     private final com.fooddelivery.customer.client.AdvertisementClient advertisementClient;
 
     @GetMapping("/nearby")
-    public ResponseEntity<ApiResponse<List<Object>>> getNearbyRestaurants(@RequestParam double lat, @RequestParam double lng, @RequestParam(defaultValue = "5.0") double radius) {
-        ApiResponse<List<Object>> response = restaurantClient.getNearbyRestaurants(lat, lng, radius);
+    public ResponseEntity<ApiResponse<List<com.fooddelivery.customer.dto.RestaurantDto>>> getNearbyRestaurants(@RequestParam double lat, @RequestParam double lng, @RequestParam(defaultValue = "5.0") double radius) {
+        ApiResponse<List<com.fooddelivery.customer.dto.RestaurantDto>> response = restaurantClient.getNearbyRestaurants(lat, lng, radius);
         // Fetch ads from AdvertisementService (BiddingEngine)
         try {
             Map<String, Object> bidRequest = new java.util.HashMap<>();
@@ -45,17 +45,16 @@ public class CustomerRestaurantController {
             Object adResponse = advertisementClient.fetchAds(bidRequest);
             if (adResponse != null && response.getData() != null) {
                 // If we get an ad, extract the ad content and inject it at the top of the restaurant list
-                // Realistically, adResponse should be mapped properly to extract campaign/restaurant ID.
-                // For simplicity, we just add a mock sponsored listing object.
-                Map<String, Object> sponsoredListing = new java.util.HashMap<>();
-                sponsoredListing.put("isSponsored", true);
+                com.fooddelivery.customer.dto.RestaurantDto sponsoredListing = com.fooddelivery.customer.dto.RestaurantDto.builder()
+                        .isSponsored(true)
+                        .build();
                 if (adResponse instanceof java.util.List && !((java.util.List<?>) adResponse).isEmpty()) {
-                    sponsoredListing.put("adData", ((java.util.List<?>) adResponse).get(0));
+                    sponsoredListing.setAdData(((java.util.List<?>) adResponse).get(0));
                 } else {
-                    sponsoredListing.put("adData", adResponse);
+                    sponsoredListing.setAdData(adResponse);
                 }
                 // Add to the front of the list
-                List<Object> merged = new java.util.ArrayList<>();
+                List<com.fooddelivery.customer.dto.RestaurantDto> merged = new java.util.ArrayList<>();
                 merged.add(sponsoredListing);
                 merged.addAll(response.getData());
                 return ResponseEntity.ok(ApiResponse.success(merged, "Successfully fetched nearby restaurants"));
@@ -67,25 +66,22 @@ public class CustomerRestaurantController {
     }
 
     @GetMapping("/brands/{brandId}/outlets")
-    public ResponseEntity<ApiResponse<List<Object>>> getBrandOutlets(@org.springframework.web.bind.annotation.PathVariable java.util.UUID brandId, @RequestParam double lat, @RequestParam double lng, @RequestParam(defaultValue = "5.0") double radius) {
-        ApiResponse<List<Object>> response = restaurantClient.getBrandOutlets(brandId, lat, lng, radius);
+    public ResponseEntity<ApiResponse<List<com.fooddelivery.customer.dto.RestaurantDto>>> getBrandOutlets(@org.springframework.web.bind.annotation.PathVariable java.util.UUID brandId, @RequestParam double lat, @RequestParam double lng, @RequestParam(defaultValue = "5.0") double radius) {
+        ApiResponse<List<com.fooddelivery.customer.dto.RestaurantDto>> response = restaurantClient.getBrandOutlets(brandId, lat, lng, radius);
         if (response.getData() != null) {
             String origin = lat + "," + lng;
-            for (Object obj : response.getData()) {
-                if (obj instanceof Map) {
-                    Map<String, Object> outlet = (Map<String, Object>) obj;
-                    Object oLat = outlet.get("lat");
-                    Object oLng = outlet.get("lng");
-                    if (oLat != null && oLng != null) {
-                        try {
-                            String destination = oLat.toString() + "," + oLng.toString();
-                            Map<String, Object> distanceMap = mapsClient.getDistance(origin, destination);
-                            if (distanceMap != null && distanceMap.containsKey("distance")) {
-                                outlet.put("distance", distanceMap.get("distance"));
-                            }
-                        } catch (Exception e) {
-                            log.warn("Failed to get actual distance for outlet {}: {}", outlet.get("id"), e.getMessage());
+            for (com.fooddelivery.customer.dto.RestaurantDto outlet : response.getData()) {
+                Double oLat = outlet.getLat();
+                Double oLng = outlet.getLng();
+                if (oLat != null && oLng != null) {
+                    try {
+                        String destination = oLat.toString() + "," + oLng.toString();
+                        com.fooddelivery.common.dto.maps.DistanceResponseDto distanceMap = mapsClient.getDistance(origin, destination);
+                        if (distanceMap != null && distanceMap.getDistance() != null) {
+                            outlet.setDistance(distanceMap.getDistance());
                         }
+                    } catch (Exception e) {
+                        log.warn("Failed to get actual distance for outlet {}: {}", outlet.getId(), e.getMessage());
                     }
                 }
             }
@@ -116,9 +112,9 @@ public class CustomerRestaurantController {
         }
         // 2. Check Driver Availability in MapsIntegration
         try {
-            Map<String, Object> mapsResponse = mapsClient.checkFleetAvailability("BLR", lat, lng, com.fooddelivery.common.constants.AppConstants.MAX_DELIVERY_RADIUS_KM);
+            com.fooddelivery.common.dto.maps.FleetAvailabilityResponseDto mapsResponse = mapsClient.checkFleetAvailability("BLR", lat, lng, com.fooddelivery.common.constants.AppConstants.MAX_DELIVERY_RADIUS_KM);
             if (mapsResponse != null) {
-                Boolean available = (Boolean) mapsResponse.get("available");
+                Boolean available = mapsResponse.getAvailable();
                 if (Boolean.TRUE.equals(available)) {
                     return ResponseEntity.ok(ApiResponse.success(true, "Delivery partner available."));
                 }
@@ -188,14 +184,14 @@ if (rLat == null || rLng == null) {
         if (!cacheHit) {
             String origin = address.getLatitude() + "," + address.getLongitude();
             String destination = rLat + "," + rLng;
-            Map<String, Object> distanceMap = mapsClient.getDistance(origin, destination);
+            com.fooddelivery.common.dto.maps.DistanceResponseDto distanceMap = mapsClient.getDistance(origin, destination);
             if (distanceMap != null) {
-                if (distanceMap.containsKey("distance")) {
-                    distance = ((Number) distanceMap.get("distance")).doubleValue();
+                if (distanceMap.getDistance() != null) {
+                    distance = distanceMap.getDistance().doubleValue();
                 } else {
                     isFallback = true;
                 }
-                if (Boolean.TRUE.equals(distanceMap.get("fallback"))) {
+                if (Boolean.TRUE.equals(distanceMap.getFallback())) {
                     isFallback = true;
                 }
             } else {

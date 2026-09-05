@@ -2,6 +2,8 @@ package com.fooddelivery.order.entity;
 
 import jakarta.persistence.*;
 import com.fooddelivery.common.constants.PaymentIntentStatus;
+import com.fooddelivery.common.enums.PaymentMethod;
+import com.fooddelivery.common.enums.PaymentGateway;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -26,12 +28,17 @@ public class PaymentIntent {
     @Column(name = "status", nullable = false)
     @Enumerated(EnumType.STRING)
     private PaymentIntentStatus status;
-    
-    @Column(name = "retry_count", nullable = false)
-    private int retryCount;   // primitive: 0 by default; an initializer here only warns
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_method")
+    private PaymentMethod paymentMethod;
+
+    @Enumerated(EnumType.STRING)
     @Column(name = "gateway_name")
-    private String gatewayName;
+    private PaymentGateway gatewayName;
+    
+
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

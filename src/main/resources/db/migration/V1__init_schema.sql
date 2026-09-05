@@ -44,9 +44,10 @@ CREATE TABLE orders (
     estimated_completion_time BIGINT CHECK (estimated_completion_time >= 0),
     otp VARCHAR(255),
     delivery_status VARCHAR(50),
+    payment_method VARCHAR(50),
     payment_status VARCHAR(50),
     distance_km DECIMAL(10,2),
-    refunded_amount NUMERIC(10, 2) DEFAULT 0.00,
+
     customer_name VARCHAR(255),
     delivered_at TIMESTAMP,
     item_total DECIMAL(10,2),
@@ -84,8 +85,7 @@ CREATE TABLE order_items (
     price DECIMAL(10, 2) NOT NULL CHECK (price >= 0),
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    name VARCHAR(255),
-    refunded_quantity INT DEFAULT 0
+    name VARCHAR(255)
 );
 
 CREATE TABLE order_quotes (
@@ -133,58 +133,39 @@ CREATE TABLE payment_intents (
     internal_order_id UUID NOT NULL REFERENCES orders(id),
     gateway_order_id VARCHAR(255),
     gateway_name VARCHAR(100),
-    amount DECIMAL(15,2) NOT NULL CHECK (amount > 0),
-    refunded_amount DECIMAL(15,2) DEFAULT 0.00 CHECK (refunded_amount <= amount),
+    payment_method VARCHAR(50),
+    amount DECIMAL(15,2) NOT NULL CHECK (amount > 0)
     status VARCHAR(50) DEFAULT 'INITIATED',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     -- When the row last changed state. RefundRetrySweeper needs this to find intents STUCK in
     -- REFUND_PENDING: created_at is when the payment began, which for an old order refunded today
     -- would look stale and cause a healthy in-flight refund to be retried.
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    retry_count INT NOT NULL DEFAULT 0
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE refunds (
     id UUID PRIMARY KEY,
-    payment_intent_id UUID NOT NULL REFERENCES payment_intents(id),
-    amount DECIMAL(15,2) NOT NULL CHECK (amount > 0),
-    status VARCHAR(50) DEFAULT 'PROCESSED',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    order_id UUID NOT NULL REFERENCES orders(id),
+    status VARCHAR(50) NOT NULL,
+    destination VARCHAR(50) NOT NULL,
+    fault_type VARCHAR(50) NOT NULL,
+    source VARCHAR(50) NOT NULL,
+    idempotency_key UUID NOT NULL UNIQUE,
+    initiated_by_type VARCHAR(50) NOT NULL,
+    initiated_by_id UUID NOT NULL,
+    ledger_transaction_id UUID,
+    amount DECIMAL(15,2) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    version INTEGER DEFAULT 0
 );
 
-CREATE TABLE ledger_accounts (
+CREATE TABLE refund_items (
     id UUID PRIMARY KEY,
-    owner_type VARCHAR(50) NOT NULL,
-    owner_id UUID NOT NULL,
-    balance DECIMAL(15,2) NOT NULL DEFAULT 0.00,
-    lock_version INT NOT NULL DEFAULT 0,
-    CONSTRAINT uk_ledger_account_owner UNIQUE (owner_id, owner_type)
-);
-
-CREATE TABLE ledger_entries (
-    id UUID PRIMARY KEY,
-    transaction_id UUID NOT NULL,
-    account_id UUID REFERENCES ledger_accounts(id),
-    direction VARCHAR(10) NOT NULL,
-    amount DECIMAL(15,2) NOT NULL CHECK (amount >= 0),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE ledgers (
-    id UUID PRIMARY KEY,
-    account_id UUID NOT NULL,
-    transaction_ref VARCHAR(255) NOT NULL,
-    type VARCHAR(50) NOT NULL,
-    amount DECIMAL(10, 2) NOT NULL CHECK (amount >= 0),
-    balance_after DECIMAL(10, 2) NOT NULL,
-    version INTEGER NOT NULL DEFAULT 0,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE webhook_deliveries (
-    id UUID PRIMARY KEY,
-    provider VARCHAR(50) NOT NULL,
-    masked_payload JSONB NOT NULL,
+    refund_id UUID NOT NULL REFERENCES refunds(id),
+    order_item_id UUID NOT NULL REFERENCES order_items(id),
+    quantity INTEGER NOT NULL,
+    amount DECIMAL(15,2) NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -201,10 +182,6 @@ CREATE TABLE order_charges (
     CONSTRAINT fk_order_charges_order FOREIGN KEY (order_id) REFERENCES orders(id)
 );
 
-CREATE TABLE processed_events (
-    event_id VARCHAR(255) PRIMARY KEY,
-    processed_at TIMESTAMP NOT NULL
-);
 
 
 
@@ -225,57 +202,6 @@ CREATE TABLE processed_events (
 
 
 
-CREATE UNIQUE INDEX idx_ledger_accounts_owner ON ledger_accounts(owner_id, owner_type);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-CREATE OR REPLACE FUNCTION update_refunded_amount()
-RETURNS TRIGGER AS $$
-BEGIN
-    IF TG_OP = 'INSERT' THEN
-        UPDATE payment_intents
-        SET refunded_amount = COALESCE(refunded_amount, 0) + NEW.amount
-        WHERE id = NEW.payment_intent_id;
-
-ELSIF TG_OP = 'UPDATE' THEN
-        UPDATE payment_intents
-        SET refunded_amount = COALESCE(refunded_amount, 0) - OLD.amount + NEW.amount
-        WHERE id = NEW.payment_intent_id;
-
-ELSIF TG_OP = 'DELETE' THEN
-        UPDATE payment_intents
-        SET refunded_amount = COALESCE(refunded_amount, 0) - OLD.amount
-        WHERE id = OLD.payment_intent_id;
-
-END IF;
-
-RETURN NEW;
-
-END;
-
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_refunds_update_payment_intents
-AFTER INSERT OR UPDATE OR DELETE ON refunds
-FOR EACH ROW EXECUTE FUNCTION update_refunded_amount();
 
 -- Support tickets for customer refund requests on delivered orders
 CREATE TABLE support_tickets (
@@ -354,11 +280,8 @@ CREATE INDEX idx_payment_intents_status_created_at ON payment_intents(status, cr
 
 CREATE INDEX idx_refunds_payment_intent_id ON refunds(payment_intent_id);
 
-CREATE INDEX idx_ledger_entries_transaction_id ON ledger_entries(transaction_id);
 
-CREATE INDEX idx_ledger_entries_account_id ON ledger_entries(account_id);
 
-CREATE INDEX idx_ledgers_account_id_created ON ledgers(account_id, created_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_orders_customer_status_created ON orders(customer_id, status, created_at DESC);
 

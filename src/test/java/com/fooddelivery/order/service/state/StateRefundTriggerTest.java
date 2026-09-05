@@ -26,6 +26,9 @@ public class StateRefundTriggerTest {
     @Mock
     private OrderActionService actionService;
 
+    @Mock
+    private com.fooddelivery.order.ledger.LedgerBookkeeper ledgerBookkeeper;
+
     @Test
     void pendingAcceptanceState_handleCancel_SetsRequiresRefund() {
         PendingAcceptanceState state = new PendingAcceptanceState();
@@ -34,7 +37,7 @@ public class StateRefundTriggerTest {
         order.setTotalAmount(new BigDecimal("150.00"));
         order.setStatus(OrderStatus.PENDING_ACCEPTANCE);
 
-        OrderContext ctx = new OrderContext(order, null, actionService);
+        OrderContext ctx = new OrderContext(order, null, actionService, ledgerBookkeeper, "UNKNOWN");
 
         state.cancelByCustomer(ctx, "Customer requested cancellation");
 
@@ -52,7 +55,7 @@ public class StateRefundTriggerTest {
         order.setTotalAmount(new BigDecimal("200.00"));
         order.setStatus(OrderStatus.PREPARING);
 
-        OrderContext ctx = new OrderContext(order, new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode(), actionService);
+        OrderContext ctx = new OrderContext(order, new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode(), actionService, ledgerBookkeeper, "UNKNOWN");
 
         state.handleOrderCancelledByRestaurant(ctx);
 
@@ -70,7 +73,7 @@ public class StateRefundTriggerTest {
         order.setTotalAmount(new BigDecimal("250.00"));
         order.setStatus(OrderStatus.READY_FOR_PICKUP);
 
-        OrderContext ctx = new OrderContext(order, new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode(), actionService);
+        OrderContext ctx = new OrderContext(order, new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode(), actionService, ledgerBookkeeper, "UNKNOWN");
 
         state.handleOrderCancelledByRestaurant(ctx);
 

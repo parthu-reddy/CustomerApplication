@@ -43,7 +43,8 @@ public class OrderEventConsumer {
     private final ObjectMapper objectMapper;
     private final IOrderRepository orderRepository;
     private final OrderActionService orderActionService;
-    private final OrderRefundService orderRefundService;
+    private final com.fooddelivery.order.ledger.LedgerBookkeeper ledgerBookkeeper;
+    private final com.fooddelivery.order.refund.RefundService refundService;
 
 
 
@@ -89,7 +90,7 @@ public class OrderEventConsumer {
                                 log.warn("Order {} not found, skipping event", orderId);
                                 return null;
                             }
-                            com.fooddelivery.order.service.state.OrderContext context = new com.fooddelivery.order.service.state.OrderContext(order, payloadNode, orderActionService);
+                            com.fooddelivery.order.service.state.OrderContext context = new com.fooddelivery.order.service.state.OrderContext(order, payloadNode, orderActionService, ledgerBookkeeper);
                             com.fooddelivery.order.service.state.OrderState state = com.fooddelivery.order.service.state.OrderStateFactory.getState(order.getStatus());
                             try {
                                 java.util.function.BiConsumer<com.fooddelivery.order.service.state.OrderState, com.fooddelivery.order.service.state.OrderContext> handler = EVENT_HANDLERS.get(eventType);
@@ -115,7 +116,16 @@ public class OrderEventConsumer {
                                 orderActionService.emitOrderStatusSyncEvent(order.getId(), order.getStatus());
                             }
                             if (context.isRequiresRefund()) {
-                                orderRefundService.processRefund(order);
+                                com.fooddelivery.order.refund.RefundCommand cmd = com.fooddelivery.order.refund.RefundCommand.builder()
+                                        .orderId(order.getId())
+                                        .amount(order.getTotalAmount())
+                                        .faultType(com.fooddelivery.order.enums.FaultType.UNKNOWN)
+                                        .destination(com.fooddelivery.common.enums.RefundDestination.ORIGINAL_METHOD)
+                                        .initiatorType(com.fooddelivery.order.enums.InitiatorType.SYSTEM)
+                                        .reasonCode(eventType)
+                                        .idempotencyKey("event_" + order.getId() + "_" + eventType)
+                                        .build();
+                                refundService.request(cmd);
                             }
                             return null;
                         } catch (RuntimeException e) {

@@ -28,24 +28,15 @@ public class OrderResponse {
     private BigDecimal totalAmount;
     @NotNull
     private BigDecimal itemTotal;
-    @NotNull
-    private BigDecimal foodCost;
+
     @NotNull
     private BigDecimal customerPlatformFee;
-    private BigDecimal restaurantPlatformFee;
-    private BigDecimal platformBonus;
-    private BigDecimal restaurantDeliveryContribution;
-    private BigDecimal restaurantPayout;
     @NotNull
     private BigDecimal sgst;
     @NotNull
     private BigDecimal cgst;
     @NotNull
     private BigDecimal deliveryFee;
-
-    private BigDecimal driverGrossPayout;
-    private BigDecimal driverTaxes;
-    private BigDecimal driverNetPayout;
 
     @NotNull
     private String deliveryAddress;
@@ -167,10 +158,6 @@ public class OrderResponse {
     
     public void setDeliveryFee(final BigDecimal deliveryFee) {
         this.deliveryFee = deliveryFee;
-        this.driverGrossPayout = driverGrossPayout;
-        this.driverTaxes = driverTaxes;
-        this.driverNetPayout = driverNetPayout;
-
     }
 
     

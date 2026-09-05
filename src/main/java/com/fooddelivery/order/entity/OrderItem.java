@@ -40,13 +40,7 @@ public class OrderItem {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
-    // @Builder.Default is load-bearing: without it Lombok drops the initializer and every
-    // builder-created item is persisted with refunded_quantity NULL, not 0 -- the column's
-    // DEFAULT never applies because JPA writes an explicit null. Two call sites currently
-    // compensate with `!= null ? ... : 0`; this makes the field mean what it says instead.
-    @lombok.Builder.Default
-    @Column(name = "refunded_quantity")
-    private Integer refundedQuantity = 0;
+
 
 
     

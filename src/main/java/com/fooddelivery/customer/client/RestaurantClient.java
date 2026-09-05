@@ -11,19 +11,20 @@ import org.springframework.web.bind.annotation.RequestParam;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import com.fooddelivery.customer.dto.RestaurantDto;
 
-@FeignClient(name = "restaurant-service", fallback = RestaurantClientFallback.class)
+@FeignClient(name = "restaurant-service", fallback = RestaurantClientFallback.class, contextId = "restaurantClient")
 public interface RestaurantClient {
 
     @Cacheable(value = "customer-app:nearbyRestaurants", key = "#lat + '-' + #lng + '-' + #radius", sync = true)
     @GetMapping("/api/v1/restaurants/nearby")
-    ApiResponse<List<Object>> getNearbyRestaurants(@RequestParam("lat") double lat, 
+    ApiResponse<List<RestaurantDto>> getNearbyRestaurants(@RequestParam("lat") double lat, 
                                                    @RequestParam("lng") double lng, 
                                                    @RequestParam("radius") double radius);
 
     @Cacheable(value = "customer-app:brandOutlets", key = "#brandId + '-' + #lat + '-' + #lng + '-' + #radius", sync = true)
     @GetMapping("/api/v1/restaurants/brands/{brandId}/outlets")
-    ApiResponse<List<Object>> getBrandOutlets(@PathVariable("brandId") UUID brandId, 
+    ApiResponse<List<RestaurantDto>> getBrandOutlets(@PathVariable("brandId") UUID brandId, 
                                               @RequestParam("lat") double lat, 
                                               @RequestParam("lng") double lng, 
                                               @RequestParam("radius") double radius);

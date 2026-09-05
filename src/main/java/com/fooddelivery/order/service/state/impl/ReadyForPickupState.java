@@ -5,10 +5,8 @@ import com.fooddelivery.common.enums.OrderStatus;
 import com.fooddelivery.order.entity.Order;
 import com.fooddelivery.order.service.state.OrderContext;
 import com.fooddelivery.order.service.state.OrderState;
-import com.fooddelivery.common.enums.AccountType;
 import com.fooddelivery.common.constants.AppConstants;
 import com.fooddelivery.order.service.state.OrderActionService;
-import java.math.BigDecimal;
 import java.util.UUID;
 @lombok.extern.slf4j.Slf4j
 
@@ -97,39 +95,12 @@ public class ReadyForPickupState implements OrderState {
         Order order = ctx.getOrder();
         order.setDeliveryStatus(com.fooddelivery.common.enums.DeliveryStatus.DELIVERED);
         ctx.getActionService().saveOrder(order);
-        // Ledger accounting
-        if (order.getCharges() != null) {
-            for (com.fooddelivery.order.entity.OrderCharge charge : order.getCharges()) {
-                UUID fromId = getAccountId(charge.getPayerType(), order, false);
-                AccountType fromType = getAccountType(charge.getPayerType());
-                UUID toId = getAccountId(charge.getPayeeType(), order, true);
-                AccountType toType = getAccountType(charge.getPayeeType());
-                if (fromId != null && toId != null) {
-                    UUID transferId = com.fooddelivery.common.util.DeterministicIdUtils.generateId("CHARGE_" + charge.getId());
-                    ctx.getActionService().recordLedgerTransaction(transferId, order.getId(), fromId, fromType, toId, toType, charge.getAmount(), charge.getCategory());
-                }
-            }
+        if (ctx.getLedgerBookkeeper() != null) {
+            ctx.getLedgerBookkeeper().bookDelivered(order);
         }
         ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_DELIVERED.name());
     }
 
-    private UUID getAccountId(com.fooddelivery.order.enums.ChargeEntityType type, Order order, boolean isPayee) {
-        if (type == com.fooddelivery.order.enums.ChargeEntityType.CUSTOMER) return OrderActionService.PLATFORM_ACCOUNT_ID;
-        if (type == com.fooddelivery.order.enums.ChargeEntityType.PLATFORM) return isPayee ? OrderActionService.PLATFORM_PROFIT_ACCOUNT_ID : OrderActionService.PLATFORM_ACCOUNT_ID;
-        if (type == com.fooddelivery.order.enums.ChargeEntityType.RESTAURANT) return order.getRestaurantId();
-        if (type == com.fooddelivery.order.enums.ChargeEntityType.DRIVER) return order.getDeliveryExecutiveId();
-        if (type == com.fooddelivery.order.enums.ChargeEntityType.GOVERNMENT) return OrderActionService.PLATFORM_TAX_ACCOUNT_ID;
-        return null;
-    }
-
-    private AccountType getAccountType(com.fooddelivery.order.enums.ChargeEntityType type) {
-        if (type == com.fooddelivery.order.enums.ChargeEntityType.CUSTOMER) return AccountType.PLATFORM;
-        if (type == com.fooddelivery.order.enums.ChargeEntityType.PLATFORM) return AccountType.PLATFORM;
-        if (type == com.fooddelivery.order.enums.ChargeEntityType.RESTAURANT) return AccountType.RESTAURANT;
-        if (type == com.fooddelivery.order.enums.ChargeEntityType.DRIVER) return AccountType.DRIVER;
-        if (type == com.fooddelivery.order.enums.ChargeEntityType.GOVERNMENT) return AccountType.GOVERNMENT;
-        return AccountType.PLATFORM;
-    }
 
     @Override
     public void handleOrderCancelledByRestaurant(OrderContext ctx) {

@@ -6,12 +6,12 @@ package contracts.messaging
  * This shape was silently dropped by GenericWalletEventConsumer until the Phase 7 fix.
  */
 org.springframework.cloud.contract.spec.Contract.make {
-    description("Should publish flat EARNINGS_GENERATED to wallet-events")
+    description("Should publish flat LEDGER_TRANSACTION_REQUEST to wallet-events")
     label("wallet_events_earnings")
     input { triggeredBy('fireWalletEarnings()') }
     outputMessage {
         sentTo('wallet-events')
-        headers { header('eventType', 'EARNINGS_GENERATED') }
+        headers { header('eventType', 'LEDGER_TRANSACTION_REQUEST') }
         body([
             entityId: $(producer(regex('[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}'))),
             entityType: "RESTAURANT",

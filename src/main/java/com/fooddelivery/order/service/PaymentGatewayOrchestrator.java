@@ -40,6 +40,7 @@ public class PaymentGatewayOrchestrator {
                     .amount(order.getTotalAmount())
                     .status(com.fooddelivery.common.constants.PaymentIntentStatus.INITIATED)
                     .createdAt(LocalDateTime.now())
+                    .gatewayName(null)
                     .build();
                 paymentIntentRepository.save(intent);
                 return intent.getGatewayOrderId();

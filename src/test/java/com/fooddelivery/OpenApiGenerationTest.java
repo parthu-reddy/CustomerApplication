@@ -83,6 +83,9 @@ public class OpenApiGenerationTest {
     @org.springframework.boot.test.mock.mockito.MockBean
     private com.fooddelivery.customer.service.PlacesService placesService;
 
+    @org.springframework.boot.test.mock.mockito.MockBean
+    private com.fooddelivery.common.security.money.MoneyAccessPolicy moneyAccessPolicy;
+
 
     @org.springframework.boot.test.mock.mockito.MockBean
     private com.fooddelivery.customer.service.CustomerOrderService customerOrderService;
@@ -128,12 +131,33 @@ public class OpenApiGenerationTest {
     private com.fooddelivery.order.repository.IOrderRepository iOrderRepository;
 
 
-    @org.springframework.boot.test.mock.mockito.MockBean
-    private com.fooddelivery.order.service.OrderRefundService orderRefundService;
+//     @org.springframework.boot.test.mock.mockito.MockBean
+//     private com.fooddelivery.order.service.OrderRefundService orderRefundService;
 
 
     @org.springframework.boot.test.mock.mockito.MockBean
     private com.fooddelivery.order.service.OrderSagaOrchestrator orderSagaOrchestrator;
+
+    @org.springframework.boot.test.mock.mockito.MockBean
+    private com.fooddelivery.order.repository.RefundRepository refundRepository;
+
+    @org.springframework.boot.test.mock.mockito.MockBean
+    private com.fooddelivery.order.refund.RefundService refundService;
+
+    @org.springframework.boot.test.mock.mockito.MockBean
+    private com.fooddelivery.customer.service.money.CustomerReceiptService customerReceiptService;
+
+    @org.springframework.boot.test.mock.mockito.MockBean
+    private com.fooddelivery.customer.service.AdminOrderMoneyService adminOrderMoneyService;
+
+    @org.springframework.boot.test.mock.mockito.MockBean
+    private com.fooddelivery.customer.service.money.DriverSummaryService driverSummaryService;
+
+    @org.springframework.boot.test.mock.mockito.MockBean
+    private com.fooddelivery.customer.client.LedgerClient ledgerClient;
+
+    @org.springframework.boot.test.mock.mockito.MockBean
+    private com.fooddelivery.customer.service.money.RestaurantSummaryService restaurantSummaryService;
 
 
     @org.springframework.boot.test.mock.mockito.MockBean
@@ -144,7 +168,7 @@ public class OpenApiGenerationTest {
     // generated Zod response validator degrades to z.void(); the scoped scan below
     // does not reach com.fooddelivery.common.config.
     @org.springframework.context.annotation.Import({com.fooddelivery.common.config.OpenApiJsonMediaTypeCustomizer.class, com.fooddelivery.common.config.OpenApiPaginationRequiredCustomizer.class})
-    @org.springframework.context.annotation.ComponentScan(basePackages = {"com.fooddelivery.order.controller", "com.fooddelivery.customer.controller"})
+    @org.springframework.context.annotation.ComponentScan(basePackages = {"com.fooddelivery.order.controller", "com.fooddelivery.customer.controller", "com.fooddelivery.money.controller"})
     @org.springframework.boot.autoconfigure.EnableAutoConfiguration(excludeName = {"org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration", "org.springframework.boot.actuate.autoconfigure.security.servlet.ManagementWebSecurityAutoConfiguration", "org.springframework.boot.autoconfigure.security.reactive.ReactiveSecurityAutoConfiguration", "org.springframework.boot.actuate.autoconfigure.security.reactive.ManagementReactiveSecurityAutoConfiguration", "org.springframework.boot.autoconfigure.security.oauth2.resource.servlet.OAuth2ResourceServerAutoConfiguration"})
     static class TestApp {
     }

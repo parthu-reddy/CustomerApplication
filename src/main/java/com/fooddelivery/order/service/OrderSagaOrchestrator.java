@@ -10,7 +10,6 @@ import com.fooddelivery.common.exception.OrderProcessingException;
 import com.fooddelivery.order.entity.Order;
 import com.fooddelivery.common.outbox.entity.OutboxEventEntity;
 import com.fooddelivery.common.enums.OrderStatus;
-import com.fooddelivery.common.enums.AccountType;
 import com.fooddelivery.order.repository.IOrderRepository;
 import com.fooddelivery.common.outbox.repository.OutboxEventRepository;
 import com.fooddelivery.order.repository.IPaymentIntentRepository;
@@ -53,8 +52,8 @@ public class OrderSagaOrchestrator {
     private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
     private final com.fooddelivery.order.service.state.OrderActionService orderActionService;
     private final StringRedisTemplate redisTemplate;
-    // We assume the system account ID for the platform is a fixed UUID for this prototype
-    private static final UUID PLATFORM_ACCOUNT_ID = UUID.fromString("00000000-0000-0000-0000-000000000000");
+    private final com.fooddelivery.order.ledger.LedgerBookkeeper ledgerBookkeeper;
+    private final com.fooddelivery.order.refund.RefundService refundService;
 
     @Transactional
     public Order startOrderSaga(Order order) {
@@ -117,7 +116,7 @@ public class OrderSagaOrchestrator {
     public void cancelOrderLocally(Order order, String reason) {
         Order orderToRefund = transactionTemplate.execute(status -> {
             Order dbOrder = orderRepository.findById(order.getId()).orElse(order);
-            com.fooddelivery.order.service.state.OrderContext context = new com.fooddelivery.order.service.state.OrderContext(dbOrder, objectMapper.createObjectNode(), orderActionService);
+            com.fooddelivery.order.service.state.OrderContext context = new com.fooddelivery.order.service.state.OrderContext(dbOrder, objectMapper.createObjectNode(), orderActionService, ledgerBookkeeper);
             com.fooddelivery.order.service.state.OrderState state = com.fooddelivery.order.service.state.OrderStateFactory.getState(dbOrder.getStatus());
             try {
                 state.cancelByCustomer(context, reason);
@@ -131,7 +130,16 @@ public class OrderSagaOrchestrator {
             return null;
         });
         if (orderToRefund != null) {
-            orderRefundService.processRefund(orderToRefund);
+            com.fooddelivery.order.refund.RefundCommand cmd = com.fooddelivery.order.refund.RefundCommand.builder()
+               .orderId(orderToRefund.getId())
+               .amount(orderToRefund.getTotalAmount())
+               .faultType(com.fooddelivery.order.enums.FaultType.UNKNOWN)
+               .destination(com.fooddelivery.common.enums.RefundDestination.ORIGINAL_METHOD)
+               .initiatorType(com.fooddelivery.order.enums.InitiatorType.SYSTEM)
+               .reasonCode("SAGA_COMPENSATION")
+               .idempotencyKey("saga_" + orderToRefund.getId())
+               .build();
+            refundService.request(cmd);
         }
     }
 
@@ -173,30 +181,7 @@ public class OrderSagaOrchestrator {
         
     }
 
-    @org.springframework.scheduling.annotation.Scheduled(fixedDelay = 60000) // Runs every minute
-    public void sweepStuckOrders() {
-        LocalDateTime threshold = LocalDateTime.now().minusMinutes(15);
-        
-        java.util.List<Order> stuckCreated = orderRepository.findByStatusAndCreatedAtBefore(com.fooddelivery.common.enums.OrderStatus.CREATED, threshold);
-        for (Order order : stuckCreated) {
-            log.warn("Sweeper: Cancelling stuck order {} (in CREATED state > 15m)", order.getId());
-            try {
-                cancelOrderLocally(order, "Order stuck in CREATED state");
-            } catch (Exception e) {
-                log.error("Failed to cancel stuck CREATED order " + order.getId(), e);
-            }
-        }
-        
-        java.util.List<Order> stuckPending = orderRepository.findByStatusAndCreatedAtBefore(com.fooddelivery.common.enums.OrderStatus.PENDING_ACCEPTANCE, threshold);
-        for (Order order : stuckPending) {
-            log.warn("Sweeper: Cancelling stuck order {} (in PENDING_ACCEPTANCE state > 15m)", order.getId());
-            try {
-                cancelOrderLocally(order, "Order stuck in PENDING_ACCEPTANCE state");
-            } catch (Exception e) {
-                log.error("Failed to cancel stuck PENDING_ACCEPTANCE order " + order.getId(), e);
-            }
-        }
-    }
+
 
 
     public static class PayloadData {
@@ -321,7 +306,7 @@ public class OrderSagaOrchestrator {
     }
 
     
-    private final OrderRefundService orderRefundService;
+
 
 }
 // @Getter

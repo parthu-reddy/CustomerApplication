@@ -43,7 +43,9 @@ public class PaymentEventConsumerTest {
     @Mock
     private OutboxEventRepository outboxEventRepository;
     @Mock
-    private OrderRefundService orderRefundService;
+    private com.fooddelivery.order.ledger.LedgerBookkeeper ledgerBookkeeper;
+    @Mock
+    private com.fooddelivery.order.refund.RefundService refundService;
 
     private PaymentEventConsumer paymentEventConsumer;
 
@@ -57,7 +59,8 @@ public class PaymentEventConsumerTest {
                 orderRepository,
                 orderActionService,
                 outboxEventRepository,
-                orderRefundService
+                refundService,
+                ledgerBookkeeper
         );
 
         lenient().doAnswer(invocation -> {
@@ -97,6 +100,6 @@ public class PaymentEventConsumerTest {
         paymentEventConsumer.handlePaymentEvents(message, headers);
 
         // Verify that because order is CANCELLED, late payment triggers immediate refund
-        verify(orderRefundService).processRefund(order);
+        verify(refundService).request(any(com.fooddelivery.order.refund.RefundCommand.class));
     }
 }

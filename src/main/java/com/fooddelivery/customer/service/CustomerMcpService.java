@@ -163,15 +163,16 @@ public class CustomerMcpService {
         }
     }
 
-    @Tool(description = "Admin: Initiate partial refund. Provide orderId and JSON string of PartialRefundRequest (amount).")
-    public String initiatePartialRefund(String orderId, String requestJson) {
-        try {
-            PartialRefundRequest req = objectMapper.readValue(requestJson, PartialRefundRequest.class);
-            return objectMapper.writeValueAsString(adminOrderController.initiatePartialRefund(UUID.fromString(orderId), req).getBody());
-        } catch (Exception e) {
-            return "Error: " + e.getMessage();
-        }
-    }
+    // @Tool(description = "Admin: Initiate partial refund. Provide orderId and JSON string of PartialRefundRequest (amount).")
+    // public String initiatePartialRefund(String orderId, String requestJson) {
+    //     try {
+    //         // PartialRefundRequest req = objectMapper.readValue(requestJson, PartialRefundRequest.class);
+    //         // return objectMapper.writeValueAsString(adminOrderController.initiatePartialRefund(UUID.fromString(orderId), req).getBody());
+    //         return "Not implemented";
+    //     } catch (Exception e) {
+    //         return "Error: " + e.getMessage();
+    //     }
+    // }
 
     // AdminCustomerController
     @Tool(description = "Admin: Get all customer addresses.")

@@ -7,6 +7,7 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import com.fooddelivery.common.enums.OrderStatus;
 import com.fooddelivery.common.constants.PaymentIntentStatus;
+import com.fooddelivery.common.enums.PaymentMethod;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -59,6 +60,14 @@ public class Order {
     @Column(name = "status")
     @io.swagger.v3.oas.annotations.media.Schema(requiredMode = io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED)
     private OrderStatus status;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_method")
+    private PaymentMethod paymentMethod;
+
+    @Column(name = "cash_collected_amount")
+    private BigDecimal cashCollectedAmount;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "delivery_status")
     private com.fooddelivery.common.enums.DeliveryStatus deliveryStatus;
@@ -149,8 +158,7 @@ public class Order {
         this.rateDeliveryCgstPercent = rates.deliveryCgstPercent();
     }
 
-    @Column(name = "refunded_amount")
-    private BigDecimal refundedAmount;
+
     @Column(name = "distance_km")
     private BigDecimal distanceKm;
     @lombok.Builder.Default

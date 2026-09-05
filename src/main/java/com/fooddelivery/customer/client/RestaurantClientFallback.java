@@ -10,17 +10,19 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import com.fooddelivery.customer.dto.RestaurantDto;
+
 @Component("customerRestaurantClientFallback")
 @lombok.RequiredArgsConstructor
 public class RestaurantClientFallback implements RestaurantClient {
 
     @Override
-    public ApiResponse<List<Object>> getNearbyRestaurants(double lat, double lng, double radius) {
+    public ApiResponse<List<RestaurantDto>> getNearbyRestaurants(double lat, double lng, double radius) {
         return ApiResponse.success(new ArrayList<>(), "Restaurant service is currently unavailable");
     }
 
     @Override
-    public ApiResponse<List<Object>> getBrandOutlets(UUID brandId, double lat, double lng, double radius) {
+    public ApiResponse<List<RestaurantDto>> getBrandOutlets(UUID brandId, double lat, double lng, double radius) {
         return ApiResponse.success(new ArrayList<>(), "Restaurant service is currently unavailable");
     }
 

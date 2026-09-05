@@ -56,8 +56,7 @@ public class CustomerOrderService {
     private final com.fooddelivery.common.outbox.repository.OutboxEventRepository outboxEventRepository;
     private final DynamicPricingService dynamicPricingService;
     private final com.fooddelivery.common.client.WalletServiceClient walletServiceClient;
-
-
+    private final WalletCheckoutService walletCheckoutService;
     public record OrderWithPayment(Order order, String paymentIntent) {
     }
 
@@ -109,19 +108,7 @@ public class CustomerOrderService {
                 }
                 String intent = paymentGatewayOrchestrator.generateIntent(order, method);
 
-                if (method == com.fooddelivery.common.enums.PaymentMethod.WALLET || method == com.fooddelivery.common.enums.PaymentMethod.COD) {
-                    if (method == com.fooddelivery.common.enums.PaymentMethod.WALLET) {
-                        com.fooddelivery.common.dto.wallet.TransactionRequest txReq = new com.fooddelivery.common.dto.wallet.TransactionRequest();
-                        txReq.setAmount(order.getTotalAmount());
-                        txReq.setReferenceId(intent);
-                        txReq.setDescription("Order " + order.getId());
-                        walletServiceClient.debit(com.fooddelivery.common.enums.EntityType.CUSTOMER.name(), order.getCustomerId(), txReq, SERVICE_NAME);
-                    }
-                    String payload = String.format("{\"eventType\":\"PAYMENT_COMPLETED\", \"orderId\":\"%s\", \"gatewayOrderId\":\"%s\"}", order.getId(), intent);
-                    com.fooddelivery.common.outbox.entity.OutboxEventEntity evt = com.fooddelivery.common.outbox.entity.OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.PAYMENT).aggregateId(intent).eventType(com.fooddelivery.common.constants.EventType.PAYMENT_COMPLETED).payload(payload).createdAt(java.time.LocalDateTime.now()).build();
-                    outboxEventRepository.save(evt);
-                    log.info("Saved PAYMENT_COMPLETED event for order: {}", order.getId());
-                }
+                walletCheckoutService.processWalletOrCod(order, method, intent);
 
                 return new OrderWithPayment(order, intent);
             } catch (Exception e) {
@@ -232,9 +219,9 @@ public class CustomerOrderService {
                     Double rLat = com.fooddelivery.common.util.JsonNumberUtils.toDouble(restaurantData.get("lat"));
                     Double rLng = com.fooddelivery.common.util.JsonNumberUtils.toDouble(restaurantData.get("lng"));
                     try {
-                        java.util.Map<String, Object> mapsResponse = mapsClient.checkFleetAvailability("BLR", rLat, rLng, com.fooddelivery.common.constants.AppConstants.MAX_DELIVERY_RADIUS_KM);
+                        com.fooddelivery.common.dto.maps.FleetAvailabilityResponseDto mapsResponse = mapsClient.checkFleetAvailability("BLR", rLat, rLng, com.fooddelivery.common.constants.AppConstants.MAX_DELIVERY_RADIUS_KM);
                         if (mapsResponse != null) {
-                            return Boolean.TRUE.equals(mapsResponse.get("available"));
+                            return Boolean.TRUE.equals(mapsResponse.getAvailable());
                         }
                     } catch (Exception e) {
                         log.warn("Failed to reach MapsIntegration for fleet check: {}", e.getMessage());
@@ -642,14 +629,14 @@ public class CustomerOrderService {
                     if (!cacheHit) {
                         String originStr = address.getLatitude() + "," + address.getLongitude();
                         String destinationStr = rLat + "," + rLng;
-                        java.util.Map<String, Object> distanceMap = mapsClient.getDistance(originStr, destinationStr);
+                        com.fooddelivery.common.dto.maps.DistanceResponseDto distanceMap = mapsClient.getDistance(originStr, destinationStr);
                         if (distanceMap != null) {
-                            if (distanceMap.containsKey("distance")) {
-                                distance = ((Number) distanceMap.get("distance")).doubleValue();
+                            if (distanceMap.getDistance() != null) {
+                                distance = distanceMap.getDistance();
                             } else {
                                 isFallback = true;
                             }
-                            if (Boolean.TRUE.equals(distanceMap.get("fallback"))) {
+                            if (Boolean.TRUE.equals(distanceMap.getFallback())) {
                                 isFallback = true;
                             }
                         } else {

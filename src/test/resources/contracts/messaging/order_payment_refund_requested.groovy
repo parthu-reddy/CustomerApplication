@@ -28,7 +28,8 @@ org.springframework.cloud.contract.spec.Contract.make {
             amountInInr: 15.50,
             gatewayName: "RAZORPAY",
             orderId: $(producer(regex('[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}'))),
-            refundDestination: "GATEWAY"
+            refundDestination: "GATEWAY",
+            refundId: "ref_123"
         ])
     }
 }

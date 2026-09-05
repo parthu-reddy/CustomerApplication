@@ -15,12 +15,12 @@ package contracts.messaging
  * event whose row and payload types disagree. See ADR 002.
  */
 org.springframework.cloud.contract.spec.Contract.make {
-    description("Should publish flat REVERSAL_GENERATED to wallet-events")
+    description("Should publish flat PAYMENT_REFUNDED to wallet-events")
     label("wallet_events_reversal")
     input { triggeredBy('fireWalletReversal()') }
     outputMessage {
         sentTo('wallet-events')
-        headers { header('eventType', 'REVERSAL_GENERATED') }
+        headers { header('eventType', 'PAYMENT_REFUNDED') }
         body([
             entityId: $(producer(regex('[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}'))),
             entityType: "RESTAURANT",
@@ -28,7 +28,7 @@ org.springframework.cloud.contract.spec.Contract.make {
             referenceId: $(producer(regex('REV_.+'))),
             description: $(producer(regex('.+'))),
             chargeCategory: "REFUND",
-            eventType: "REVERSAL_GENERATED"
+            eventType: "PAYMENT_REFUNDED"
         ])
     }
 }

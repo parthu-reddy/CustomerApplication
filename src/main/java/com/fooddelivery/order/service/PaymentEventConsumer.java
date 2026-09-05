@@ -3,7 +3,6 @@ package com.fooddelivery.order.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fooddelivery.common.constants.AppConstants;
 import com.fooddelivery.common.constants.KafkaConstants;
-import com.fooddelivery.common.enums.AccountType;
 import com.fooddelivery.common.constants.PaymentIntentStatus;
 import com.fooddelivery.order.entity.Order;
 import com.fooddelivery.common.outbox.entity.OutboxEventEntity;
@@ -31,7 +30,6 @@ public class PaymentEventConsumer {
     private static final String FIELD_EVENT_TYPE = "eventType";
     private static final String FIELD_FAILURE_REASON = "failureReason";
     private static final String REFUND_TX_PREFIX = "REFUND_";
-    private static final UUID PLATFORM_ACCOUNT_ID = UUID.fromString("00000000-0000-0000-0000-000000000000");
 
     private final IIdempotencyKeyRepository idempotencyKeyRepository;
     private final TransactionTemplate transactionTemplate;
@@ -40,7 +38,8 @@ public class PaymentEventConsumer {
     private final IOrderRepository orderRepository;
     private final OrderActionService orderActionService;
     private final OutboxEventRepository outboxEventRepository;
-    private final OrderRefundService orderRefundService;
+    private final com.fooddelivery.order.refund.RefundService refundService;
+    private final com.fooddelivery.order.ledger.LedgerBookkeeper ledgerBookkeeper;
 
 
 
@@ -76,103 +75,23 @@ public class PaymentEventConsumer {
                             String internalOrderId = rootNode.get(FIELD_ORDER_ID).asText();
                             if (rootNode.has(FIELD_EVENT_TYPE) && com.fooddelivery.common.constants.EventType.PAYMENT_REFUNDED.name().equals(rootNode.get(FIELD_EVENT_TYPE).asText())) {
                                 log.info("Processing PAYMENT_REFUNDED event for order: {}", internalOrderId);
-                                com.fooddelivery.order.entity.PaymentIntent intent = paymentIntentRepository.findByGatewayOrderId(gatewayOrderId).orElse(null);
-                                if (intent != null) {
-                                    intent.setStatus(PaymentIntentStatus.REFUNDED);
-                                    paymentIntentRepository.save(intent);
-                                    Order order = orderRepository.findById(intent.getInternalOrderId()).orElse(null);
-                                    if (order != null) {
-                                        order.setPaymentStatus(PaymentIntentStatus.REFUNDED);
-                                        java.math.BigDecimal currentRefunded = order.getRefundedAmount() != null ? order.getRefundedAmount() : java.math.BigDecimal.ZERO;
-                                        java.math.BigDecimal remainingToRefund = order.getTotalAmount().subtract(currentRefunded);
-                                        if (remainingToRefund.compareTo(java.math.BigDecimal.ZERO) > 0) {
-                                            order.setRefundedAmount(order.getTotalAmount());
-                                            orderRepository.save(order);
-                                            UUID refundTransferId = com.fooddelivery.common.util.DeterministicIdUtils.generateId(REFUND_TX_PREFIX + order.getId() + "_FULL");
-                                            orderActionService.recordLedgerTransaction(refundTransferId, order.getId(), PLATFORM_ACCOUNT_ID, AccountType.PLATFORM, order.getCustomerId(), AccountType.CUSTOMER, remainingToRefund, com.fooddelivery.common.enums.ChargeCategory.REFUND);
-                                            try {
-                                                Map<String, Object> notifPayload = new HashMap<>();
-                                                notifPayload.put("orderId", order.getId().toString());
-                                                notifPayload.put("customerId", order.getCustomerId().toString());
-                                                notifPayload.put("refundedAmount", remainingToRefund);
-                                                OutboxEventEntity outboxEvent = OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.NOTIFICATION).aggregateId(order.getId().toString()).eventType(com.fooddelivery.common.constants.EventType.NOTIFICATION_REQUEST).payload(objectMapper.writeValueAsString(Map.of("template", "ORDER_REFUNDED", "data", notifPayload))).createdAt(LocalDateTime.now()).build();
-                                                outboxEventRepository.save(outboxEvent);
-                                            } catch (Exception e) {
-                                                log.error("Failed to publish ORDER_REFUNDED notification", e);
-                                            }
-
-                                            if (rootNode.has("refundDestination") && "WALLET".equals(rootNode.get("refundDestination").asText())) {
-                                                try {
-                                                    com.fasterxml.jackson.databind.node.ObjectNode walletPayload = objectMapper.createObjectNode();
-                                                    walletPayload.put("entityId", order.getCustomerId().toString());
-                                                    walletPayload.put("entityType", "CUSTOMER");
-                                                    walletPayload.put("amount", remainingToRefund.toString());
-                                                    walletPayload.put("referenceId", "REFUND_" + order.getId());
-                                                    walletPayload.put("description", "Wallet refund for order " + order.getId());
-                                                    
-                                                    com.fasterxml.jackson.databind.node.ObjectNode walletEvent = objectMapper.createObjectNode();
-                                                    walletEvent.put("eventType", "REFUND_GENERATED");
-                                                    walletEvent.set("payload", walletPayload);
-                                                    
-                                                    OutboxEventEntity walletOutbox = OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.WALLET).aggregateId(order.getCustomerId().toString()).eventType(com.fooddelivery.common.constants.EventType.valueOf("REFUND_GENERATED")).payload(objectMapper.writeValueAsString(walletEvent)).createdAt(LocalDateTime.now()).build();
-                                                    outboxEventRepository.save(walletOutbox);
-                                                } catch (Exception e) {
-                                                    log.error("Failed to publish REFUND_GENERATED event", e);
-                                                }
-                                            }
-                                        }
+                                if (rootNode.has("refundId") && rootNode.has("isSuccess")) {
+                                    UUID refundId = UUID.fromString(rootNode.get("refundId").asText());
+                                    boolean isSuccess = rootNode.get("isSuccess").asBoolean();
+                                    String gatewayRefundId = rootNode.has("gatewayRefundId") ? rootNode.get("gatewayRefundId").asText() : null;
+                                    
+                                    if (isSuccess) {
+                                        refundService.complete(refundId, gatewayRefundId);
+                                    } else {
+                                        refundService.fail(refundId, rootNode.has("failureReason") ? rootNode.get("failureReason").asText() : "Unknown failure");
                                     }
+                                } else {
+                                    log.warn("PAYMENT_REFUNDED event missing refundId or isSuccess");
                                 }
                                 return;
                             }
                             if (rootNode.has(FIELD_EVENT_TYPE) && com.fooddelivery.common.constants.EventType.PAYMENT_PARTIALLY_REFUNDED.name().equals(rootNode.get(FIELD_EVENT_TYPE).asText())) {
-                                log.info("Processing PAYMENT_PARTIALLY_REFUNDED event for order: {}", internalOrderId);
-                                com.fooddelivery.order.entity.PaymentIntent intent = paymentIntentRepository.findByGatewayOrderId(gatewayOrderId).orElse(null);
-                                if (intent != null) {
-                                    intent.setStatus(PaymentIntentStatus.PARTIALLY_REFUNDED);
-                                    paymentIntentRepository.save(intent);
-                                    Order order = orderRepository.findById(intent.getInternalOrderId()).orElse(null);
-                                    if (order != null) {
-                                        order.setPaymentStatus(PaymentIntentStatus.PARTIALLY_REFUNDED);
-                                        java.math.BigDecimal partialAmount = rootNode.has("amountRefunded") ? new java.math.BigDecimal(rootNode.get("amountRefunded").asText()) : order.getTotalAmount();
-                                        java.math.BigDecimal currentRefunded = order.getRefundedAmount() != null ? order.getRefundedAmount() : java.math.BigDecimal.ZERO;
-                                        order.setRefundedAmount(currentRefunded.add(partialAmount));
-                                        orderRepository.save(order);
-                                        String uniqueSuffix = resolvedEventId != null ? resolvedEventId : String.valueOf(System.currentTimeMillis());
-                                        UUID refundTransferId = com.fooddelivery.common.util.DeterministicIdUtils.generateId(REFUND_TX_PREFIX + "PARTIAL_" + order.getId() + "_" + uniqueSuffix);
-                                        orderActionService.recordLedgerTransaction(refundTransferId, order.getId(), PLATFORM_ACCOUNT_ID, AccountType.PLATFORM, order.getCustomerId(), AccountType.CUSTOMER, partialAmount, com.fooddelivery.common.enums.ChargeCategory.REFUND);
-                                        try {
-                                            Map<String, Object> notifPayload = new HashMap<>();
-                                            notifPayload.put("orderId", order.getId().toString());
-                                            notifPayload.put("customerId", order.getCustomerId().toString());
-                                            notifPayload.put("refundedAmount", partialAmount);
-                                            OutboxEventEntity outboxEvent = OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.NOTIFICATION).aggregateId(order.getId().toString()).eventType(com.fooddelivery.common.constants.EventType.NOTIFICATION_REQUEST).payload(objectMapper.writeValueAsString(Map.of("template", "ORDER_PARTIALLY_REFUNDED", "data", notifPayload))).createdAt(LocalDateTime.now()).build();
-                                            outboxEventRepository.save(outboxEvent);
-                                        } catch (Exception e) {
-                                            log.error("Failed to publish ORDER_PARTIALLY_REFUNDED notification", e);
-                                        }
-
-                                        if (rootNode.has("refundDestination") && "WALLET".equals(rootNode.get("refundDestination").asText())) {
-                                            try {
-                                                com.fasterxml.jackson.databind.node.ObjectNode walletPayload = objectMapper.createObjectNode();
-                                                walletPayload.put("entityId", order.getCustomerId().toString());
-                                                walletPayload.put("entityType", "CUSTOMER");
-                                                walletPayload.put("amount", partialAmount.toString());
-                                                walletPayload.put("referenceId", "REFUND_PARTIAL_" + order.getId() + "_" + uniqueSuffix);
-                                                walletPayload.put("description", "Partial wallet refund for order " + order.getId());
-                                                
-                                                com.fasterxml.jackson.databind.node.ObjectNode walletEvent = objectMapper.createObjectNode();
-                                                walletEvent.put("eventType", "REFUND_GENERATED");
-                                                walletEvent.set("payload", walletPayload);
-                                                
-                                                OutboxEventEntity walletOutbox = OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.WALLET).aggregateId(order.getCustomerId().toString()).eventType(com.fooddelivery.common.constants.EventType.valueOf("REFUND_GENERATED")).payload(objectMapper.writeValueAsString(walletEvent)).createdAt(LocalDateTime.now()).build();
-                                                outboxEventRepository.save(walletOutbox);
-                                            } catch (Exception e) {
-                                                log.error("Failed to publish REFUND_GENERATED event", e);
-                                            }
-                                        }
-                                    }
-                                }
+                                log.warn("Ignoring deprecated PAYMENT_PARTIALLY_REFUNDED event");
                                 return;
                             }
                             boolean isFailure = rootNode.has(FIELD_FAILURE_REASON) || (rootNode.has(FIELD_EVENT_TYPE) && com.fooddelivery.common.constants.EventType.PAYMENT_FAILED.name().equals(rootNode.get(FIELD_EVENT_TYPE).asText()));
@@ -188,7 +107,7 @@ public class PaymentEventConsumer {
                                 log.warn("Order {} not found, skipping status update", orderUUID);
                                 return;
                             }
-                            com.fooddelivery.order.service.state.OrderContext context = new com.fooddelivery.order.service.state.OrderContext(order, rootNode, orderActionService);
+                            com.fooddelivery.order.service.state.OrderContext context = new com.fooddelivery.order.service.state.OrderContext(order, rootNode, orderActionService, ledgerBookkeeper, intent != null && intent.getGatewayName() != null ? intent.getGatewayName().name() : null);
                             com.fooddelivery.order.service.state.OrderState state = com.fooddelivery.order.service.state.OrderStateFactory.getState(order.getStatus());
                             try {
                                 if (isFailure) {
@@ -209,7 +128,16 @@ public class PaymentEventConsumer {
                         }
                         
                         if (orderToRefund != null) {
-                            orderRefundService.processRefund(orderToRefund);
+                             com.fooddelivery.order.refund.RefundCommand cmd = com.fooddelivery.order.refund.RefundCommand.builder()
+                                .orderId(orderToRefund.getId())
+                                .amount(orderToRefund.getTotalAmount())
+                                .faultType(com.fooddelivery.order.enums.FaultType.UNKNOWN)
+                                .destination(com.fooddelivery.common.enums.RefundDestination.ORIGINAL_METHOD)
+                                .initiatorType(com.fooddelivery.order.enums.InitiatorType.SYSTEM)
+                                .reasonCode("SYSTEM_AUTO_REFUND")
+                                .idempotencyKey("payment_fail_" + orderToRefund.getId())
+                                .build();
+                             refundService.request(cmd);
                         }
                     });
                     success = true;

@@ -25,6 +25,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -39,6 +40,8 @@ public class ChatRefundProcessorService {
     private final IIdempotencyKeyRepository idempotencyKeyRepository;
     private final ObjectMapper objectMapper;
     private final TransactionTemplate transactionTemplate;
+    private final com.fooddelivery.order.refund.RefundService refundService;
+    private final com.fooddelivery.order.repository.RefundRepository refundRepository;
 
 
 
@@ -73,9 +76,23 @@ public class ChatRefundProcessorService {
                 Order order = orderRepository.findById(orderId).orElseThrow(() -> new IllegalArgumentException("Order not found"));
                 
                 String refundType = payload.has("refundType") ? payload.get("refundType").asText() : "FULL";
-                BigDecimal quoteAmount = calculateQuoteAmount(order, refundType, payload);
+                BigDecimal quoteAmount;
+                if ("FULL".equals(refundType)) {
+                    quoteAmount = refundService.quote(orderId, List.of());
+                } else {
+                    List<com.fooddelivery.order.refund.RefundCommand.Item> reqItems = new java.util.ArrayList<>();
+                    if (payload.has("items")) {
+                        for (JsonNode itemNode : payload.get("items")) {
+                            com.fooddelivery.order.refund.RefundCommand.Item i = new com.fooddelivery.order.refund.RefundCommand.Item();
+                            i.setOrderItemId(UUID.fromString(itemNode.get("itemId").asText()));
+                            i.setQuantity(itemNode.get("quantity").asInt());
+                            reqItems.add(i);
+                        }
+                    }
+                    quoteAmount = refundService.quote(orderId, reqItems);
+                }
                 
-                BigDecimal maxRefundable = order.getTotalAmount().subtract(order.getRefundedAmount() != null ? order.getRefundedAmount() : BigDecimal.ZERO);
+                BigDecimal maxRefundable = order.getTotalAmount();
                 if (quoteAmount.compareTo(maxRefundable) > 0) {
                     throw new IllegalStateException("Requested refund amount exceeds the remaining refundable balance.");
                 }
@@ -122,14 +139,29 @@ public class ChatRefundProcessorService {
                 
                 String refundType = payload.has("refundType") ? payload.get("refundType").asText() : "FULL";
                 Order order = orderRepository.findById(orderId).orElseThrow(() -> new IllegalArgumentException("Order not found"));
-                BigDecimal quoteAmount = calculateQuoteAmount(order, refundType, payload);
+                
+                BigDecimal quoteAmount;
+                if ("FULL".equals(refundType)) {
+                    quoteAmount = refundService.quote(orderId, List.of());
+                } else {
+                    List<com.fooddelivery.order.refund.RefundCommand.Item> reqItems = new java.util.ArrayList<>();
+                    if (payload.has("items")) {
+                        for (JsonNode itemNode : payload.get("items")) {
+                            com.fooddelivery.order.refund.RefundCommand.Item i = new com.fooddelivery.order.refund.RefundCommand.Item();
+                            i.setOrderItemId(UUID.fromString(itemNode.get("itemId").asText()));
+                            i.setQuantity(itemNode.get("quantity").asInt());
+                            reqItems.add(i);
+                        }
+                    }
+                    quoteAmount = refundService.quote(orderId, reqItems);
+                }
                 
                 // Note: Financial Computations: Never use hardcoded fallback values for financial parameters... Fail Fast
                 if (quoteAmount.compareTo(BigDecimal.ZERO) <= 0) {
                     throw new IllegalArgumentException("Calculated refund amount must be greater than zero");
                 }
                 
-                BigDecimal maxRefundable = order.getTotalAmount().subtract(order.getRefundedAmount() != null ? order.getRefundedAmount() : BigDecimal.ZERO);
+                BigDecimal maxRefundable = order.getTotalAmount();
                 if (quoteAmount.compareTo(maxRefundable) > 0) {
                     throw new IllegalStateException("Requested refund amount exceeds the remaining refundable balance.");
                 }
@@ -138,13 +170,41 @@ public class ChatRefundProcessorService {
                 ticket.setOrderId(orderId);
                 ticket.setCustomerId(customerId);
                 ticket.setReason(reason + (description.isEmpty() ? "" : " - " + description));
-                ticket.setStatus(SupportTicket.TicketStatus.OPEN);
+                ticket.setStatus(SupportTicket.TicketStatus.OPEN); // Wait, if we process it, maybe it's resolved? Keep OPEN for now
                 ticket.setChatSessionId(UUID.fromString(event.getAggregateId()));
                 ticket.setRefundAmount(quoteAmount);
                 if (payload.has("items")) {
                     ticket.setRequestedRefundItems(payload.get("items").toString());
                 }
                 supportTicketRepository.save(ticket);
+                
+                // Issue refund request
+                List<com.fooddelivery.order.refund.RefundCommand.Item> commandItems = new java.util.ArrayList<>();
+                if (payload.has("items")) {
+                    for (JsonNode itemNode : payload.get("items")) {
+                        com.fooddelivery.order.refund.RefundCommand.Item ci = new com.fooddelivery.order.refund.RefundCommand.Item();
+                        ci.setOrderItemId(UUID.fromString(itemNode.get("itemId").asText()));
+                        ci.setQuantity(itemNode.get("quantity").asInt());
+                        commandItems.add(ci);
+                    }
+                }
+                
+                com.fooddelivery.order.refund.RefundCommand cmd = com.fooddelivery.order.refund.RefundCommand.builder()
+                        .orderId(orderId)
+                        .amount(quoteAmount)
+                        .items(commandItems.isEmpty() ? null : commandItems)
+                        .reasonCode(reason)
+                        .reasonText(description)
+                        .faultType(com.fooddelivery.order.enums.FaultType.CUSTOMER_FAULT)
+                        .destination(com.fooddelivery.common.enums.RefundDestination.STORE_CREDIT) // default to store credit for chat
+                        .source(com.fooddelivery.order.enums.RefundSource.CUSTOMER_TICKET)
+                        .initiatorType(com.fooddelivery.order.enums.InitiatorType.CUSTOMER)
+                        .initiatorId(customerId)
+                        .ticketId(ticket.getId())
+                        .idempotencyKey("chat_" + event.getAggregateId())
+                        .build();
+                        
+                refundService.request(cmd);
                 
                 // Publish CHAT_REFUND_DECISION to notify user
                 Map<String, Object> responseMap = new HashMap<>();
@@ -193,44 +253,5 @@ public class ChatRefundProcessorService {
         }
     }
 
-    private BigDecimal calculateQuoteAmount(Order order, String refundType, JsonNode payload) {
-        BigDecimal quoteAmount = BigDecimal.ZERO;
-        if ("FULL".equals(refundType)) {
-            if (order.getStatus().getSequence() >= OrderStatus.ACCEPTED.getSequence()) {
-                throw new IllegalStateException("Full cancellation refund is not allowed after the restaurant has accepted the order.");
-            }
-            quoteAmount = order.getTotalAmount();
-        } else if ("PARTIAL".equals(refundType)) {
-            if (order.getStatus() != OrderStatus.HANDED_OVER) {
-                throw new IllegalStateException("Partial refund can only be requested after the order has been delivered.");
-            }
-            JsonNode items = payload.get("items");
-            BigDecimal itemsRefundTotal = BigDecimal.ZERO;
-            if (items != null && items.isArray()) {
-                for (JsonNode itemNode : items) {
-                    UUID itemId = UUID.fromString(itemNode.get("itemId").asText());
-                    int quantity = itemNode.get("quantity").asInt();
-                    OrderItem orderItem = order.getOrderItems().stream()
-                            .filter(i -> i.getId().equals(itemId)).findFirst()
-                            .orElseThrow(() -> new IllegalArgumentException("Invalid item ID"));
-                    
-                    int currentRefunded = orderItem.getRefundedQuantity() != null ? orderItem.getRefundedQuantity() : 0;
-                    if (quantity > (orderItem.getQuantity() - currentRefunded) || quantity <= 0) {
-                        throw new IllegalArgumentException("Invalid quantity or item already refunded for item " + itemId);
-                    }
-                    itemsRefundTotal = itemsRefundTotal.add(orderItem.getPrice().multiply(BigDecimal.valueOf(quantity)));
-                }
-            }
-            
-            if (order.getItemTotal() != null && order.getItemTotal().compareTo(BigDecimal.ZERO) > 0) {
-                BigDecimal itemRatio = itemsRefundTotal.divide(order.getItemTotal(), 4, java.math.RoundingMode.HALF_UP);
-                BigDecimal proratedSgst = (order.getSgst() != null) ? order.getSgst().multiply(itemRatio) : BigDecimal.ZERO;
-                BigDecimal proratedCgst = (order.getCgst() != null) ? order.getCgst().multiply(itemRatio) : BigDecimal.ZERO;
-                quoteAmount = itemsRefundTotal.add(proratedSgst).add(proratedCgst).setScale(2, java.math.RoundingMode.HALF_UP);
-            } else {
-                quoteAmount = itemsRefundTotal.setScale(2, java.math.RoundingMode.HALF_UP);
-            }
-        }
-        return quoteAmount;
-    }
+
 }

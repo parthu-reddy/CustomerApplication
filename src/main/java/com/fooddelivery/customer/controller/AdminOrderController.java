@@ -16,7 +16,6 @@ import java.util.UUID;
 import java.util.Optional;
 import com.fooddelivery.customer.client.RestaurantClient;
 import com.fooddelivery.order.service.state.OrderActionService;
-import com.fooddelivery.customer.dto.PartialRefundRequest;
 import org.springframework.web.bind.annotation.RequestBody;
 
 @RestController
@@ -29,7 +28,6 @@ public class AdminOrderController {
     private final IOrderRepository orderRepository;
     private final RestaurantClient restaurantClient;
     private final com.fooddelivery.order.service.OrderSagaOrchestrator orderSagaOrchestrator;
-    private final com.fooddelivery.order.service.OrderRefundService orderRefundService;
     private final com.fooddelivery.order.service.state.OrderActionService orderActionService;
 
     @GetMapping("/user/{userId}/active")
@@ -112,26 +110,7 @@ public class AdminOrderController {
         return ResponseEntity.ok(Map.of("message", "Order state is already up-to-date.", "currentStatus", currentStatus.name()));
     }
 
-    @PostMapping("/{orderId}/refund/partial")
-    @PreAuthorize("hasRole(\'ADMIN\')")
-    public ResponseEntity<Map<String, String>> initiatePartialRefund(@PathVariable UUID orderId, @RequestBody PartialRefundRequest request) {
-        Order order = orderRepository.findById(orderId).orElse(null);
-        if (order == null) {
-            return ResponseEntity.notFound().build();
-        }
-        if (request.getAmount() == null || request.getAmount().compareTo(java.math.BigDecimal.ZERO) <= 0) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Invalid refund amount"));
-        }
-        java.math.BigDecimal alreadyRefunded = order.getRefundedAmount() != null ? order.getRefundedAmount() : java.math.BigDecimal.ZERO;
-        java.math.BigDecimal remainingAmount = order.getTotalAmount().subtract(alreadyRefunded);
-        if (request.getAmount().compareTo(remainingAmount) > 0) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Refund amount exceeds the refundable balance of the order."));
-        }
-        order.setRefundedAmount(alreadyRefunded.add(request.getAmount()));
-        orderRepository.save(order);
-        orderRefundService.processPartialRefund(order, request.getAmount(), com.fooddelivery.common.enums.RefundDestination.GATEWAY, request.getFaultType());
-        return ResponseEntity.ok(Map.of("message", "Partial refund initiated successfully"));
-    }
+
 
     @PostMapping("/{orderId}/override-status")
     @PreAuthorize("hasRole('ADMIN')")
@@ -165,29 +144,6 @@ public class AdminOrderController {
         }
     }
 
-    @PostMapping("/{orderId}/refund/post-delivery")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Map<String, String>> initiatePostDeliveryRefund(@PathVariable UUID orderId, @RequestBody PartialRefundRequest request) {
-        Order order = orderRepository.findById(orderId).orElse(null);
-        if (order == null) {
-            return ResponseEntity.notFound().build();
-        }
-        if (order.getDeliveryStatus() != com.fooddelivery.common.enums.DeliveryStatus.DELIVERED) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Order must be in DELIVERED state to initiate a post-delivery refund."));
-        }
-        if (request.getAmount() == null || request.getAmount().compareTo(java.math.BigDecimal.ZERO) <= 0) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Invalid refund amount"));
-        }
-        java.math.BigDecimal alreadyRefunded = order.getRefundedAmount() != null ? order.getRefundedAmount() : java.math.BigDecimal.ZERO;
-        java.math.BigDecimal remainingAmount = order.getTotalAmount().subtract(alreadyRefunded);
-        if (request.getAmount().compareTo(remainingAmount) > 0) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Refund amount exceeds the refundable balance of the order."));
-        }
-        order.setRefundedAmount(alreadyRefunded.add(request.getAmount()));
-        orderRepository.save(order);
-        orderRefundService.processPartialRefund(order, request.getAmount(), com.fooddelivery.common.enums.RefundDestination.GATEWAY, request.getFaultType());
-        return ResponseEntity.ok(Map.of("message", "Post-delivery refund initiated successfully"));
-    }
 
     
 }

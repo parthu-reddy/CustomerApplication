@@ -104,7 +104,7 @@ public abstract class BaseMessagingClass {
         payload.put("description", "Earnings for Order 3f2504e0-4f89-41d3-9a0c-0305e82c3301");
         payload.put("metadata", "{}");
         publishViaOutbox(com.fooddelivery.common.constants.AggregateType.WALLET, entityId,
-                com.fooddelivery.common.constants.EventType.EARNINGS_GENERATED, payload);
+                com.fooddelivery.common.constants.EventType.LEDGER_TRANSACTION_REQUEST, payload);
     }
     /** Mirrors OrderActionService: a real serialized NotificationRequestEvent. */
     public void fireNotificationDispatch() throws Exception {
@@ -125,18 +125,23 @@ public abstract class BaseMessagingClass {
     /** Drives the real OutboxProcessor: real topic routing, real key, real eventType header. */
     /** Mirrors OrderActionService's LEDGER_TRANSACTION_REQUEST ObjectNode (amount as String). */
     public void fireLedgerEvent() throws Exception {
-        com.fasterxml.jackson.databind.node.ObjectNode n = objectMapper.createObjectNode();
         String transferId = "0f1a5cb3-2b6d-5a1e-9c47-8e3f6d2a1b04";
-        n.put("transferId", transferId);
-        n.put("referenceId", "3f2504e0-4f89-41d3-9a0c-0305e82c3301");
-        n.put("fromId", "6b1d3c22-9f45-4a7e-8c11-2d4e6f8a9b02");
-        n.put("fromType", com.fooddelivery.common.enums.AccountType.PLATFORM.name());
-        n.put("toId", "9c8b7a65-1e2d-4f30-b5a6-7c8d9e0f1a23");
-        n.put("toType", com.fooddelivery.common.enums.AccountType.RESTAURANT.name());
-        n.put("amount", new java.math.BigDecimal("125.50").toString());
-        n.put("chargeCategory", com.fooddelivery.common.enums.ChargeCategory.FOOD_COST.name());
+        com.fooddelivery.common.dto.ledger.LedgerLeg leg = new com.fooddelivery.common.dto.ledger.LedgerLeg();
+        leg.setFromId(java.util.UUID.fromString("6b1d3c22-9f45-4a7e-8c11-2d4e6f8a9b02"));
+        leg.setFromType(com.fooddelivery.common.enums.LedgerAccountType.PLATFORM_CLEARING);
+        leg.setToId(java.util.UUID.fromString("9c8b7a65-1e2d-4f30-b5a6-7c8d9e0f1a23"));
+        leg.setToType(com.fooddelivery.common.enums.LedgerAccountType.RESTAURANT_PAYABLE);
+        leg.setAmount(new java.math.BigDecimal("125.50"));
+        leg.setCategory(com.fooddelivery.common.enums.ChargeCategory.FOOD_COST);
+
+        com.fooddelivery.common.dto.ledger.LedgerTransactionCommand cmd = new com.fooddelivery.common.dto.ledger.LedgerTransactionCommand(
+                java.util.UUID.fromString(transferId),
+                java.util.UUID.fromString("3f2504e0-4f89-41d3-9a0c-0305e82c3301"),
+                "customer-application",
+                java.util.List.of(leg)
+        );
         publishViaOutbox(com.fooddelivery.common.constants.AggregateType.LEDGER, transferId,
-                com.fooddelivery.common.constants.EventType.LEDGER_TRANSACTION_REQUEST, n);
+                com.fooddelivery.common.constants.EventType.LEDGER_TRANSACTION_REQUEST, cmd);
     }
 
     /** Mirrors AdminOrderManualController - flat payload, body eventType differs from the header. */
@@ -149,9 +154,9 @@ public abstract class BaseMessagingClass {
         eventPayload.put("referenceId", "REV_" + orderId + "_1699999999999");
         eventPayload.put("description", "Reversal for order " + orderId);
         eventPayload.put("chargeCategory", com.fooddelivery.common.enums.ChargeCategory.REFUND.name());
-        eventPayload.put("eventType", com.fooddelivery.common.constants.EventType.REVERSAL_GENERATED.name());
+        eventPayload.put("eventType", com.fooddelivery.common.constants.EventType.PAYMENT_REFUNDED.name());
         publishViaOutbox(com.fooddelivery.common.constants.AggregateType.WALLET, orderId,
-                com.fooddelivery.common.constants.EventType.REVERSAL_GENERATED, eventPayload);
+                com.fooddelivery.common.constants.EventType.PAYMENT_REFUNDED, eventPayload);
     }
 
     protected void publishViaOutbox(com.fooddelivery.common.constants.AggregateType aggregateType,
@@ -184,6 +189,7 @@ public abstract class BaseMessagingClass {
         payloadMap.put("gatewayName", "RAZORPAY");
         payloadMap.put("orderId", "6b1d3c22-9f45-4a7e-8c11-2d4e6f8a9b02");
         payloadMap.put("refundDestination", "GATEWAY");
+        payloadMap.put("refundId", "ref_123");
         publishViaOutbox(com.fooddelivery.common.constants.AggregateType.PAYMENT,
                 "6b1d3c22-9f45-4a7e-8c11-2d4e6f8a9b02",
                 com.fooddelivery.common.constants.EventType.PAYMENT_REFUND_REQUESTED, payloadMap);

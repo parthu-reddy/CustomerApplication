@@ -4,7 +4,6 @@ import com.fooddelivery.order.entity.Order;
 import com.fooddelivery.order.service.state.OrderContext;
 import com.fooddelivery.order.service.state.OrderState;
 import com.fooddelivery.order.service.state.OrderActionService;
-import com.fooddelivery.common.enums.AccountType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 @lombok.extern.slf4j.Slf4j
@@ -19,17 +18,9 @@ public class TerminalState implements OrderState {
         
         ctx.getActionService().updatePaymentIntentStatus(order.getId(), com.fooddelivery.common.constants.PaymentIntentStatus.SUCCESS);
         
-        java.util.UUID paymentTransferId = com.fooddelivery.common.util.DeterministicIdUtils.generateId("PAYMENT_" + order.getId());
-        ctx.getActionService().recordLedgerTransaction(
-                paymentTransferId, 
-                order.getId(),
-                order.getCustomerId(), 
-                AccountType.CUSTOMER, 
-                OrderActionService.PLATFORM_ACCOUNT_ID, 
-                AccountType.PLATFORM, 
-                order.getTotalAmount(),
-                com.fooddelivery.common.enums.ChargeCategory.ORDER_TOTAL
-        );
+        if (ctx.getLedgerBookkeeper() != null) {
+            ctx.getLedgerBookkeeper().bookPaymentSuccess(order);
+        }
         
         if (order.getStatus() != com.fooddelivery.common.enums.OrderStatus.CANCELLED && order.getStatus() != com.fooddelivery.common.enums.OrderStatus.HANDED_OVER) {
             order.setStatus(com.fooddelivery.common.enums.OrderStatus.CANCELLED);

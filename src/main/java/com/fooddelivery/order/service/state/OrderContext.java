@@ -7,27 +7,40 @@ public class OrderContext {
     private final Order order;
     private final JsonNode eventPayload;
     private final OrderActionService actionService;
+    private final com.fooddelivery.order.ledger.LedgerBookkeeper ledgerBookkeeper;
+    private final String gateway;
     private boolean requiresRefund = false;
 
-    public OrderContext(Order order, JsonNode eventPayload, OrderActionService actionService) {
+    public OrderContext(Order order, JsonNode eventPayload, OrderActionService actionService, com.fooddelivery.order.ledger.LedgerBookkeeper ledgerBookkeeper, String gateway) {
         this.order = order;
         this.eventPayload = eventPayload;
         this.actionService = actionService;
+        this.ledgerBookkeeper = ledgerBookkeeper;
+        this.gateway = gateway;
     }
 
+    public OrderContext(Order order, JsonNode eventPayload, OrderActionService actionService, com.fooddelivery.order.ledger.LedgerBookkeeper ledgerBookkeeper) {
+        this(order, eventPayload, actionService, ledgerBookkeeper, null);
+    }
     
     public Order getOrder() {
         return this.order;
     }
-
     
     public JsonNode getEventPayload() {
         return this.eventPayload;
     }
-
     
     public OrderActionService getActionService() {
         return this.actionService;
+    }
+
+    public com.fooddelivery.order.ledger.LedgerBookkeeper getLedgerBookkeeper() {
+        return this.ledgerBookkeeper;
+    }
+
+    public String getGateway() {
+        return this.gateway;
     }
 
     

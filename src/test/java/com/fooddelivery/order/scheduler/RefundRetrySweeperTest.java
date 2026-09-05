@@ -1,48 +1,29 @@
 package com.fooddelivery.order.scheduler;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fooddelivery.common.constants.PaymentIntentStatus;
-import com.fooddelivery.common.enums.OrderStatus;
-import com.fooddelivery.common.outbox.repository.OutboxEventRepository;
-import com.fooddelivery.order.entity.Order;
-import com.fooddelivery.order.entity.PaymentIntent;
-import com.fooddelivery.order.repository.IOrderRepository;
-import com.fooddelivery.order.repository.IPaymentIntentRepository;
-import com.fooddelivery.order.service.OrderRefundService;
-import com.fooddelivery.order.service.OrderSagaOrchestrator;
+import com.fooddelivery.order.refund.RefundService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.time.Duration;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-public class RefundRetrySweeperTest {
+class RefundRetrySweeperTest {
 
     @Mock
-    private IPaymentIntentRepository paymentIntentRepository;
-
-    @Mock
-    private IOrderRepository orderRepository;
-
-    @Mock
-    private OrderRefundService orderRefundService;
+    private RefundService refundService;
 
     @Mock
     private StringRedisTemplate redisTemplate;
@@ -50,149 +31,29 @@ public class RefundRetrySweeperTest {
     @Mock
     private ValueOperations<String, String> valueOperations;
 
-    @Mock
-    private OutboxEventRepository outboxEventRepository;
-
-    @Mock
-    private ObjectMapper objectMapper;
-
     @InjectMocks
     private RefundRetrySweeper refundRetrySweeper;
 
     @BeforeEach
     void setUp() {
-        lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        // Default: nothing stuck. Tests that care override this.
-        lenient().when(paymentIntentRepository.findByStatusAndUpdatedAtBefore(
-                eq(PaymentIntentStatus.REFUND_PENDING), any(LocalDateTime.class), any(Pageable.class)
-        )).thenReturn(Page.empty());
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
     }
 
     @Test
-    void shouldRetryFailedRefund_WhenRetryCountIsBelowMax() {
-        // Arrange
-        when(valueOperations.setIfAbsent(anyString(), anyString(), any())).thenReturn(true);
+    void testRetryFailedRefunds_whenLockAcquired_shouldCallService() {
+        when(valueOperations.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenReturn(true);
 
-        UUID orderId = UUID.randomUUID();
-        PaymentIntent intent = new PaymentIntent();
-        intent.setId(UUID.randomUUID());
-        intent.setInternalOrderId(orderId);
-        intent.setStatus(PaymentIntentStatus.REFUND_FAILED);
-        intent.setRetryCount(2);
-
-        Page<PaymentIntent> page = new PageImpl<>(List.of(intent));
-        when(paymentIntentRepository.findByStatusAndCreatedAtBetween(
-                eq(PaymentIntentStatus.REFUND_FAILED), any(LocalDateTime.class), any(LocalDateTime.class), any(Pageable.class)
-        )).thenReturn(page);
-
-        Order order = new Order();
-        order.setId(orderId);
-        order.setStatus(OrderStatus.CANCELLED);
-        when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
-
-        // Act
         refundRetrySweeper.retryFailedRefunds();
 
-        // Assert
-        verify(paymentIntentRepository, times(1)).save(intent);
-        verify(orderRefundService, times(1)).processRefund(order);
+        verify(refundService).retryStuck();
     }
 
     @Test
-    void shouldEscalateToManualIntervention_WhenRetryCountReachesMax() throws Exception {
-        // Arrange
-        when(valueOperations.setIfAbsent(anyString(), anyString(), any())).thenReturn(true);
-        when(objectMapper.writeValueAsString(any())).thenReturn("{}");
-
-        UUID orderId = UUID.randomUUID();
-        PaymentIntent intent = new PaymentIntent();
-        intent.setId(UUID.randomUUID());
-        intent.setInternalOrderId(orderId);
-        intent.setStatus(PaymentIntentStatus.REFUND_FAILED);
-        intent.setRetryCount(5); // Max retries reached
-
-        Page<PaymentIntent> page = new PageImpl<>(List.of(intent));
-        when(paymentIntentRepository.findByStatusAndCreatedAtBetween(
-                eq(PaymentIntentStatus.REFUND_FAILED), any(LocalDateTime.class), any(LocalDateTime.class), any(Pageable.class)
-        )).thenReturn(page);
-
-        // Act
-        refundRetrySweeper.retryFailedRefunds();
-
-        // Assert
-        verify(paymentIntentRepository, times(1)).save(intent);
-        verify(outboxEventRepository, times(1)).save(any());
-        verify(orderRefundService, never()).processRefund(any()); // Should NOT process refund
-    }
-
-    @Test
-    void shouldSkipRefund_WhenRedisLockNotAcquired() {
-        // Arrange
-        when(valueOperations.setIfAbsent(anyString(), anyString(), any())).thenReturn(false);
-
-        // Act
-        refundRetrySweeper.retryFailedRefunds();
-
-        // Assert
-        verify(paymentIntentRepository, never()).findByStatusAndCreatedAtBetween(any(), any(), any(), any());
-        verify(orderRefundService, never()).processRefund(any());
-    }
-
-    /**
-     * The failure this sweeper exists to catch. OrderRefundService leaves an intent in REFUND_PENDING
-     * once it enqueues the refund, and only sets REFUND_FAILED if that enqueue throws -- which it does
-     * not. So the refund-routing defect left intents pending forever while the sweeper watched
-     * REFUND_FAILED, a status the failure mode never produces.
-     */
-    @Test
-    void shouldRetryIntentStuckInRefundPending() {
-        when(valueOperations.setIfAbsent(anyString(), anyString(), any())).thenReturn(true);
-        when(paymentIntentRepository.findByStatusAndCreatedAtBetween(
-                eq(PaymentIntentStatus.REFUND_FAILED), any(LocalDateTime.class), any(LocalDateTime.class), any(Pageable.class)
-        )).thenReturn(Page.empty());
-
-        UUID orderId = UUID.randomUUID();
-        PaymentIntent stuck = new PaymentIntent();
-        stuck.setId(UUID.randomUUID());
-        stuck.setInternalOrderId(orderId);
-        stuck.setStatus(PaymentIntentStatus.REFUND_PENDING);
-        stuck.setRetryCount(0);
-
-        when(paymentIntentRepository.findByStatusAndUpdatedAtBefore(
-                eq(PaymentIntentStatus.REFUND_PENDING), any(LocalDateTime.class), any(Pageable.class)
-        )).thenReturn(new PageImpl<>(List.of(stuck)));
-
-        Order order = new Order();
-        order.setId(orderId);
-        order.setStatus(OrderStatus.CANCELLED);
-        when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+    void testRetryFailedRefunds_whenLockNotAcquired_shouldDoNothing() {
+        when(valueOperations.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenReturn(false);
 
         refundRetrySweeper.retryFailedRefunds();
 
-        verify(orderRefundService, times(1)).processRefund(order);
-        verify(paymentIntentRepository, times(1)).save(stuck);
-    }
-
-    /**
-     * A refund that is merely in flight must not be retried underneath itself, so the sweep is keyed
-     * on updatedAt with a cutoff rather than on status alone.
-     */
-    @Test
-    void shouldNotRetryRecentlyUpdatedPendingIntents() {
-        when(valueOperations.setIfAbsent(anyString(), anyString(), any())).thenReturn(true);
-        when(paymentIntentRepository.findByStatusAndCreatedAtBetween(
-                eq(PaymentIntentStatus.REFUND_FAILED), any(LocalDateTime.class), any(LocalDateTime.class), any(Pageable.class)
-        )).thenReturn(Page.empty());
-
-        refundRetrySweeper.retryFailedRefunds();
-
-        // The cutoff passed to the finder must be in the past by the stuck threshold, so a
-        // just-updated intent is outside it.
-        org.mockito.ArgumentCaptor<LocalDateTime> cutoff = org.mockito.ArgumentCaptor.forClass(LocalDateTime.class);
-        verify(paymentIntentRepository).findByStatusAndUpdatedAtBefore(
-                eq(PaymentIntentStatus.REFUND_PENDING), cutoff.capture(), any(Pageable.class));
-        assertTrue(cutoff.getValue().isBefore(LocalDateTime.now().minusMinutes(RefundRetrySweeper.STUCK_REFUND_PENDING_MINUTES - 1)),
-                "cutoff must exclude recently-updated intents");
-        verify(orderRefundService, never()).processRefund(any());
+        verify(refundService, never()).retryStuck();
     }
 }

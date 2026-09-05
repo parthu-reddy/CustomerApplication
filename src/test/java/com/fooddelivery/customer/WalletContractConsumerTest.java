@@ -25,8 +25,6 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 @org.springframework.test.context.ActiveProfiles("contract-test")
 public class WalletContractConsumerTest {
 
-    @MockBean
-    private com.fooddelivery.common.client.WalletServiceClientFallback walletServiceClientFallback;
 
     @org.springframework.boot.SpringBootConfiguration
     @org.springframework.boot.autoconfigure.EnableAutoConfiguration(exclude = {
@@ -41,9 +39,13 @@ public class WalletContractConsumerTest {
     @Autowired
     private WalletServiceClient walletServiceClient;
 
+    @Autowired
+    private com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+
     @Test
     public void shouldReturnWalletBalance() {
-        WalletDto response = walletServiceClient.getWallet("CUSTOMER", UUID.fromString("123e4567-e89b-12d3-a456-426614174000"));
+        Object rawResponse = walletServiceClient.getWallet("CUSTOMER", UUID.fromString("123e4567-e89b-12d3-a456-426614174000"));
+        WalletDto response = objectMapper.convertValue(rawResponse, WalletDto.class);
         
         assertNotNull(response);
         assertEquals("123e4567-e89b-12d3-a456-426614174000", response.getEntityId().toString());

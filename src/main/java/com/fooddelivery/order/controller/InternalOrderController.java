@@ -21,8 +21,8 @@ public class InternalOrderController {
 
     private final IOrderRepository orderRepository;
     private final com.fooddelivery.order.service.OrderSagaOrchestrator orderSagaOrchestrator;
-    private final com.fooddelivery.order.service.OrderRefundService orderRefundService;
     private final com.fooddelivery.common.service.RateLimitingService rateLimitingService;
+    private final com.fooddelivery.order.refund.RefundService refundService;
 
     @GetMapping("/driver/{driverId}/active")
     @PreAuthorize("hasAnyRole('ADMIN', 'DELIVERY')")
@@ -89,45 +89,7 @@ public class InternalOrderController {
         }).orElse(ResponseEntity.notFound().build());
     }
 
-    @GetMapping("/{orderId}/invoice")
-    @PreAuthorize("@orderSecurityHelper.isOrderParticipant(#orderId, authentication.name) or hasRole('ADMIN')")
-    @org.springframework.transaction.annotation.Transactional(readOnly = true)
-    public ResponseEntity<com.fooddelivery.customer.dto.OrderResponse> getOrderInvoice(@PathVariable UUID orderId) {
-        return orderRepository.findById(orderId).map(order -> {
-            com.fooddelivery.customer.dto.OrderResponse response = com.fooddelivery.customer.mapper.OrderMapper.mapToResponse(order);
-            return ResponseEntity.ok(response);
-        }).orElseThrow(() -> new RuntimeException("Order not found"));
-    }
 
-    @PostMapping("/{orderId}/partial-refund")
-    @PreAuthorize("hasAnyRole('ADMIN', 'RESTAURANT')")
-    public ResponseEntity<com.fooddelivery.common.dto.ApiResponse<String>> partialRefund(@PathVariable UUID orderId, @RequestBody java.util.Map<String, String> payload, java.security.Principal principal) {
-        // Phase 3: Limit 30 requests per minute
-        io.github.bucket4j.Bucket bucket = rateLimitingService.resolveBucket("internal_refund:" + (principal != null ? principal.getName() : "anonymous"), 30, 30, java.time.Duration.ofMinutes(1));
-        if (!bucket.tryConsume(1)) {
-            return ResponseEntity.status(org.springframework.http.HttpStatus.TOO_MANY_REQUESTS).build();
-        }
-
-        String amountStr = payload.get("amount");
-        if (amountStr == null || amountStr.trim().isEmpty()) {
-            return ResponseEntity.badRequest().body(com.fooddelivery.common.dto.ApiResponse.error("amount is required"));
-        }
-        try {
-            java.math.BigDecimal amount = new java.math.BigDecimal(amountStr);
-            return orderRepository.findById(orderId).map(order -> {
-                orderRefundService.processPartialRefund(order, amount);
-                log.info("Requested partial refund of {} for order {}", amount, orderId);
-                return ResponseEntity.ok(com.fooddelivery.common.dto.ApiResponse.success("Partial refund requested successfully", "Operation successful"));
-            }).orElse(ResponseEntity.notFound().build());
-        } catch (NumberFormatException e) {
-            return ResponseEntity.badRequest().body(com.fooddelivery.common.dto.ApiResponse.error("Invalid amount format"));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(com.fooddelivery.common.dto.ApiResponse.error(e.getMessage()));
-        } catch (Exception e) {
-            log.error("Error during partial refund", e);
-            return ResponseEntity.internalServerError().body(com.fooddelivery.common.dto.ApiResponse.error("Failed to request partial refund"));
-        }
-    }
 
     
 }

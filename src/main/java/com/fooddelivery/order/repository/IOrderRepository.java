@@ -26,6 +26,9 @@ public interface IOrderRepository extends JpaRepository<Order, UUID> {
     List<Order> findByCustomerId(UUID customerId);
     
     @EntityGraph(attributePaths = {"orderItems"})
+    List<Order> findByRestaurantId(UUID restaurantId);
+    
+    @EntityGraph(attributePaths = {"orderItems"})
     List<Order> findByDeliveryExecutiveId(UUID deliveryExecutiveId);
     
     @EntityGraph(attributePaths = {"orderItems"})
@@ -120,4 +123,7 @@ public interface IOrderRepository extends JpaRepository<Order, UUID> {
     Page<Order> findByStatusOrderByCreatedAtDesc(com.fooddelivery.common.enums.OrderStatus status, Pageable pageable);
     
     Page<Order> findByDeliveryStatusOrderByCreatedAtDesc(com.fooddelivery.common.enums.DeliveryStatus deliveryStatus, Pageable pageable);
+
+    @org.springframework.data.jpa.repository.Query("SELECT COALESCE(SUM(o.totalAmount), 0) FROM Order o WHERE o.status NOT IN :excludedStatuses AND CAST(o.createdAt AS date) = :date")
+    java.math.BigDecimal sumOrderTotalsByDate(@org.springframework.data.repository.query.Param("date") java.time.LocalDate date, @org.springframework.data.repository.query.Param("excludedStatuses") List<com.fooddelivery.common.enums.OrderStatus> excludedStatuses);
 }

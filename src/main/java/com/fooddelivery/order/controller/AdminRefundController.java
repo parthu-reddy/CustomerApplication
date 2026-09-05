@@ -4,7 +4,7 @@ import com.fooddelivery.order.entity.Order;
 import com.fooddelivery.order.entity.SupportTicket;
 import com.fooddelivery.order.repository.IOrderRepository;
 import com.fooddelivery.order.repository.SupportTicketRepository;
-import com.fooddelivery.order.service.OrderRefundService;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -27,10 +27,11 @@ import org.springframework.security.access.prepost.PreAuthorize;
 public class AdminRefundController {
 
     private final SupportTicketRepository supportTicketRepository;
-    private final OrderRefundService orderRefundService;
+
     private final IOrderRepository orderRepository;
     private final ObjectMapper objectMapper;
     private final com.fooddelivery.common.service.RateLimitingService rateLimitingService;
+    private final com.fooddelivery.order.refund.RefundService refundService;
 
     @GetMapping
     public ResponseEntity<Page<SupportTicket>> getTickets(
@@ -115,13 +116,13 @@ public class AdminRefundController {
                             UUID itemId = UUID.fromString(itemNode.get("itemId").asText());
                             int quantityToRefund = itemNode.get("quantity").asInt();
                             
-                            order.getOrderItems().stream()
-                                    .filter(item -> item.getId().equals(itemId))
-                                    .findFirst()
-                                    .ifPresent(item -> {
-                                        int currentRefunded = item.getRefundedQuantity() != null ? item.getRefundedQuantity() : 0;
-                                        item.setRefundedQuantity(currentRefunded + quantityToRefund);
-                                    });
+                            // order.getOrderItems().stream()
+                            //         .filter(item -> item.getId().equals(itemId))
+                            //         .findFirst()
+                            //         .ifPresent(item -> {
+                            //             int currentRefunded = item.getRefundedQuantity() != null ? item.getRefundedQuantity() : 0;
+                            //             item.setRefundedQuantity(currentRefunded + quantityToRefund);
+                            //         });
                         }
                         orderRepository.save(order);
                     }
@@ -130,11 +131,36 @@ public class AdminRefundController {
                 }
             }
 
-            if (refundAmount.compareTo(order.getTotalAmount()) >= 0) {
-                orderRefundService.processRefund(order, com.fooddelivery.common.enums.RefundDestination.GATEWAY, faultType);
-            } else {
-                orderRefundService.processPartialRefund(order, refundAmount, com.fooddelivery.common.enums.RefundDestination.GATEWAY, faultType);
+            java.util.List<com.fooddelivery.order.refund.RefundCommand.Item> refundCommandItems = new java.util.ArrayList<>();
+            if (ticket.getRequestedRefundItems() != null && !ticket.getRequestedRefundItems().isBlank()) {
+                try {
+                    JsonNode itemsNode = objectMapper.readTree(ticket.getRequestedRefundItems());
+                    if (itemsNode.isArray()) {
+                        for (JsonNode itemNode : itemsNode) {
+                            refundCommandItems.add(new com.fooddelivery.order.refund.RefundCommand.Item(
+                                UUID.fromString(itemNode.get("itemId").asText()),
+                                itemNode.get("quantity").asInt()
+                            ));
+                        }
+                    }
+                } catch (Exception e) {
+                    throw new IllegalStateException("Failed to parse requested refund items", e);
+                }
             }
+
+            com.fooddelivery.order.refund.RefundCommand cmd = com.fooddelivery.order.refund.RefundCommand.builder()
+               .orderId(order.getId())
+               .amount(refundAmount)
+               .items(refundCommandItems.isEmpty() ? null : refundCommandItems)
+               .faultType(request.faultType() != null ? com.fooddelivery.order.enums.FaultType.valueOf(request.faultType()) : com.fooddelivery.order.enums.FaultType.UNKNOWN)
+               .destination(com.fooddelivery.common.enums.RefundDestination.ORIGINAL_METHOD)
+               .initiatorType(com.fooddelivery.order.enums.InitiatorType.ADMIN)
+               .initiatorId(adminId)
+               .ticketId(ticketId)
+               .reasonCode("ADMIN_RESOLUTION")
+               .idempotencyKey("admin_resolve_" + ticketId)
+               .build();
+            refundService.request(cmd);
         } else {
             ticket.setStatus(SupportTicket.TicketStatus.REJECTED);
         }

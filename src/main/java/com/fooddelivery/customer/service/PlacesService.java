@@ -14,23 +14,23 @@ public class PlacesService {
 
     private final MapsServiceClient mapsClient;
 
-    public List<Map<String, Object>> autocomplete(String input) {
+    public List<com.fooddelivery.common.dto.maps.PlaceAutocompleteDto> autocomplete(String input) {
         log.info("Requesting autocomplete for input: {} from MapsIntegration", input);
         try {
             return mapsClient.autocomplete(input);
         } catch (Exception e) {
             log.error("Failed to fetch autocomplete results", e);
-            return Collections.emptyList();
+            throw new IllegalStateException("Maps integration failed to provide autocomplete results", e);
         }
     }
 
-    public Map<String, Object> reverseGeocode(double lat, double lng) {
+    public com.fooddelivery.common.dto.maps.PlaceGeocodeDto reverseGeocode(double lat, double lng) {
         log.info("Requesting reverse geocode for lat: {}, lng: {} from MapsIntegration", lat, lng);
         try {
             return mapsClient.reverseGeocode(lat, lng);
         } catch (Exception e) {
             log.error("Failed to fetch reverse geocode results", e);
-            return Collections.emptyMap();
+            throw new IllegalStateException("Maps integration failed to provide reverse geocode results", e);
         }
     }
 

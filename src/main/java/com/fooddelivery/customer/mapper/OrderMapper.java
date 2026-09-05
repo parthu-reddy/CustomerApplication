@@ -29,17 +29,14 @@ public class OrderMapper {
             .reduce(BigDecimal.ZERO, BigDecimal::add);
             
         BigDecimal itemTotal = order.getItemTotal() != null ? order.getItemTotal() : calculatedItemTotal;
-        BigDecimal sgst = order.getSgst() != null ? order.getSgst() : BigDecimal.ZERO;
-        BigDecimal cgst = order.getCgst() != null ? order.getCgst() : BigDecimal.ZERO;
-        BigDecimal deliveryFee = order.getDeliveryFee() != null ? order.getDeliveryFee() : BigDecimal.ZERO;
-        BigDecimal customerPlatformFee = order.getCustomerPlatformFee() != null ? order.getCustomerPlatformFee() : BigDecimal.ZERO;
-        BigDecimal restaurantPlatformFee = order.getRestaurantPlatformFee() != null ? order.getRestaurantPlatformFee() : BigDecimal.ZERO;
-        BigDecimal platformBonus = order.getPlatformBonus() != null ? order.getPlatformBonus() : BigDecimal.ZERO;
-        BigDecimal restaurantDeliveryContribution = order.getRestaurantDeliveryContribution() != null ? order.getRestaurantDeliveryContribution() : BigDecimal.ZERO;
-        BigDecimal restaurantPayout = order.getRestaurantPayout() != null ? order.getRestaurantPayout() : BigDecimal.ZERO;
-        BigDecimal driverGrossPayout = order.getDriverGrossPayout() != null ? order.getDriverGrossPayout() : BigDecimal.ZERO;
-        BigDecimal driverTaxes = order.getDriverTaxes() != null ? order.getDriverTaxes() : BigDecimal.ZERO;
-        BigDecimal driverNetPayout = order.getDriverNetPayout() != null ? order.getDriverNetPayout() : BigDecimal.ZERO;
+        if (order.getSgst() == null || order.getCgst() == null || order.getDeliveryFee() == null || order.getCustomerPlatformFee() == null) {
+            throw new IllegalArgumentException("Order financial fee components (SGST, CGST, DeliveryFee, PlatformFee) cannot be null");
+        }
+        
+        BigDecimal sgst = order.getSgst();
+        BigDecimal cgst = order.getCgst();
+        BigDecimal deliveryFee = order.getDeliveryFee();
+        BigDecimal customerPlatformFee = order.getCustomerPlatformFee();
 
         return OrderResponse.builder()
             .id(order.getId())
@@ -50,18 +47,10 @@ public class OrderMapper {
             .deliveryStatus(order.getDeliveryStatus())
             .totalAmount(order.getTotalAmount())
             .itemTotal(itemTotal)
-            .foodCost(calculatedItemTotal)
             .customerPlatformFee(customerPlatformFee)
-            .restaurantPlatformFee(restaurantPlatformFee)
-            .platformBonus(platformBonus)
-            .restaurantDeliveryContribution(restaurantDeliveryContribution)
-            .restaurantPayout(restaurantPayout)
             .sgst(sgst)
             .cgst(cgst)
             .deliveryFee(deliveryFee)
-            .driverGrossPayout(driverGrossPayout)
-            .driverTaxes(driverTaxes)
-            .driverNetPayout(driverNetPayout)
             .pickupOtp(order.getPickupOtp())
             .otp(order.getOtp())
             .deliveryAddress(order.getDeliveryAddress())

@@ -31,7 +31,6 @@ public class AdminOrderManualController {
     private final IOrderRepository orderRepository;
     private final com.fooddelivery.common.outbox.repository.OutboxEventRepository outboxEventRepository;
     private final com.fooddelivery.order.service.OrderSagaOrchestrator orderSagaOrchestrator;
-    private final com.fooddelivery.order.service.OrderRefundService orderRefundService;
     private final SupportTicketRepository supportTicketRepository;
 
     @GetMapping
@@ -139,119 +138,14 @@ public class AdminOrderManualController {
             order.setStatus(OrderStatus.CANCELLED);
             order.setCancellationReason(reason);
             orderRepository.save(order);
-            orderRefundService.processRefund(order);
             log.info("Admin forcefully cancelled order {}. Reason: {}", order.getId(), reason);
-            return ResponseEntity.ok(ApiResponse.success("Order forcefully cancelled and refund requested", "Operation successful"));
+            return ResponseEntity.ok(ApiResponse.success("Order forcefully cancelled", "Operation successful"));
         } catch (Exception e) {
             log.error("Error during force cancel", e);
             return ResponseEntity.internalServerError().body(ApiResponse.error("Failed to force cancel order"));
         }
     }
 
-    @PostMapping("/{orderId}/force-refund")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<String>> forceRefund(@PathVariable UUID orderId) {
-        try {
-            Optional<Order> orderOpt = orderRepository.findById(orderId);
-            if (orderOpt.isEmpty()) {
-                return ResponseEntity.notFound().build();
-            }
-            Order order = orderOpt.get();
-            orderRefundService.processRefund(order);
-            log.info("Admin forcefully requested refund for order {}", order.getId());
-            return ResponseEntity.ok(ApiResponse.success("Force refund requested successfully", "Operation successful"));
-        } catch (Exception e) {
-            log.error("Error during force refund", e);
-            return ResponseEntity.internalServerError().body(ApiResponse.error("Failed to force refund"));
-        }
-    }
-    @PostMapping("/{orderId}/refund/partial")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<String>> partialRefund(@PathVariable UUID orderId, @RequestBody Map<String, Object> payload) {
-        try {
-            Optional<Order> orderOpt = orderRepository.findById(orderId);
-            if (orderOpt.isEmpty()) {
-                return ResponseEntity.notFound().build();
-            }
-            Order order = orderOpt.get();
-            Object amountObj = payload.get("amount");
-            if (amountObj == null) {
-                return ResponseEntity.badRequest().body(ApiResponse.error("Amount is required"));
-            }
-            java.math.BigDecimal amount = new java.math.BigDecimal(amountObj.toString());
-            orderRefundService.processPartialRefund(order, amount);
-            log.info("Admin requested partial refund of {} for order {}", amount, order.getId());
-            return ResponseEntity.ok(ApiResponse.success("Partial refund requested successfully", "Operation successful"));
-        } catch (Exception e) {
-            log.error("Error during partial refund", e);
-            return ResponseEntity.internalServerError().body(ApiResponse.error(e.getMessage() != null ? e.getMessage() : "Failed to process partial refund"));
-        }
-    }
-
-    @PostMapping("/{orderId}/refund/post-delivery")
-    @PreAuthorize("hasRole('ADMIN')")
-    @org.springframework.transaction.annotation.Transactional
-    public ResponseEntity<ApiResponse<String>> postDeliveryRefund(@PathVariable UUID orderId, @RequestBody Map<String, Object> payload) throws Exception {
-        Optional<Order> orderOpt = orderRepository.findById(orderId);
-        if (orderOpt.isEmpty()) {
-            return ResponseEntity.notFound().build();
-        }
-        Order order = orderOpt.get();
-        Object amountObj = payload.get("amount");
-        if (amountObj == null) {
-            return ResponseEntity.badRequest().body(ApiResponse.error("Amount is required"));
-        }
-        java.math.BigDecimal amount = new java.math.BigDecimal(amountObj.toString());
-        
-        Object faultAttributionObj = payload.get("faultAttribution");
-        String faultAttributionStr = faultAttributionObj != null ? faultAttributionObj.toString().toUpperCase() : "PLATFORM";
-        
-        com.fooddelivery.order.enums.FaultAttribution faultAttribution;
-        try {
-            faultAttribution = com.fooddelivery.order.enums.FaultAttribution.valueOf(faultAttributionStr);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error("Invalid faultAttribution. Must be RESTAURANT, DRIVER, or PLATFORM"));
-        }
-        
-        // Process the refund to the customer
-        orderRefundService.processPartialRefund(order, amount, com.fooddelivery.common.enums.RefundDestination.GATEWAY);
-        
-        // If fault lies with the restaurant or driver, publish a REVERSAL_GENERATED event to debit their earnings
-        if (faultAttribution != com.fooddelivery.order.enums.FaultAttribution.PLATFORM) {
-            UUID entityId = null;
-            if (faultAttribution == com.fooddelivery.order.enums.FaultAttribution.RESTAURANT && order.getRestaurantId() != null) {
-                entityId = order.getRestaurantId();
-            } else if (faultAttribution == com.fooddelivery.order.enums.FaultAttribution.DRIVER && order.getDeliveryExecutiveId() != null) {
-                entityId = order.getDeliveryExecutiveId();
-            }
-            
-            if (entityId != null) {
-                Map<String, Object> eventPayload = new HashMap<>();
-                eventPayload.put("entityId", entityId.toString());
-                eventPayload.put("entityType", faultAttribution.name());
-                eventPayload.put("amount", amount.toString());
-                eventPayload.put("referenceId", "REV_" + order.getId().toString() + "_" + System.currentTimeMillis());
-                eventPayload.put("description", "Reversal for order " + order.getId() + " due to post-delivery refund");
-                eventPayload.put("chargeCategory", com.fooddelivery.common.enums.ChargeCategory.REFUND.name());
-                eventPayload.put("eventType", com.fooddelivery.common.constants.EventType.REVERSAL_GENERATED.name());
-                
-                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-                String jsonMessage = mapper.writeValueAsString(eventPayload);
-                com.fooddelivery.common.outbox.entity.OutboxEventEntity outboxEvent = com.fooddelivery.common.outbox.entity.OutboxEventEntity.builder()
-                    .id(java.util.UUID.randomUUID())
-                    .aggregateType(com.fooddelivery.common.constants.AggregateType.WALLET)
-                    .aggregateId(order.getId().toString())
-                    .eventType(com.fooddelivery.common.constants.EventType.REVERSAL_GENERATED)
-                    .payload(jsonMessage)
-                    .createdAt(java.time.LocalDateTime.now())
-                    .build();
-                outboxEventRepository.save(outboxEvent);
-            }
-        }
-        
-        log.info("Admin requested post-delivery refund of {} for order {}. Fault: {}", amount, order.getId(), faultAttribution);
-        return ResponseEntity.ok(ApiResponse.success("Post-delivery refund requested successfully", "Operation successful"));
-    }
 
 
     // ==================== SUPPORT TICKET MANAGEMENT ====================

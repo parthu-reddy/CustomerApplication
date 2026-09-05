@@ -58,7 +58,7 @@ public class MapsContractConsumerTest {
 
     @Test
     public void shouldReverseGeocode() {
-        Map<String, Object> response = mapsServiceClient.reverseGeocode(12.9715987, 77.5945627);
+        com.fooddelivery.common.dto.maps.PlaceGeocodeDto response = mapsServiceClient.reverseGeocode(12.9715987, 77.5945627);
         assertNotNull(response);
     }
 }

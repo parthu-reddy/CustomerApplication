@@ -67,7 +67,7 @@ public class CustomerContractConsumerTest {
 
     @Test
     public void testGetNearbyRestaurants() {
-        ApiResponse<List<Object>> response = restaurantClient.getNearbyRestaurants(12.9716, 77.5946, 5.0);
+        ApiResponse<List<com.fooddelivery.customer.dto.RestaurantDto>> response = restaurantClient.getNearbyRestaurants(12.9716, 77.5946, 5.0);
         assertNotNull(response);
         assertTrue(response.isSuccess());
         assertNotNull(response.getData());
@@ -75,7 +75,7 @@ public class CustomerContractConsumerTest {
 
     @Test
     public void testGetBrandOutlets() {
-        ApiResponse<List<Object>> response = restaurantClient.getBrandOutlets(UUID.fromString("123e4567-e89b-12d3-a456-426614174000"), 12.9716, 77.5946, 5.0);
+        ApiResponse<List<com.fooddelivery.customer.dto.RestaurantDto>> response = restaurantClient.getBrandOutlets(UUID.fromString("123e4567-e89b-12d3-a456-426614174000"), 12.9716, 77.5946, 5.0);
         assertNotNull(response);
         assertTrue(response.isSuccess());
     }

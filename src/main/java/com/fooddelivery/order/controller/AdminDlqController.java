@@ -15,11 +15,10 @@ import java.util.Map;
 public class AdminDlqController {
     
 
-    private final KafkaTemplate<String, String> kafkaTemplate;
-    private final com.fooddelivery.order.repository.IPaymentIntentRepository paymentIntentRepository;
-    private final com.fooddelivery.order.service.OrderSagaOrchestrator orderSagaOrchestrator;
-    private final com.fooddelivery.order.service.OrderRefundService orderRefundService;
     private final com.fooddelivery.order.repository.IOrderRepository orderRepository;
+    private final com.fooddelivery.order.repository.RefundRepository refundRepository;
+    private final com.fooddelivery.order.refund.RefundService refundService;
+    private final KafkaTemplate<String, String> kafkaTemplate;
 
     /**
      * Allows an admin to manually retry a failed Kafka event by providing its payload.
@@ -67,45 +66,28 @@ public class AdminDlqController {
         }
     }
 
-    @PostMapping("/refunds/{orderId}/retry")
+    @PostMapping("/refunds/{refundId}/retry")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<String>> retryRefund(@PathVariable java.util.UUID orderId) {
+    public ResponseEntity<ApiResponse<String>> retryRefund(@PathVariable java.util.UUID refundId) {
         try {
-            com.fooddelivery.order.entity.PaymentIntent intent = paymentIntentRepository.findByInternalOrderIdForUpdate(orderId)
-                    .orElseThrow(() -> new IllegalArgumentException("PaymentIntent not found for orderId: " + orderId));
+            com.fooddelivery.order.entity.Refund refund = refundRepository.findById(refundId)
+                    .orElseThrow(() -> new IllegalArgumentException("Refund not found for ID: " + refundId));
             
-            if (intent.getStatus() != com.fooddelivery.common.constants.PaymentIntentStatus.REFUND_FAILED) {
-                return ResponseEntity.badRequest().body(ApiResponse.error("Refund can only be retried if status is REFUND_FAILED. Current status: " + intent.getStatus()));
+            if (refund.getStatus() != com.fooddelivery.common.enums.RefundStatus.FAILED) {
+                return ResponseEntity.badRequest().body(ApiResponse.error("Refund can only be retried if status is FAILED. Current status: " + refund.getStatus()));
             }
             
-            log.info("Admin manually retrying refund for orderId: {}", orderId);
+            log.info("Admin manually retrying refund for ID: {}", refundId);
             
-            // Reset retry count to allow Sweeper or immediate processing
-            intent.setRetryCount(0);
-            paymentIntentRepository.save(intent);
+            refund.setStatus(com.fooddelivery.common.enums.RefundStatus.PROCESSING);
+            refund.setFailureReason(null);
+            refundRepository.save(refund);
             
-            com.fooddelivery.order.entity.Order order = orderRepository.findById(orderId)
-                    .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderId));
-                    
-            if (order.getStatus() == com.fooddelivery.common.enums.OrderStatus.CANCELLED || 
-                order.getStatus() == com.fooddelivery.common.enums.OrderStatus.CANCELLED_BY_RESTAURANT) {
-                orderRefundService.processRefund(order);
-                return ResponseEntity.ok(ApiResponse.success("Refund process initiated successfully", "Successfully queued for retry"));
-            } else if (order.getDeliveryStatus() == com.fooddelivery.common.enums.DeliveryStatus.DELIVERED) {
-                // Determine if it was a partial refund or full post-delivery refund
-                // Actually, if it failed it's either in processRefund or processPartialRefund. 
-                // Admin can trigger processRefund but processRefund also handles DELIVERED.
-                // Wait, processRefund expects cancelled orders or delivered orders. 
-                // If it's a partial refund, processPartialRefund takes an amount. We don't have the amount here easily.
-                // But for now, we just reset retryCount and let Sweeper or manual trigger handle it if we know the amount.
-                // For full refunds, processRefund(order) works for delivered too.
-                orderRefundService.processRefund(order);
-                return ResponseEntity.ok(ApiResponse.success("Post-delivery refund process initiated successfully", "Successfully queued for retry"));
-            } else {
-                return ResponseEntity.badRequest().body(ApiResponse.error("Cannot auto-retry refund for order in status: " + order.getStatus()));
-            }
+            refundService.retryStuck(); // Triggers the sweeper logic to pick up the newly set PROCESSING refund
+            
+            return ResponseEntity.ok(ApiResponse.success("Refund process initiated successfully", "Successfully queued for retry"));
         } catch (Exception e) {
-            log.error("Failed to retry refund for order {}", orderId, e);
+            log.error("Failed to retry refund {}", refundId, e);
             return ResponseEntity.badRequest().body(ApiResponse.error("Failed to retry refund: " + e.getMessage()));
         }
     }
@@ -117,26 +99,23 @@ public class AdminDlqController {
             @RequestParam(defaultValue = "20") int size) {
         
         org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
-        org.springframework.data.domain.Page<com.fooddelivery.order.entity.PaymentIntent> intentsPage = 
-            paymentIntentRepository.findByStatus(com.fooddelivery.common.constants.PaymentIntentStatus.REFUND_FAILED, pageable);
+        org.springframework.data.domain.Page<com.fooddelivery.order.entity.Refund> refundsPage = 
+            refundRepository.findByStatus(com.fooddelivery.common.enums.RefundStatus.FAILED, pageable);
         
-        org.springframework.data.domain.Page<Map<String, Object>> response = intentsPage.map(intent -> {
+        org.springframework.data.domain.Page<Map<String, Object>> response = refundsPage.map(refund -> {
             Map<String, Object> map = new java.util.HashMap<>();
-            map.put("paymentIntentId", intent.getId());
-            map.put("orderId", intent.getInternalOrderId());
-            map.put("amount", intent.getAmount());
-            map.put("status", intent.getStatus());
-            map.put("retryCount", intent.getRetryCount());
-            map.put("createdAt", intent.getCreatedAt());
+            map.put("refundId", refund.getId());
+            map.put("orderId", refund.getOrderId());
+            map.put("amount", refund.getAmount());
+            map.put("status", refund.getStatus());
+            map.put("errorMessage", refund.getFailureReason());
+            map.put("createdAt", refund.getCreatedAt());
 
-            
-            // Try to fetch order details
-            orderRepository.findById(intent.getInternalOrderId()).ifPresent(order -> {
-                map.put("customerName", order.getCustomerId()); // Fallback customer name logic
+            orderRepository.findById(refund.getOrderId()).ifPresent(order -> {
+                map.put("customerName", order.getCustomerId()); 
                 map.put("restaurantId", order.getRestaurantId());
                 map.put("orderStatus", order.getStatus());
                 map.put("totalAmount", order.getTotalAmount());
-                map.put("refundedAmount", order.getRefundedAmount());
             });
             return map;
         });

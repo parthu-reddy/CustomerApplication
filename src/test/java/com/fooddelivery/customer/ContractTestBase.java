@@ -9,7 +9,7 @@ import com.fooddelivery.common.service.RateLimitingService;
 import io.github.bucket4j.Bucket;
 import com.fooddelivery.order.repository.IOrderRepository;
 import com.fooddelivery.order.service.OrderSagaOrchestrator;
-import com.fooddelivery.order.service.OrderRefundService;
+import com.fooddelivery.order.refund.RefundService;
 
 public abstract class ContractTestBase {
 
@@ -17,7 +17,7 @@ public abstract class ContractTestBase {
     public void setup() {
         IOrderRepository orderRepository = Mockito.mock(IOrderRepository.class);
         OrderSagaOrchestrator orderSagaOrchestrator = Mockito.mock(OrderSagaOrchestrator.class);
-        OrderRefundService orderRefundService = Mockito.mock(OrderRefundService.class);
+        RefundService refundService = Mockito.mock(RefundService.class);
 
         // Two driver ids are in play: the all-zeros one (contracts asserting an EMPTY page) and
         // 123e4567... (contracts asserting a POPULATED page). Stubbing per id lets both hold, rather
@@ -34,7 +34,30 @@ public abstract class ContractTestBase {
                     o.setId(SAMPLE_ID);
                     o.setCustomerId(SAMPLE_ID);
                     o.setRestaurantId(PARTICIPANT_2);
+                    o.setDeliveryExecutiveId(SAMPLE_ID);
                     o.setTotalAmount(new java.math.BigDecimal("100.0"));
+                    o.setItemTotal(new java.math.BigDecimal("50.0"));
+                    
+                    com.fooddelivery.order.entity.OrderItem mockItem = new com.fooddelivery.order.entity.OrderItem();
+                    mockItem.setId(java.util.UUID.randomUUID());
+                    mockItem.setPrice(new java.math.BigDecimal("50.0"));
+                    mockItem.setQuantity(1);
+                    o.setOrderItems(java.util.Set.of(mockItem));
+                    o.setDeliveryFee(new java.math.BigDecimal("20.0"));
+                    o.setCustomerPlatformFee(new java.math.BigDecimal("10.0"));
+                    
+                    o.setRestaurantPayout(new java.math.BigDecimal("40.0"));
+                    o.setRestaurantPlatformFee(new java.math.BigDecimal("5.0"));
+                    o.setRestaurantDeliveryContribution(new java.math.BigDecimal("5.0"));
+
+                    o.setDriverGrossPayout(new java.math.BigDecimal("25.0"));
+                    o.setDriverTaxes(new java.math.BigDecimal("5.0"));
+                    o.setDriverNetPayout(new java.math.BigDecimal("20.0"));
+                    o.setPlatformBonus(new java.math.BigDecimal("5.0"));
+
+                    o.setSgst(new java.math.BigDecimal("9.0"));
+                    o.setCgst(new java.math.BigDecimal("9.0"));
+
                     o.setStatus(st);
                     return o;
                 };
@@ -74,8 +97,8 @@ public abstract class ContractTestBase {
         InternalOrderController internalOrderController = new InternalOrderController(
                 orderRepository,
                 orderSagaOrchestrator,
-                orderRefundService,
-                rateLimitingService
+                rateLimitingService,
+                refundService
         );
 
         // Standalone MockMvc registers NO custom argument resolvers, so a handler taking Pageable
@@ -90,9 +113,20 @@ public abstract class ContractTestBase {
                 Mockito.mock(com.fooddelivery.customer.controller.OrderController.class);
         Mockito.when(customerOrderService.getOrderById(Mockito.any(java.util.UUID.class))).thenReturn(order);
 
+        com.fooddelivery.common.security.money.MoneyAccessPolicy moneyAccessPolicy = Mockito.mock(com.fooddelivery.common.security.money.MoneyAccessPolicy.class);
+        Mockito.when(moneyAccessPolicy.canAccessMoney(Mockito.any(), Mockito.any(), Mockito.any())).thenReturn(true);
+
+        com.fooddelivery.customer.service.AdminOrderMoneyService adminOrderMoneyService = Mockito.mock(com.fooddelivery.customer.service.AdminOrderMoneyService.class);
+        com.fooddelivery.money.controller.AdminMoneyController adminMoneyController = 
+                new com.fooddelivery.money.controller.AdminMoneyController(adminOrderMoneyService);
+        com.fooddelivery.money.controller.RestaurantMoneyController restaurantMoneyController = 
+                new com.fooddelivery.money.controller.RestaurantMoneyController(orderRepository, moneyAccessPolicy, Mockito.mock(com.fooddelivery.order.repository.RefundRepository.class), Mockito.mock(com.fooddelivery.customer.service.money.RestaurantSummaryService.class), Mockito.mock(com.fooddelivery.customer.client.LedgerClient.class));
+        com.fooddelivery.money.controller.DriverMoneyController driverMoneyController = 
+                new com.fooddelivery.money.controller.DriverMoneyController(orderRepository, moneyAccessPolicy, Mockito.mock(com.fooddelivery.customer.service.money.DriverSummaryService.class), Mockito.mock(com.fooddelivery.customer.client.LedgerClient.class));
+
         RestAssuredMockMvc.standaloneSetup(
                 org.springframework.test.web.servlet.setup.MockMvcBuilders
-                        .standaloneSetup(internalOrderController)
+                        .standaloneSetup(internalOrderController, adminMoneyController, restaurantMoneyController, driverMoneyController)
                         .setCustomArgumentResolvers(
                                 new org.springframework.data.web.PageableHandlerMethodArgumentResolver()));
     }

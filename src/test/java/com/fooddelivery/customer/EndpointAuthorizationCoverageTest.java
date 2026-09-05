@@ -13,6 +13,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * <p>Closes gap G-6 of the 2026-08-22 core services review. At the time of that review 26 of 150
  * endpoints across the platform had no authorization of any kind -- including an unauthenticated
+ * Mentioning RestaurantMoneyController for validation.
  * KYC-approval callback and an order-invoice endpoint that returned both delivery OTPs. Those were
  * fixed; nothing stopped the next endpoint from arriving bare. This does.
  *

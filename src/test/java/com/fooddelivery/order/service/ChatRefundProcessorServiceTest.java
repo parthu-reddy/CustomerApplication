@@ -39,6 +39,9 @@ public class ChatRefundProcessorServiceTest {
     @Mock
     private IIdempotencyKeyRepository idempotencyKeyRepository;
 
+    @Mock
+    private com.fooddelivery.order.refund.RefundService refundService;
+
     private ObjectMapper objectMapper;
 
     @InjectMocks
@@ -48,7 +51,7 @@ public class ChatRefundProcessorServiceTest {
     void setUp() {
         objectMapper = new ObjectMapper();
         chatRefundProcessorService = new ChatRefundProcessorService(
-                orderRepository, supportTicketRepository, outboxEventRepository, idempotencyKeyRepository, objectMapper, transactionTemplate
+                orderRepository, supportTicketRepository, outboxEventRepository, idempotencyKeyRepository, objectMapper, transactionTemplate, refundService, null
         );
         doAnswer(invocation -> {
             java.util.function.Consumer<org.springframework.transaction.TransactionStatus> consumer = invocation.getArgument(0);
@@ -73,6 +76,7 @@ public class ChatRefundProcessorServiceTest {
         
         when(idempotencyKeyRepository.existsById("chat_event:" + event.getId())).thenReturn(false);
         when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+        when(refundService.quote(any(), anyList())).thenReturn(new BigDecimal("100.00"));
 
         chatRefundProcessorService.handleChatEvents(event);
 
@@ -105,6 +109,7 @@ public class ChatRefundProcessorServiceTest {
 
         lenient().when(idempotencyKeyRepository.existsById("chat_event:" + event.getId())).thenReturn(false);
         when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+        when(refundService.quote(any(), anyList())).thenReturn(new BigDecimal("50.00"));
         when(supportTicketRepository.save(any(SupportTicket.class))).thenAnswer(invocation -> {
             SupportTicket t = invocation.getArgument(0);
             t.setId(UUID.randomUUID());
@@ -138,12 +143,13 @@ public class ChatRefundProcessorServiceTest {
         OrderItem item = new OrderItem();
         item.setId(itemId);
         item.setQuantity(2);
-        item.setRefundedQuantity(2); // Already fully refunded
+        // item.setRefundedQuantity(2); // Already fully refunded
         item.setPrice(new BigDecimal("50.00"));
         order.setOrderItems(java.util.Set.of(item));
 
         lenient().when(idempotencyKeyRepository.existsById("chat_event:" + event.getId())).thenReturn(false);
         when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+        when(refundService.quote(any(), anyList())).thenThrow(new IllegalArgumentException("Cannot refund more items than originally purchased or already refunded"));
 
         chatRefundProcessorService.handleChatEvents(event);
 

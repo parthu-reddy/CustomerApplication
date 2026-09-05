@@ -29,9 +29,10 @@ public class RestaurantTimeoutSweeper {
     private final IOrderRepository orderRepository;
     private final OrderActionService orderActionService;
     private final OrderSagaOrchestrator orderSagaOrchestrator;
-    private final com.fooddelivery.order.service.OrderRefundService orderRefundService;
+
     private final TransactionTemplate transactionTemplate;
     private final StringRedisTemplate redisTemplate;
+    private final com.fooddelivery.order.refund.RefundService refundService;
 
     @Scheduled(fixedDelay = 60000)
     public void sweepStalePaidOrders() {
@@ -112,8 +113,16 @@ public class RestaurantTimeoutSweeper {
                 return false;
             }));
             if (refundNeeded) {
-                // Process refund outside the transaction lock to avoid hanging on HTTP calls
-                orderRefundService.processRefund(order);
+                com.fooddelivery.order.refund.RefundCommand cmd = com.fooddelivery.order.refund.RefundCommand.builder()
+                        .orderId(order.getId())
+                        .amount(order.getTotalAmount())
+                        .faultType(com.fooddelivery.order.enums.FaultType.RESTAURANT_FAULT)
+                        .destination(com.fooddelivery.common.enums.RefundDestination.ORIGINAL_METHOD)
+                        .initiatorType(com.fooddelivery.order.enums.InitiatorType.SYSTEM)
+                        .reasonCode("AUTO_CANCEL_STALE")
+                        .idempotencyKey("sweep_stale_" + order.getId())
+                        .build();
+                refundService.request(cmd);
             }
         } catch (Exception e) {
             log.error("Failed to auto-cancel timeout order {}", order.getId(), e);
@@ -137,7 +146,16 @@ public class RestaurantTimeoutSweeper {
                 return false;
             }));
             if (refundNeeded) {
-                orderRefundService.processRefund(order);
+                com.fooddelivery.order.refund.RefundCommand cmd = com.fooddelivery.order.refund.RefundCommand.builder()
+                        .orderId(order.getId())
+                        .amount(order.getTotalAmount())
+                        .faultType(com.fooddelivery.order.enums.FaultType.RESTAURANT_FAULT)
+                        .destination(com.fooddelivery.common.enums.RefundDestination.ORIGINAL_METHOD)
+                        .initiatorType(com.fooddelivery.order.enums.InitiatorType.SYSTEM)
+                        .reasonCode("AUTO_CANCEL_STUCK")
+                        .idempotencyKey("sweep_stuck_" + order.getId())
+                        .build();
+                refundService.request(cmd);
             }
         } catch (Exception e) {
             log.error("Failed to auto-cancel stuck order {}", order.getId(), e);

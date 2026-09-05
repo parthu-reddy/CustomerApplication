@@ -22,13 +22,15 @@ public class PlacesController {
     private final PlacesService placesService;
 
     @GetMapping("/autocomplete")
-    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> autocomplete(@RequestParam String input) {
-        return ResponseEntity.ok(ApiResponse.success(placesService.autocomplete(input), "Places retrieved"));
+    public ResponseEntity<ApiResponse<List<com.fooddelivery.common.dto.maps.PlaceAutocompleteDto>>> autocomplete(@RequestParam String input) {
+        List<com.fooddelivery.common.dto.maps.PlaceAutocompleteDto> results = placesService.autocomplete(input);
+        return ResponseEntity.ok(ApiResponse.success(results, "Success"));
     }
 
     @GetMapping("/reverse-geocode")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> reverseGeocode(@RequestParam double lat, @RequestParam double lng) {
-        return ResponseEntity.ok(ApiResponse.success(placesService.reverseGeocode(lat, lng), "Address retrieved"));
+    public ResponseEntity<ApiResponse<com.fooddelivery.common.dto.maps.PlaceGeocodeDto>> reverseGeocode(@RequestParam double lat, @RequestParam double lng) {
+        com.fooddelivery.common.dto.maps.PlaceGeocodeDto result = placesService.reverseGeocode(lat, lng);
+        return ResponseEntity.ok(ApiResponse.success(result, "Success"));
     }
 
     

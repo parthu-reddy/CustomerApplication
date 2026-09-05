@@ -70,8 +70,8 @@ class PaymentEventConsumerContractTest {
     @MockBean private com.fooddelivery.order.repository.IOrderRepository orderRepository;
     @MockBean private com.fooddelivery.order.service.state.OrderActionService orderActionService;
     @MockBean private com.fooddelivery.common.outbox.repository.OutboxEventRepository outboxEventRepository;
-    @MockBean private com.fooddelivery.order.service.OrderRefundService orderRefundService;
-
+    @MockBean private com.fooddelivery.order.refund.RefundService refundService;
+    @MockBean private com.fooddelivery.order.ledger.LedgerBookkeeper ledgerBookkeeper;
     @Autowired
     private StubTrigger stubTrigger;
 
