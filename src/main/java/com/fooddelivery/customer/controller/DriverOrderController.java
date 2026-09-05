@@ -115,7 +115,7 @@ public class DriverOrderController {
         if (order.getOrderItems() != null) {
             itemResponses = order.getOrderItems().stream().map(item -> OrderItemResponse.builder().id(item.getId()).menuItemId(item.getMenuItemId()).quantity(item.getQuantity()).price(item.getPrice()).build()).collect(Collectors.toList());
         }
-        return OrderResponse.builder().id(order.getId()).customerId(order.getCustomerId()).restaurantId(order.getRestaurantId()).restaurantName(order.getRestaurantName()).status(order.getStatus()).deliveryStatus(order.getDeliveryStatus()).totalAmount(order.getTotalAmount()).deliveryAddress(order.getDeliveryAddress()).deliveryLat(order.getDeliveryLat()).deliveryLng(order.getDeliveryLng()).items(itemResponses).createdAt(order.getCreatedAt()).updatedAt(order.getUpdatedAt()).riderId(order.getDeliveryExecutiveId()).otp(order.getOtp()).pickupOtp(order.getPickupOtp()).estimatedCompletionTime(order.getEstimatedCompletionTime()).build();
+        return OrderResponse.builder().id(order.getId()).customerId(order.getCustomerId()).customerName(order.getCustomerName()).restaurantId(order.getRestaurantId()).restaurantName(order.getRestaurantName()).status(order.getStatus()).deliveryStatus(order.getDeliveryStatus()).totalAmount(order.getTotalAmount()).deliveryAddress(order.getDeliveryAddress()).deliveryLat(order.getDeliveryLat()).deliveryLng(order.getDeliveryLng()).items(itemResponses).createdAt(order.getCreatedAt()).updatedAt(order.getUpdatedAt()).riderId(order.getDeliveryExecutiveId()).otp(order.getOtp()).pickupOtp(order.getPickupOtp()).estimatedCompletionTime(order.getEstimatedCompletionTime()).build();
     }
 
     

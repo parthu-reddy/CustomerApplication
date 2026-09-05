@@ -18,7 +18,7 @@ public class InternalOrderRefundController {
 
     @PostMapping("/{orderId}/partial-refund")
     @PreAuthorize("hasAnyRole('SERVICE', 'ADMIN')")
-    public ResponseEntity<RefundView> initiatePartialRefund(
+    public ResponseEntity<com.fooddelivery.common.dto.ApiResponse<String>> initiatePartialRefund(
             @PathVariable("orderId") UUID orderId,
             @RequestBody RefundCommand command) {
         
@@ -34,6 +34,6 @@ public class InternalOrderRefundController {
         }
         
         RefundView view = refundService.request(command);
-        return ResponseEntity.ok(view);
+        return ResponseEntity.ok(com.fooddelivery.common.dto.ApiResponse.success("Partial refund requested successfully", "Partial refund requested successfully"));
     }
 }

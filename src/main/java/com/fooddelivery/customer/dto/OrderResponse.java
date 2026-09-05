@@ -25,8 +25,10 @@ public class OrderResponse {
     @NotNull
     private com.fooddelivery.common.enums.DeliveryStatus deliveryStatus;
     @NotNull
+    @com.fasterxml.jackson.annotation.JsonProperty("total")
     private BigDecimal totalAmount;
     @NotNull
+    @com.fasterxml.jackson.annotation.JsonProperty("subtotal")
     private BigDecimal itemTotal;
 
     @NotNull
@@ -49,6 +51,8 @@ public class OrderResponse {
     private LocalDateTime updatedAt;
     private UUID riderId;
     private UUID deliveryExecutiveId;
+    private String customerName;
+    private String deliveryExecutiveName;
     private String paymentIntent;
     private String pickupOtp;
     private String otp;

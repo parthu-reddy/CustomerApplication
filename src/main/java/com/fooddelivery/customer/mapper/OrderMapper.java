@@ -43,6 +43,7 @@ public class OrderMapper {
             .customerId(order.getCustomerId())
             .restaurantId(order.getRestaurantId())
             .restaurantName(order.getRestaurantName())
+            .customerName(order.getCustomerName())
             .status(order.getStatus())
             .deliveryStatus(order.getDeliveryStatus())
             .totalAmount(order.getTotalAmount())

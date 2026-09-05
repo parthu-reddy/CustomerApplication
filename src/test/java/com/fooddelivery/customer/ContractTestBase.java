@@ -117,16 +117,37 @@ public abstract class ContractTestBase {
         Mockito.when(moneyAccessPolicy.canAccessMoney(Mockito.any(), Mockito.any(), Mockito.any())).thenReturn(true);
 
         com.fooddelivery.customer.service.AdminOrderMoneyService adminOrderMoneyService = Mockito.mock(com.fooddelivery.customer.service.AdminOrderMoneyService.class);
+        com.fooddelivery.customer.dto.AdminOrderMoney mockMoney = new com.fooddelivery.customer.dto.AdminOrderMoney();
+        mockMoney.setOrderId(SAMPLE_ID);
+        mockMoney.setTotalAmount(new java.math.BigDecimal("100.0"));
+        mockMoney.setFoodCost(new java.math.BigDecimal("50.0"));
+        mockMoney.setDeliveryFee(new java.math.BigDecimal("20.0"));
+        mockMoney.setCustomerPlatformFee(new java.math.BigDecimal("10.0"));
+        mockMoney.setRestaurantPayout(new java.math.BigDecimal("40.0"));
+        mockMoney.setRestaurantPlatformFee(new java.math.BigDecimal("5.0"));
+        mockMoney.setDriverGrossPayout(new java.math.BigDecimal("25.0"));
+        mockMoney.setDriverNetPayout(new java.math.BigDecimal("20.0"));
+        mockMoney.setSgst(new java.math.BigDecimal("9.0"));
+        mockMoney.setCgst(new java.math.BigDecimal("9.0"));
+        Mockito.when(adminOrderMoneyService.getOrderMoney(Mockito.any(java.util.UUID.class))).thenReturn(mockMoney);
         com.fooddelivery.money.controller.AdminMoneyController adminMoneyController = 
                 new com.fooddelivery.money.controller.AdminMoneyController(adminOrderMoneyService);
         com.fooddelivery.money.controller.RestaurantMoneyController restaurantMoneyController = 
                 new com.fooddelivery.money.controller.RestaurantMoneyController(orderRepository, moneyAccessPolicy, Mockito.mock(com.fooddelivery.order.repository.RefundRepository.class), Mockito.mock(com.fooddelivery.customer.service.money.RestaurantSummaryService.class), Mockito.mock(com.fooddelivery.customer.client.LedgerClient.class));
         com.fooddelivery.money.controller.DriverMoneyController driverMoneyController = 
                 new com.fooddelivery.money.controller.DriverMoneyController(orderRepository, moneyAccessPolicy, Mockito.mock(com.fooddelivery.customer.service.money.DriverSummaryService.class), Mockito.mock(com.fooddelivery.customer.client.LedgerClient.class));
+        com.fooddelivery.customer.controller.InternalOrderRefundController internalOrderRefundController = 
+                new com.fooddelivery.customer.controller.InternalOrderRefundController(refundService);
+
+        com.fooddelivery.order.refund.RefundView mockRefund = new com.fooddelivery.order.refund.RefundView();
+        mockRefund.setId(java.util.UUID.randomUUID());
+        mockRefund.setOrderId(SAMPLE_ID);
+        mockRefund.setAmount(new java.math.BigDecimal("50.0"));
+        Mockito.when(refundService.request(Mockito.any())).thenReturn(mockRefund);
 
         RestAssuredMockMvc.standaloneSetup(
                 org.springframework.test.web.servlet.setup.MockMvcBuilders
-                        .standaloneSetup(internalOrderController, adminMoneyController, restaurantMoneyController, driverMoneyController)
+                        .standaloneSetup(internalOrderController, internalOrderRefundController, adminMoneyController, restaurantMoneyController, driverMoneyController)
                         .setCustomArgumentResolvers(
                                 new org.springframework.data.web.PageableHandlerMethodArgumentResolver()));
     }
