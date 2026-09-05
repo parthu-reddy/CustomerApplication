@@ -48,7 +48,7 @@ public class LedgerBookkeeperTest {
 
         OutboxEventEntity saved = captor.getValue();
         assertEquals("LEDGER", saved.getAggregateType().name());
-        assertTrue(saved.getPayload().contains("CREDIT_CARD"));
+        assertTrue(saved.getPayload().contains("GATEWAY_RECEIVABLE"));
     }
 
     @Test
