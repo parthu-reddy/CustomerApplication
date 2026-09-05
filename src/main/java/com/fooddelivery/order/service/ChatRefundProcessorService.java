@@ -234,6 +234,7 @@ public class ChatRefundProcessorService {
         });
     }
 
+    @org.springframework.transaction.annotation.Transactional
     private void publishErrorEvent(String chatSessionId, String errorMessage) {
         try {
             Map<String, Object> errorMap = new HashMap<>();
