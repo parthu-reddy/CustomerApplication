@@ -34,25 +34,18 @@ public class CustomerRestaurantController {
         ApiResponse<List<com.fooddelivery.customer.dto.RestaurantDto>> response = restaurantClient.getNearbyRestaurants(lat, lng, radius);
         // Fetch ads from AdvertisementService (BiddingEngine)
         try {
-            Map<String, Object> bidRequest = new java.util.HashMap<>();
-            bidRequest.put("id", java.util.UUID.randomUUID().toString());
-            Map<String, Object> imp = new java.util.HashMap<>();
-            imp.put("id", "1");
-            bidRequest.put("imp", java.util.List.of(imp));
-            Map<String, Object> user = new java.util.HashMap<>();
-            user.put("geo", "US"); // simplified
-            bidRequest.put("user", user);
-            Object adResponse = advertisementClient.fetchAds(bidRequest);
-            if (adResponse != null && response.getData() != null) {
-                // If we get an ad, extract the ad content and inject it at the top of the restaurant list
+            com.fooddelivery.customer.dto.AdRequestDTO adRequest = com.fooddelivery.customer.dto.AdRequestDTO.builder()
+                    .geo("US")
+                    .deviceId(java.util.UUID.randomUUID().toString())
+                    .context("restaurant_listing")
+                    .build();
+            java.util.List<com.fooddelivery.customer.dto.SponsoredListingDTO> adResults = advertisementClient.fetchAds(adRequest);
+            if (adResults != null && !adResults.isEmpty() && response.getData() != null) {
+                com.fooddelivery.customer.dto.SponsoredListingDTO topAd = adResults.get(0);
                 com.fooddelivery.customer.dto.RestaurantDto sponsoredListing = com.fooddelivery.customer.dto.RestaurantDto.builder()
                         .isSponsored(true)
+                        .adData(topAd)
                         .build();
-                if (adResponse instanceof java.util.List && !((java.util.List<?>) adResponse).isEmpty()) {
-                    sponsoredListing.setAdData(((java.util.List<?>) adResponse).get(0));
-                } else {
-                    sponsoredListing.setAdData(adResponse);
-                }
                 // Add to the front of the list
                 List<com.fooddelivery.customer.dto.RestaurantDto> merged = new java.util.ArrayList<>();
                 merged.add(sponsoredListing);
@@ -130,7 +123,7 @@ public class CustomerRestaurantController {
     private final org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
 
     @GetMapping("/{id}/delivery-pricing")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> getDeliveryPricing(@org.springframework.web.bind.annotation.PathVariable java.util.UUID id, @RequestParam java.util.UUID addressId, java.security.Principal principal) {
+    public ResponseEntity<ApiResponse<com.fooddelivery.customer.dto.DeliveryPricingDto>> getDeliveryPricing(@org.springframework.web.bind.annotation.PathVariable java.util.UUID id, @RequestParam java.util.UUID addressId, java.security.Principal principal) {
         com.fooddelivery.customer.entity.CustomerAddress address = customerAddressRepository.findById(addressId).orElseThrow(() -> new IllegalArgumentException("Address not found"));
         // SECURITY CHECK: Verify address belongs to authenticated customer
         if (principal == null || principal.getName() == null || !address.getCustomerId().toString().equals(principal.getName())) {
@@ -203,19 +196,20 @@ if (rLat == null || rLng == null) {
             redisTemplate.opsForValue().set(distanceCacheKey, String.valueOf(distance), 1, java.util.concurrent.TimeUnit.HOURS);
         }
         
-        Map<String, Object> data = new java.util.HashMap<>();
-        data.put("distanceKm", distance);
-        
-        Map<String, Object> configData = new java.util.HashMap<>();
-        configData.put("basePrice", dynamicPricingConfig.getBasePrice());
-        configData.put("perKmRate", dynamicPricingConfig.getPerKmRate());
-        configData.put("restMaxContributionPercent", dynamicPricingConfig.getRestMaxContributionPercent());
-        configData.put("fixedPlatformFee", dynamicPricingConfig.getFixedPlatformFee());
-        configData.put("platformExcessCutPercent", dynamicPricingConfig.getPlatformExcessCutPercent());
-        configData.put("sgstPercent", dynamicPricingConfig.getSgstPercent());
-        configData.put("cgstPercent", dynamicPricingConfig.getCgstPercent());
-        
-        data.put("config", configData);
+        com.fooddelivery.customer.dto.PricingConfigDto configData = com.fooddelivery.customer.dto.PricingConfigDto.builder()
+            .basePrice(dynamicPricingConfig.getBasePrice())
+            .perKmRate(dynamicPricingConfig.getPerKmRate())
+            .restMaxContributionPercent(dynamicPricingConfig.getRestMaxContributionPercent())
+            .fixedPlatformFee(dynamicPricingConfig.getFixedPlatformFee())
+            .platformExcessCutPercent(dynamicPricingConfig.getPlatformExcessCutPercent())
+            .sgstPercent(dynamicPricingConfig.getSgstPercent())
+            .cgstPercent(dynamicPricingConfig.getCgstPercent())
+            .build();
+            
+        com.fooddelivery.customer.dto.DeliveryPricingDto data = com.fooddelivery.customer.dto.DeliveryPricingDto.builder()
+            .distanceKm(distance)
+            .config(configData)
+            .build();
         
         return ResponseEntity.ok(ApiResponse.success(data, "Delivery pricing config retrieved"));
     }

@@ -147,7 +147,7 @@ public class DriverMoneyController {
 
     @GetMapping("/statement")
     @PreAuthorize("@moneyAccessPolicy.canAccessMoney(authentication, T(com.fooddelivery.common.security.money.MoneyOwnerType).DRIVER, T(java.util.UUID).fromString(authentication.name))")
-    public ResponseEntity<com.fasterxml.jackson.databind.JsonNode> getStatement(
+    public ResponseEntity<com.fooddelivery.common.dto.PageResponseDto<com.fooddelivery.common.dto.ledger.LedgerStatementLineDto>> getStatement(
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "20") int size,
             Authentication authentication) {
@@ -158,7 +158,7 @@ public class DriverMoneyController {
 
     @GetMapping("/cash")
     @PreAuthorize("@moneyAccessPolicy.canAccessMoney(authentication, T(com.fooddelivery.common.security.money.MoneyOwnerType).DRIVER, T(java.util.UUID).fromString(authentication.name))")
-    public ResponseEntity<com.fasterxml.jackson.databind.JsonNode> getCash(
+    public ResponseEntity<com.fooddelivery.common.dto.PageResponseDto<com.fooddelivery.common.dto.ledger.CashRemittanceDto>> getCash(
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "20") int size,
             Authentication authentication) {

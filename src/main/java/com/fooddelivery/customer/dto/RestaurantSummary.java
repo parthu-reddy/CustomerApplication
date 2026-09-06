@@ -1,7 +1,7 @@
 package com.fooddelivery.customer.dto;
 
 import java.math.BigDecimal;
-import com.fasterxml.jackson.databind.JsonNode;
+
 
 @lombok.Data
 public class RestaurantSummary {
@@ -13,6 +13,6 @@ public class RestaurantSummary {
     private BigDecimal netEarnings;
     private BigDecimal clawbacks;
     private BigDecimal pendingBalance;
-    private JsonNode lastPayout;
-    private JsonNode beneficiaryStatus;
+    private PayoutSummaryDto lastPayout;
+    private BeneficiaryStatusDto beneficiaryStatus;
 }

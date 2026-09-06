@@ -24,20 +24,18 @@ public class InternalMoneyController {
     // Endpoint: /api/v1/internal/money/daily-totals
     @GetMapping("/daily-totals")
     @PreAuthorize("hasRole('SERVICE')")
-    public Map<String, BigDecimal> getDailyPaidOrderTotal(@RequestParam("date") LocalDate date) {
+    public com.fooddelivery.customer.dto.DailyTotalDto getDailyPaidOrderTotal(@RequestParam("date") LocalDate date) {
         java.util.List<com.fooddelivery.common.enums.OrderStatus> excludedStatuses = java.util.List.of(
             com.fooddelivery.common.enums.OrderStatus.CANCELLED,
             com.fooddelivery.common.enums.OrderStatus.CANCELLED_BY_RESTAURANT
         );
         BigDecimal orderTotals = orderRepository.sumOrderTotalsByDate(date, excludedStatuses);
-        Map<String, BigDecimal> result = new HashMap<>();
-        result.put("orderTotals", orderTotals);
-        return result;
+        return new com.fooddelivery.customer.dto.DailyTotalDto(orderTotals);
     }
 
     @GetMapping("/admin/refunds")
     @PreAuthorize("hasRole('ADMIN')")
-    public Map<String, Object> getRefunds() {
-        return new HashMap<>();
+    public java.util.List<com.fooddelivery.order.refund.RefundView> getRefunds() {
+        return new java.util.ArrayList<>();
     }
 }

@@ -27,8 +27,5 @@ public class RestaurantDto {
     // Derived/Dynamic fields added by CustomerApplication
     private Double distance;
     private Boolean isSponsored;
-    private Object adData;
-    
-    // For any unmapped dynamic fields from the downstream RestaurantService
-    private Map<String, Object> additionalAttributes;
+    private SponsoredListingDTO adData;
 }

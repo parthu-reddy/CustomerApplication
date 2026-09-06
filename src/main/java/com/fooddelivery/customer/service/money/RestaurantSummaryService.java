@@ -8,15 +8,14 @@ import org.springframework.stereotype.Service;
 import java.util.UUID;
 import java.util.List;
 import java.math.BigDecimal;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fooddelivery.customer.dto.PayoutSummaryDto;
+import com.fooddelivery.customer.dto.BeneficiaryStatusDto;
 
 @Service
 @lombok.RequiredArgsConstructor
 public class RestaurantSummaryService {
     private final IOrderRepository orderRepository;
     private final LedgerClient ledgerClient;
-    private final ObjectMapper objectMapper;
 
     public RestaurantSummary getSummary(UUID outletId, String period) {
         RestaurantSummary summary = new RestaurantSummary();
@@ -54,10 +53,10 @@ public class RestaurantSummaryService {
         summary.setClawbacks(BigDecimal.ZERO);
         
         try {
-            JsonNode pending = ledgerClient.getPendingPayouts(0, 100);
+            ledgerClient.getPendingPayouts(0, 100);
             summary.setPendingBalance(BigDecimal.ZERO); // find if outlet is in pending
-            summary.setLastPayout(objectMapper.createObjectNode());
-            summary.setBeneficiaryStatus(objectMapper.createObjectNode());
+            summary.setLastPayout(new PayoutSummaryDto());
+            summary.setBeneficiaryStatus(new BeneficiaryStatusDto());
         } catch (Exception e) {
             summary.setPendingBalance(BigDecimal.ZERO);
         }

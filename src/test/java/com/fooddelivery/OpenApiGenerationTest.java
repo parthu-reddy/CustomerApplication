@@ -163,6 +163,9 @@ public class OpenApiGenerationTest {
     @org.springframework.boot.test.mock.mockito.MockBean
     private com.fooddelivery.order.repository.IPaymentIntentRepository iPaymentIntentRepository;
 
+    @org.springframework.boot.test.mock.mockito.MockBean
+    private com.fooddelivery.order.service.AdminDlqService adminDlqService;
+
     @org.springframework.context.annotation.Configuration
     // Relabels structured responses from */* to application/json. Without it every
     // generated Zod response validator degrades to z.void(); the scoped scan below

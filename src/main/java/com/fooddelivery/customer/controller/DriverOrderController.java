@@ -61,7 +61,7 @@ public class DriverOrderController {
 
     @GetMapping("/active")
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
-    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<OrderResponse>>> getActiveOrders(
+    public ResponseEntity<ApiResponse<com.fooddelivery.common.dto.PageResponseDto<OrderResponse>>> getActiveOrders(
             java.security.Principal principal, 
             @org.springframework.data.web.PageableDefault(size = 20) org.springframework.data.domain.Pageable pageable) {
         UUID driverId = UUID.fromString(principal.getName());
@@ -77,12 +77,12 @@ public class DriverOrderController {
         
         org.springframework.data.domain.Page<Order> activeOrders = orderRepository.findActiveOrdersForDriver(driverId, cancelledStatuses, terminalStatuses, pageable);
         org.springframework.data.domain.Page<OrderResponse> responses = activeOrders.map(this::mapToResponse);
-        return ResponseEntity.ok(ApiResponse.success(responses, "Active orders retrieved"));
+        return ResponseEntity.ok(ApiResponse.success(com.fooddelivery.common.dto.PageResponseDto.of(responses), "Active orders retrieved"));
     }
 
     @GetMapping("/history")
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
-    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<OrderResponse>>> getHistoryOrders(
+    public ResponseEntity<ApiResponse<com.fooddelivery.common.dto.PageResponseDto<OrderResponse>>> getHistoryOrders(
             java.security.Principal principal, 
             @org.springframework.web.bind.annotation.RequestParam(required = false) String date,
             @org.springframework.data.web.PageableDefault(size = 20) org.springframework.data.domain.Pageable pageable) {
@@ -107,7 +107,7 @@ public class DriverOrderController {
 
         org.springframework.data.domain.Page<Order> terminalOrders = orderRepository.findHistoryOrdersForDriver(driverId, cancelledStatuses, terminalStatuses, start, end, pageable);
         org.springframework.data.domain.Page<OrderResponse> responses = terminalOrders.map(this::mapToResponse);
-        return ResponseEntity.ok(ApiResponse.success(responses, "History orders retrieved"));
+        return ResponseEntity.ok(ApiResponse.success(com.fooddelivery.common.dto.PageResponseDto.of(responses), "History orders retrieved"));
     }
 
     private OrderResponse mapToResponse(Order order) {

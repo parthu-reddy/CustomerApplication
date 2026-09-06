@@ -32,31 +32,37 @@ public class AdminOrderController {
 
     @GetMapping("/user/{userId}/active")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<org.springframework.data.domain.Page<Order>> getActiveOrdersForUser(
+    public ResponseEntity<com.fooddelivery.common.dto.ApiResponse<com.fooddelivery.common.dto.PageResponseDto<com.fooddelivery.customer.dto.OrderResponse>>> getActiveOrdersForUser(
             @org.springframework.web.bind.annotation.PathVariable java.util.UUID userId,
-            @org.springframework.data.web.PageableDefault(size = 20) org.springframework.data.domain.Pageable pageable) {
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") int page,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "20") int size) {
+        
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size, org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt"));
         org.springframework.data.domain.Page<Order> activeOrders = orderRepository.findByCustomerIdAndStatusInOrderByCreatedAtDesc(
             userId, 
             List.of(OrderStatus.CREATED, OrderStatus.ACCEPTED, OrderStatus.READY_FOR_PICKUP, OrderStatus.HANDED_OVER), 
             pageable
         );
-        return ResponseEntity.ok(activeOrders);
+        return ResponseEntity.ok(com.fooddelivery.common.dto.ApiResponse.success(com.fooddelivery.common.dto.PageResponseDto.of(activeOrders.map(com.fooddelivery.customer.mapper.OrderMapper::mapToResponse)), "Active orders retrieved"));
     }
 
     @GetMapping("/unassigned")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<org.springframework.data.domain.Page<Order>> getUnassignedOrders(
-            @org.springframework.data.web.PageableDefault(size = 50) org.springframework.data.domain.Pageable pageable) {
+    public ResponseEntity<com.fooddelivery.common.dto.ApiResponse<com.fooddelivery.common.dto.PageResponseDto<com.fooddelivery.customer.dto.OrderResponse>>> getUnassignedOrders(
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") int page,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "50") int size) {
+        
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size, org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt"));
         org.springframework.data.domain.Page<Order> unassignedOrders = orderRepository.findByStatusInAndDeliveryExecutiveIdIsNullOrderByCreatedAtDesc(
             List.of(OrderStatus.ACCEPTED, OrderStatus.READY_FOR_PICKUP), 
             pageable
         );
-        return ResponseEntity.ok(unassignedOrders);
+        return ResponseEntity.ok(com.fooddelivery.common.dto.ApiResponse.success(com.fooddelivery.common.dto.PageResponseDto.of(unassignedOrders.map(com.fooddelivery.customer.mapper.OrderMapper::mapToResponse)), "Unassigned orders retrieved"));
     }
 
     @GetMapping("/active-all")
-    @PreAuthorize("hasRole(\'ADMIN\')")
-    public ResponseEntity<org.springframework.data.domain.Page<Order>> getAllActiveOrders(
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<com.fooddelivery.common.dto.ApiResponse<com.fooddelivery.common.dto.PageResponseDto<com.fooddelivery.customer.dto.OrderResponse>>> getAllActiveOrders(
             @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") int page,
             @org.springframework.web.bind.annotation.RequestParam(defaultValue = "50") int size) {
         
@@ -67,7 +73,7 @@ public class AdminOrderController {
             List.of(OrderStatus.CREATED, OrderStatus.ACCEPTED, OrderStatus.READY_FOR_PICKUP, OrderStatus.HANDED_OVER),
             pageable
         );
-        return ResponseEntity.ok(activeOrders);
+        return ResponseEntity.ok(com.fooddelivery.common.dto.ApiResponse.success(com.fooddelivery.common.dto.PageResponseDto.of(activeOrders.map(com.fooddelivery.customer.mapper.OrderMapper::mapToResponse)), "All active orders retrieved"));
     }
 
     @PostMapping("/{orderId}/reconcile")

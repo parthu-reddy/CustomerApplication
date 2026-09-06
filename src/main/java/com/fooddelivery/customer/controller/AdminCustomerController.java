@@ -26,11 +26,11 @@ public class AdminCustomerController {
 
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/addresses")
-    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<CustomerAddressDto>>> getAllCustomerAddresses(
+    public ResponseEntity<ApiResponse<com.fooddelivery.common.dto.PageResponseDto<CustomerAddressDto>>> getAllCustomerAddresses(
             @org.springframework.data.web.PageableDefault(size = 50) org.springframework.data.domain.Pageable pageable) {
         org.springframework.data.domain.Page<CustomerAddress> addresses = addressRepository.findAll(pageable);
         org.springframework.data.domain.Page<CustomerAddressDto> dtos = addresses.map(this::toDto);
-        return ResponseEntity.ok(ApiResponse.success(dtos, "All customer addresses retrieved"));
+        return ResponseEntity.ok(ApiResponse.success(com.fooddelivery.common.dto.PageResponseDto.of(dtos), "All customer addresses retrieved"));
     }
 
     private CustomerAddressDto toDto(CustomerAddress entity) {

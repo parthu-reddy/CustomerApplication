@@ -8,15 +8,13 @@ import org.springframework.stereotype.Service;
 import java.util.UUID;
 import java.util.List;
 import java.math.BigDecimal;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fooddelivery.customer.dto.PayoutSummaryDto;
 
 @Service
 @lombok.RequiredArgsConstructor
 public class DriverSummaryService {
     private final IOrderRepository orderRepository;
     private final LedgerClient ledgerClient;
-    private final ObjectMapper objectMapper;
 
     public DriverSummary getSummary(UUID driverId, String period) {
         DriverSummary summary = new DriverSummary();
@@ -50,9 +48,9 @@ public class DriverSummaryService {
         summary.setCashInHand(BigDecimal.ZERO);
         
         try {
-            JsonNode pending = ledgerClient.getPendingPayouts(0, 100);
+            ledgerClient.getPendingPayouts(0, 100);
             summary.setPendingBalance(BigDecimal.ZERO);
-            summary.setLastPayout(objectMapper.createObjectNode());
+            summary.setLastPayout(new PayoutSummaryDto());
         } catch (Exception e) {
             summary.setPendingBalance(BigDecimal.ZERO);
         }

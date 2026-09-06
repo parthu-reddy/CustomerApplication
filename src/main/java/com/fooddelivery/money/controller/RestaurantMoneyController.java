@@ -117,7 +117,7 @@ public class RestaurantMoneyController {
 
     @GetMapping("/{outletId}/statement")
     @PreAuthorize("@moneyAccessPolicy.canAccessMoney(authentication, T(com.fooddelivery.common.security.money.MoneyOwnerType).RESTAURANT, #outletId)")
-    public ResponseEntity<com.fasterxml.jackson.databind.JsonNode> getStatement(
+    public ResponseEntity<com.fooddelivery.common.dto.PageResponseDto<com.fooddelivery.common.dto.ledger.LedgerStatementLineDto>> getStatement(
             @PathVariable UUID outletId,
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "20") int size) {

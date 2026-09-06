@@ -100,19 +100,20 @@ public class CustomerContractConsumerTest {
         // matches on the body, and AdRequestDTO has exactly these three fields. Sending anything
         // else 404s, the circuit-breaker fallback fires, and because that fallback is a @MockBean
         // it answers null rather than the real emptyList() -- so the miss looked like a null bug.
-        Map<String, Object> req = new HashMap<>();
-        req.put("geo", "test-geo");
-        req.put("deviceId", "device-123");
-        req.put("context", "test-context");
+        com.fooddelivery.customer.dto.AdRequestDTO req = com.fooddelivery.customer.dto.AdRequestDTO.builder()
+                .geo("test-geo")
+                .deviceId("device-123")
+                .context("test-context")
+                .build();
 
         Object response = advertisementClient.fetchAds(req);
 
         assertNotNull(response);
         // Assert the contracted payload, not merely non-null: an empty list would also be
         // non-null and would mean the stub was never matched.
-        List<Map<String, Object>> ads = (List<Map<String, Object>>) response;
+        List<com.fooddelivery.customer.dto.SponsoredListingDTO> ads = (List<com.fooddelivery.customer.dto.SponsoredListingDTO>) response;
         assertEquals(1, ads.size());
-        assertEquals("AD-12345-campaign-1", ads.get(0).get("adId"));
-        assertEquals("campaign-1", ads.get(0).get("campaignId"));
+        assertEquals("AD-12345-campaign-1", ads.get(0).getAdId());
+        assertEquals("campaign-1", ads.get(0).getCampaignId());
     }
 }

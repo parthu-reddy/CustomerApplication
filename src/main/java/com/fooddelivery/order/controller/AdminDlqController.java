@@ -43,7 +43,7 @@ public class AdminDlqController {
 
     @GetMapping("/refunds")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<org.springframework.data.domain.Page<Map<String, Object>>> getFailedRefunds(
+    public ResponseEntity<com.fooddelivery.common.dto.PageResponseDto<com.fooddelivery.order.dto.FailedRefundDto>> getFailedRefunds(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         
@@ -51,23 +51,37 @@ public class AdminDlqController {
         org.springframework.data.domain.Page<com.fooddelivery.order.entity.Refund> refundsPage = 
             refundRepository.findByStatus(com.fooddelivery.common.enums.RefundStatus.FAILED, pageable);
         
-        org.springframework.data.domain.Page<Map<String, Object>> response = refundsPage.map(refund -> {
-            Map<String, Object> map = new java.util.HashMap<>();
-            map.put("refundId", refund.getId());
-            map.put("orderId", refund.getOrderId());
-            map.put("amount", refund.getAmount());
-            map.put("status", refund.getStatus());
-            map.put("errorMessage", refund.getFailureReason());
-            map.put("createdAt", refund.getCreatedAt());
+        java.util.List<com.fooddelivery.order.dto.FailedRefundDto> content = refundsPage.stream().map(refund -> {
+            com.fooddelivery.order.dto.FailedRefundDto dto = com.fooddelivery.order.dto.FailedRefundDto.builder()
+                .refundId(refund.getId())
+                .orderId(refund.getOrderId())
+                .amount(refund.getAmount())
+                .status(refund.getStatus())
+                .errorMessage(refund.getFailureReason())
+                .createdAt(refund.getCreatedAt())
+                .build();
 
             orderRepository.findById(refund.getOrderId()).ifPresent(order -> {
-                map.put("customerName", order.getCustomerId()); 
-                map.put("restaurantId", order.getRestaurantId());
-                map.put("orderStatus", order.getStatus());
-                map.put("totalAmount", order.getTotalAmount());
+                dto.setCustomerName(order.getCustomerId()); 
+                dto.setRestaurantId(order.getRestaurantId());
+                dto.setOrderStatus(order.getStatus());
+                dto.setTotalAmount(order.getTotalAmount());
             });
-            return map;
-        });
+            return dto;
+        }).collect(java.util.stream.Collectors.toList());
+        
+        com.fooddelivery.common.dto.PageResponseDto<com.fooddelivery.order.dto.FailedRefundDto> response = 
+            com.fooddelivery.common.dto.PageResponseDto.<com.fooddelivery.order.dto.FailedRefundDto>builder()
+                .content(content)
+                .number(refundsPage.getNumber())
+                .size(refundsPage.getSize())
+                .totalElements(refundsPage.getTotalElements())
+                .totalPages(refundsPage.getTotalPages())
+                .last(refundsPage.isLast())
+                .first(refundsPage.isFirst())
+                .numberOfElements(refundsPage.getNumberOfElements())
+                .empty(refundsPage.isEmpty())
+                .build();
         
         return ResponseEntity.ok(response);
     }

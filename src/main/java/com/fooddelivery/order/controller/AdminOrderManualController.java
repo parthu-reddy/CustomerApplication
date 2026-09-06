@@ -34,12 +34,12 @@ public class AdminOrderManualController {
     private final SupportTicketRepository supportTicketRepository;
 
     @GetMapping
-    @PreAuthorize("hasRole(\'ADMIN\')")
-    public ResponseEntity<Page<Order>> getOrdersRequiringIntervention(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<com.fooddelivery.common.dto.PageResponseDto<com.fooddelivery.customer.dto.OrderResponse>> getOrdersRequiringIntervention(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
         log.info("Fetching orders requiring manual intervention. Page: {}, Size: {}", page, size);
         Pageable pageable = PageRequest.of(page, size);
         Page<Order> orders = orderRepository.findByDeliveryStatusOrderByCreatedAtDesc(com.fooddelivery.common.enums.DeliveryStatus.MANUAL_INTERVENTION_REQUIRED, pageable);
-        return ResponseEntity.ok(orders);
+        return ResponseEntity.ok(com.fooddelivery.common.dto.PageResponseDto.of(orders.map(com.fooddelivery.customer.mapper.OrderMapper::mapToResponse)));
     }
 
     @PostMapping("/{orderId}/assign-driver")
@@ -152,7 +152,7 @@ public class AdminOrderManualController {
 
     @GetMapping("/support-tickets")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Page<SupportTicket>> getOpenSupportTickets(
+    public ResponseEntity<com.fooddelivery.common.dto.PageResponseDto<SupportTicket>> getOpenSupportTickets(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "OPEN") String status) {
@@ -164,7 +164,7 @@ public class AdminOrderManualController {
         } catch (IllegalArgumentException e) {
             tickets = supportTicketRepository.findAllByOrderByCreatedAtDesc(pageable);
         }
-        return ResponseEntity.ok(tickets);
+        return ResponseEntity.ok(com.fooddelivery.common.dto.PageResponseDto.of(tickets));
     }
 
     @PostMapping("/support-tickets/{ticketId}/resolve")

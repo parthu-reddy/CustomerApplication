@@ -91,32 +91,32 @@ public class OrderController {
 
     @org.springframework.web.bind.annotation.GetMapping("/active")
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
-    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<OrderResponse>>> getActiveOrders(java.security.Principal principal, @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") int page, @org.springframework.web.bind.annotation.RequestParam(defaultValue = "10") int size) {
+    public ResponseEntity<ApiResponse<com.fooddelivery.common.dto.PageResponseDto<OrderResponse>>> getActiveOrders(java.security.Principal principal, @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") int page, @org.springframework.web.bind.annotation.RequestParam(defaultValue = "10") int size) {
         java.util.UUID customerId = java.util.UUID.fromString(principal.getName());
         org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
         org.springframework.data.domain.Page<Order> orders = customerOrderService.getActiveOrdersPaginated(customerId, pageable);
         org.springframework.data.domain.Page<OrderResponse> responses = orders.map(com.fooddelivery.customer.mapper.OrderMapper::mapToResponse);
-        return ResponseEntity.ok(ApiResponse.success(responses, "Active orders retrieved"));
+        return ResponseEntity.ok(ApiResponse.success(com.fooddelivery.common.dto.PageResponseDto.of(responses), "Active orders retrieved"));
     }
 
     @org.springframework.web.bind.annotation.GetMapping("/refunds")
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
-    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<OrderResponse>>> getRefundOrders(java.security.Principal principal, @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") int page, @org.springframework.web.bind.annotation.RequestParam(defaultValue = "10") int size) {
+    public ResponseEntity<ApiResponse<com.fooddelivery.common.dto.PageResponseDto<OrderResponse>>> getRefundOrders(java.security.Principal principal, @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") int page, @org.springframework.web.bind.annotation.RequestParam(defaultValue = "10") int size) {
         java.util.UUID customerId = java.util.UUID.fromString(principal.getName());
         org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
         org.springframework.data.domain.Page<Order> orders = customerOrderService.getRefundOrdersPaginated(customerId, pageable);
         org.springframework.data.domain.Page<OrderResponse> responses = orders.map(com.fooddelivery.customer.mapper.OrderMapper::mapToResponse);
-        return ResponseEntity.ok(ApiResponse.success(responses, "Refund orders retrieved"));
+        return ResponseEntity.ok(ApiResponse.success(com.fooddelivery.common.dto.PageResponseDto.of(responses), "Refund orders retrieved"));
     }
 
     @org.springframework.web.bind.annotation.GetMapping("/history")
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
-    public ResponseEntity<ApiResponse<org.springframework.data.domain.Page<OrderResponse>>> getOrderHistory(java.security.Principal principal, @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") int page, @org.springframework.web.bind.annotation.RequestParam(defaultValue = "10") int size) {
+    public ResponseEntity<ApiResponse<com.fooddelivery.common.dto.PageResponseDto<OrderResponse>>> getOrderHistory(java.security.Principal principal, @org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") int page, @org.springframework.web.bind.annotation.RequestParam(defaultValue = "10") int size) {
         java.util.UUID customerId = java.util.UUID.fromString(principal.getName());
         org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
         org.springframework.data.domain.Page<Order> orders = customerOrderService.getOrderHistoryPaginated(customerId, pageable);
         org.springframework.data.domain.Page<OrderResponse> responses = orders.map(com.fooddelivery.customer.mapper.OrderMapper::mapToResponse);
-        return ResponseEntity.ok(ApiResponse.success(responses, "Order history retrieved"));
+        return ResponseEntity.ok(ApiResponse.success(com.fooddelivery.common.dto.PageResponseDto.of(responses), "Order history retrieved"));
     }
 
     @org.springframework.web.bind.annotation.GetMapping("/batch")

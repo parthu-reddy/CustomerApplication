@@ -130,7 +130,7 @@ public class CustomerMcpService {
     @Tool(description = "Admin: Get active orders for user. Provide userId.")
     public String getActiveOrdersForUser(String userId) {
         try {
-            return objectMapper.writeValueAsString(adminOrderController.getActiveOrdersForUser(UUID.fromString(userId), org.springframework.data.domain.PageRequest.of(0, 50)).getBody());
+            return objectMapper.writeValueAsString(adminOrderController.getActiveOrdersForUser(UUID.fromString(userId), 0, 50).getBody());
         } catch (Exception e) {
             return "Error: " + e.getMessage();
         }
@@ -139,7 +139,7 @@ public class CustomerMcpService {
     @Tool(description = "Admin: Get unassigned orders.")
     public String getUnassignedOrders() {
         try {
-            return objectMapper.writeValueAsString(adminOrderController.getUnassignedOrders(org.springframework.data.domain.PageRequest.of(0, 50)).getBody());
+            return objectMapper.writeValueAsString(adminOrderController.getUnassignedOrders(0, 50).getBody());
         } catch (Exception e) {
             return "Error: " + e.getMessage();
         }
