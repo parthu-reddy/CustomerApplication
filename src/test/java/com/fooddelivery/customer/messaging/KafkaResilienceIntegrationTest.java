@@ -25,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest(properties = {"spring.kafka.bootstrap-servers=${spring.embedded.kafka.brokers}"})
-@DirtiesContext
+@DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_CLASS)
 @EmbeddedKafka(partitions = 1, topics = {"customer-events", "customer-events.DLT"})
 @Import({KafkaResilienceIntegrationTest.TestConsumer.class, com.fooddelivery.common.config.KafkaConfig.class})
 public class KafkaResilienceIntegrationTest {

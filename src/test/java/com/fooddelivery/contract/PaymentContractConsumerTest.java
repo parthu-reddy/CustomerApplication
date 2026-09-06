@@ -63,6 +63,7 @@ public class PaymentContractConsumerTest {
         CreateOrderRequest req = new CreateOrderRequest();
         req.setInternalOrderId("123e4567-e89b-12d3-a456-426614174000");
         req.setAmountInInr(new BigDecimal("50.00"));
+        req.setPaymentMethod(com.fooddelivery.common.enums.PaymentMethod.CARD);
 
         String response = paymentServiceClient.createOrder("RAZORPAY", req);
         assertNotNull(response);
