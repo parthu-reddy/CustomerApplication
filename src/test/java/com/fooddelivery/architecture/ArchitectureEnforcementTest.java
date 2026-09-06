@@ -16,7 +16,6 @@ import com.fooddelivery.common.architecture.ArchUnitRules;
 )
 public class ArchitectureEnforcementTest {
 
-    // 1. Pragmatic Layered Architecture using centralized rules
     @ArchTest
     public static final ArchRule layered_architecture_is_respected = 
         ArchUnitRules.getBaseLayeredArchitecture();
