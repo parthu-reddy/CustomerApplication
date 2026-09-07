@@ -18,6 +18,9 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/money/restaurant")
 @lombok.RequiredArgsConstructor
+
+
+
 public class RestaurantMoneyController {
 
     private final IOrderRepository orderRepository;
@@ -33,7 +36,7 @@ public class RestaurantMoneyController {
      */
     @GetMapping("/{outletId}/orders/{orderId}")
     @PreAuthorize("@moneyAccessPolicy.canAccessMoney(authentication, T(com.fooddelivery.common.security.money.MoneyOwnerType).RESTAURANT, #outletId)")
-    public ResponseEntity<RestaurantOrderEarnings> getOrderEarnings(
+    public ResponseEntity<RestaurantOrderEarnings> fetchOrderEarnings(
             @PathVariable UUID outletId,
             @PathVariable UUID orderId) {
 
@@ -59,7 +62,7 @@ public class RestaurantMoneyController {
      */
     @GetMapping("/orders/{orderId}/earnings")
     @PreAuthorize("hasRole('ADMIN') or hasRole('SERVICE')")
-    public ResponseEntity<RestaurantOrderEarnings> getOrderEarningsInternal(
+    public ResponseEntity<RestaurantOrderEarnings> fetchOrderEarningsInternal(
             @PathVariable UUID orderId) {
 
         Order order = orderRepository.findById(orderId)
@@ -70,7 +73,7 @@ public class RestaurantMoneyController {
 
     @GetMapping("/{outletId}/refunds")
     @PreAuthorize("@moneyAccessPolicy.canAccessMoney(authentication, T(com.fooddelivery.common.security.money.MoneyOwnerType).RESTAURANT, #outletId)")
-    public ResponseEntity<java.util.List<com.fooddelivery.order.refund.RefundView>> getRestaurantRefunds(
+    public ResponseEntity<java.util.List<com.fooddelivery.order.refund.RefundView>> fetchRestaurantRefunds(
             @PathVariable UUID outletId) {
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -103,7 +106,7 @@ public class RestaurantMoneyController {
 
     @GetMapping("/{outletId}/summary")
     @PreAuthorize("@moneyAccessPolicy.canAccessMoney(authentication, T(com.fooddelivery.common.security.money.MoneyOwnerType).RESTAURANT, #outletId)")
-    public ResponseEntity<com.fooddelivery.customer.dto.RestaurantSummary> getSummary(
+    public ResponseEntity<com.fooddelivery.customer.dto.RestaurantSummary> fetchSummary(
             @PathVariable UUID outletId,
             @RequestParam(required = false, defaultValue = "month") String period) {
         
@@ -117,7 +120,7 @@ public class RestaurantMoneyController {
 
     @GetMapping("/{outletId}/statement")
     @PreAuthorize("@moneyAccessPolicy.canAccessMoney(authentication, T(com.fooddelivery.common.security.money.MoneyOwnerType).RESTAURANT, #outletId)")
-    public ResponseEntity<com.fooddelivery.common.dto.PageResponseDto<com.fooddelivery.common.dto.ledger.LedgerStatementLineDto>> getStatement(
+    public ResponseEntity<com.fooddelivery.common.dto.PageResponseDto<com.fooddelivery.common.dto.ledger.LedgerStatementLineDto>> fetchStatement(
             @PathVariable UUID outletId,
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "20") int size) {
@@ -132,7 +135,7 @@ public class RestaurantMoneyController {
 
     @GetMapping("/{outletId}/orders")
     @PreAuthorize("@moneyAccessPolicy.canAccessMoney(authentication, T(com.fooddelivery.common.security.money.MoneyOwnerType).RESTAURANT, #outletId)")
-    public ResponseEntity<java.util.List<RestaurantOrderEarnings>> getOrders(
+    public ResponseEntity<java.util.List<RestaurantOrderEarnings>> fetchOrders(
             @PathVariable UUID outletId,
             @RequestParam(required = false) String from,
             @RequestParam(required = false) String to,

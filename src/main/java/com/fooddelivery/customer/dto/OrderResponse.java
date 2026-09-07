@@ -25,11 +25,13 @@ public class OrderResponse {
     @NotNull
     private com.fooddelivery.common.enums.DeliveryStatus deliveryStatus;
     @NotNull
-    @com.fasterxml.jackson.annotation.JsonProperty("total")
+    @NotNull
+    @com.fasterxml.jackson.annotation.JsonProperty(required = true)
     private BigDecimal totalAmount;
     @NotNull
-    @com.fasterxml.jackson.annotation.JsonProperty("subtotal")
+    @com.fasterxml.jackson.annotation.JsonProperty(required = true)
     private BigDecimal itemTotal;
+    
 
     @NotNull
     private BigDecimal customerPlatformFee;
@@ -160,9 +162,6 @@ public class OrderResponse {
     
 
     
-    public void setDeliveryFee(final BigDecimal deliveryFee) {
-        this.deliveryFee = deliveryFee;
-    }
 
     
 

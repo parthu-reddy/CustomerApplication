@@ -36,8 +36,9 @@ public class Refund {
     @Column(name = "amount", nullable = false, precision = 14, scale = 2)
     private BigDecimal amount;
 
-    @Column(name = "currency", nullable = false, length = 3)
+    @Column(name = "currency", nullable = false, length = 3, columnDefinition = "CHAR(3)")
     @lombok.Builder.Default
+        @org.hibernate.annotations.JdbcTypeCode(java.sql.Types.CHAR)
     private String currency = "INR";
 
     @Column(name = "reason_code", nullable = false, length = 40)

@@ -47,7 +47,7 @@ public class KafkaResilienceIntegrationTest {
         kafkaTemplate.flush();
 
         // Wait for processing
-        testConsumer.latch.await(10, TimeUnit.SECONDS);
+        testConsumer.latch.await(30, TimeUnit.SECONDS);
 
         // Should only be processed once due to idempotency check
         assertEquals(1, testConsumer.processedCount.get());

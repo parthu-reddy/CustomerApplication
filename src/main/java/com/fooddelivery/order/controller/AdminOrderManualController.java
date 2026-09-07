@@ -25,6 +25,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/internal/admin/orders/intervention")
 @lombok.extern.slf4j.Slf4j
 @lombok.RequiredArgsConstructor
+@org.springframework.transaction.annotation.Transactional
 public class AdminOrderManualController {
     
 

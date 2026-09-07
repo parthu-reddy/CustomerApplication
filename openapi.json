@@ -169,7 +169,7 @@
     "/api/v1/money/driver/{driverId}/orders:batch" : {
       "post" : {
         "tags" : [ "driver-money-controller" ],
-        "operationId" : "getDriverOrderMoneyBatch",
+        "operationId" : "fetchDriverOrderMoneyBatch",
         "parameters" : [ {
           "name" : "driverId",
           "in" : "path",
@@ -1119,7 +1119,7 @@
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponsePageOrderResponse"
+                  "$ref" : "#/components/schemas/ApiResponsePageResponseDtoOrderResponse"
                 }
               }
             }
@@ -1156,7 +1156,7 @@
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponsePageOrderResponse"
+                  "$ref" : "#/components/schemas/ApiResponsePageResponseDtoOrderResponse"
                 }
               }
             }
@@ -1223,7 +1223,7 @@
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponsePageOrderResponse"
+                  "$ref" : "#/components/schemas/ApiResponsePageResponseDtoOrderResponse"
                 }
               }
             }
@@ -1234,7 +1234,7 @@
     "/api/v1/money/restaurant/{outletId}/summary" : {
       "get" : {
         "tags" : [ "restaurant-money-controller" ],
-        "operationId" : "getSummary",
+        "operationId" : "fetchSummary",
         "parameters" : [ {
           "name" : "outletId",
           "in" : "path",
@@ -1269,7 +1269,7 @@
     "/api/v1/money/restaurant/{outletId}/statement" : {
       "get" : {
         "tags" : [ "restaurant-money-controller" ],
-        "operationId" : "getStatement",
+        "operationId" : "fetchStatement",
         "parameters" : [ {
           "name" : "outletId",
           "in" : "path",
@@ -1314,7 +1314,7 @@
     "/api/v1/money/restaurant/{outletId}/refunds" : {
       "get" : {
         "tags" : [ "restaurant-money-controller" ],
-        "operationId" : "getRestaurantRefunds",
+        "operationId" : "fetchRestaurantRefunds",
         "parameters" : [ {
           "name" : "outletId",
           "in" : "path",
@@ -1344,7 +1344,7 @@
     "/api/v1/money/restaurant/{outletId}/orders" : {
       "get" : {
         "tags" : [ "restaurant-money-controller" ],
-        "operationId" : "getOrders",
+        "operationId" : "fetchOrders",
         "parameters" : [ {
           "name" : "outletId",
           "in" : "path",
@@ -1397,7 +1397,7 @@
     "/api/v1/money/restaurant/{outletId}/orders/{orderId}" : {
       "get" : {
         "tags" : [ "restaurant-money-controller" ],
-        "operationId" : "getOrderEarnings",
+        "operationId" : "fetchOrderEarnings",
         "parameters" : [ {
           "name" : "outletId",
           "in" : "path",
@@ -1432,7 +1432,7 @@
     "/api/v1/money/restaurant/orders/{orderId}/earnings" : {
       "get" : {
         "tags" : [ "restaurant-money-controller" ],
-        "operationId" : "getOrderEarningsInternal",
+        "operationId" : "fetchOrderEarningsInternal",
         "parameters" : [ {
           "name" : "orderId",
           "in" : "path",
@@ -1459,7 +1459,7 @@
     "/api/v1/money/driver/{driverId}/orders/{orderId}" : {
       "get" : {
         "tags" : [ "driver-money-controller" ],
-        "operationId" : "getOrderEarnings_1",
+        "operationId" : "fetchOrderEarnings_1",
         "parameters" : [ {
           "name" : "driverId",
           "in" : "path",
@@ -1494,7 +1494,7 @@
     "/api/v1/money/driver/summary" : {
       "get" : {
         "tags" : [ "driver-money-controller" ],
-        "operationId" : "getSummary_1",
+        "operationId" : "fetchSummary_1",
         "parameters" : [ {
           "name" : "period",
           "in" : "query",
@@ -1521,7 +1521,7 @@
     "/api/v1/money/driver/statement" : {
       "get" : {
         "tags" : [ "driver-money-controller" ],
-        "operationId" : "getStatement_1",
+        "operationId" : "fetchStatement_1",
         "parameters" : [ {
           "name" : "page",
           "in" : "query",
@@ -1558,7 +1558,7 @@
     "/api/v1/money/driver/orders" : {
       "get" : {
         "tags" : [ "driver-money-controller" ],
-        "operationId" : "getOrders_1",
+        "operationId" : "fetchOrders_1",
         "parameters" : [ {
           "name" : "date",
           "in" : "query",
@@ -1587,7 +1587,7 @@
     "/api/v1/money/driver/orders/{orderId}/earnings" : {
       "get" : {
         "tags" : [ "driver-money-controller" ],
-        "operationId" : "getOrderEarningsInternal_1",
+        "operationId" : "fetchOrderEarningsInternal_1",
         "parameters" : [ {
           "name" : "orderId",
           "in" : "path",
@@ -1614,7 +1614,7 @@
     "/api/v1/money/driver/cash" : {
       "get" : {
         "tags" : [ "driver-money-controller" ],
-        "operationId" : "getCash",
+        "operationId" : "fetchCash",
         "parameters" : [ {
           "name" : "page",
           "in" : "query",
@@ -2011,11 +2011,22 @@
             "format" : "uuid"
           }
         }, {
-          "name" : "pageable",
+          "name" : "page",
           "in" : "query",
-          "required" : true,
+          "required" : false,
           "schema" : {
-            "$ref" : "#/components/schemas/Pageable"
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20
           }
         } ],
         "responses" : {
@@ -2024,7 +2035,7 @@
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/PageOrder"
+                  "$ref" : "#/components/schemas/ApiResponsePageResponseDtoOrderResponse"
                 }
               }
             }
@@ -2037,11 +2048,22 @@
         "tags" : [ "admin-order-controller" ],
         "operationId" : "getUnassignedOrders_1",
         "parameters" : [ {
-          "name" : "pageable",
+          "name" : "page",
           "in" : "query",
-          "required" : true,
+          "required" : false,
           "schema" : {
-            "$ref" : "#/components/schemas/Pageable"
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50
           }
         } ],
         "responses" : {
@@ -2050,7 +2072,7 @@
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/PageOrder"
+                  "$ref" : "#/components/schemas/ApiResponsePageResponseDtoOrderResponse"
                 }
               }
             }
@@ -2087,7 +2109,7 @@
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/PageOrder"
+                  "$ref" : "#/components/schemas/PageResponseDtoOrderResponse"
                 }
               }
             }
@@ -2132,7 +2154,7 @@
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/PageSupportTicket"
+                  "$ref" : "#/components/schemas/PageResponseDtoSupportTicket"
                 }
               }
             }
@@ -2206,7 +2228,7 @@
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/PageOrder"
+                  "$ref" : "#/components/schemas/ApiResponsePageResponseDtoOrderResponse"
                 }
               }
             }
@@ -2232,7 +2254,7 @@
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponsePageCustomerAddressDto"
+                  "$ref" : "#/components/schemas/ApiResponsePageResponseDtoCustomerAddressDto"
                 }
               }
             }
@@ -2265,7 +2287,7 @@
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponsePageOrderResponse"
+                  "$ref" : "#/components/schemas/ApiResponsePageResponseDtoOrderResponse"
                 }
               }
             }
@@ -2309,7 +2331,7 @@
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponsePageOrderResponse"
+                  "$ref" : "#/components/schemas/ApiResponsePageResponseDtoOrderResponse"
                 }
               }
             }
@@ -2495,7 +2517,7 @@
         }
       },
       "OrderResponse" : {
-        "required" : [ "cgst", "createdAt", "customerId", "customerPlatformFee", "deliveryAddress", "deliveryFee", "deliveryStatus", "id", "items", "restaurantId", "restaurantName", "sgst", "status", "subtotal", "total" ],
+        "required" : [ "cgst", "createdAt", "customerId", "customerPlatformFee", "deliveryAddress", "deliveryFee", "deliveryStatus", "id", "itemTotal", "items", "restaurantId", "restaurantName", "sgst", "status", "totalAmount" ],
         "type" : "object",
         "properties" : {
           "id" : {
@@ -2520,6 +2542,12 @@
           "deliveryStatus" : {
             "type" : "string",
             "enum" : [ "PENDING", "SEARCHING_FOR_DRIVER", "MANUAL_INTERVENTION_REQUIRED", "ASSIGNED", "AT_RESTAURANT", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED", "FAILED" ]
+          },
+          "totalAmount" : {
+            "type" : "number"
+          },
+          "itemTotal" : {
+            "type" : "number"
           },
           "customerPlatformFee" : {
             "type" : "number"
@@ -2590,12 +2618,6 @@
             "format" : "int64"
           },
           "distanceKm" : {
-            "type" : "number"
-          },
-          "total" : {
-            "type" : "number"
-          },
-          "subtotal" : {
             "type" : "number"
           },
           "expiresAt" : {
@@ -3324,7 +3346,7 @@
           }
         }
       },
-      "ApiResponsePageOrderResponse" : {
+      "ApiResponsePageResponseDtoOrderResponse" : {
         "required" : [ "message", "success", "timestamp" ],
         "type" : "object",
         "properties" : {
@@ -3338,7 +3360,7 @@
             "type" : "string"
           },
           "data" : {
-            "$ref" : "#/components/schemas/PageOrderResponse"
+            "$ref" : "#/components/schemas/PageResponseDtoOrderResponse"
           },
           "timestamp" : {
             "type" : "string",
@@ -3346,10 +3368,16 @@
           }
         }
       },
-      "PageOrderResponse" : {
+      "PageResponseDtoOrderResponse" : {
         "required" : [ "content", "empty", "first", "last", "number", "numberOfElements", "size", "totalElements", "totalPages" ],
         "type" : "object",
         "properties" : {
+          "content" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/OrderResponse"
+            }
+          },
           "totalElements" : {
             "type" : "integer",
             "format" : "int64"
@@ -3358,17 +3386,10 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "last" : {
+            "type" : "boolean"
+          },
           "size" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "content" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/OrderResponse"
-            }
-          },
-          "numberOfElements" : {
             "type" : "integer",
             "format" : "int32"
           },
@@ -3379,58 +3400,11 @@
           "first" : {
             "type" : "boolean"
           },
-          "last" : {
-            "type" : "boolean"
-          },
-          "sort" : {
-            "$ref" : "#/components/schemas/SortObject"
-          },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
-          },
-          "empty" : {
-            "type" : "boolean"
-          }
-        }
-      },
-      "PageableObject" : {
-        "required" : [ "offset", "pageNumber", "pageSize", "paged", "unpaged" ],
-        "type" : "object",
-        "properties" : {
-          "offset" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "unpaged" : {
-            "type" : "boolean"
-          },
-          "sort" : {
-            "$ref" : "#/components/schemas/SortObject"
-          },
-          "paged" : {
-            "type" : "boolean"
-          },
-          "pageNumber" : {
+          "numberOfElements" : {
             "type" : "integer",
             "format" : "int32"
           },
-          "pageSize" : {
-            "type" : "integer",
-            "format" : "int32"
-          }
-        }
-      },
-      "SortObject" : {
-        "required" : [ "empty", "sorted", "unsorted" ],
-        "type" : "object",
-        "properties" : {
           "empty" : {
-            "type" : "boolean"
-          },
-          "sorted" : {
-            "type" : "boolean"
-          },
-          "unsorted" : {
             "type" : "boolean"
           }
         }
@@ -4023,6 +3997,16 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "sort" : {
+            "$ref" : "#/components/schemas/SortObject"
+          },
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
+          },
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "size" : {
             "type" : "integer",
             "format" : "int32"
@@ -4032,10 +4016,6 @@
             "items" : {
               "$ref" : "#/components/schemas/Order"
             }
-          },
-          "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
           },
           "number" : {
             "type" : "integer",
@@ -4047,13 +4027,49 @@
           "last" : {
             "type" : "boolean"
           },
+          "empty" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "PageableObject" : {
+        "required" : [ "offset", "pageNumber", "pageSize", "paged", "unpaged" ],
+        "type" : "object",
+        "properties" : {
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
+          "paged" : {
+            "type" : "boolean"
           },
+          "pageNumber" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "pageSize" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "unpaged" : {
+            "type" : "boolean"
+          },
+          "offset" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "SortObject" : {
+        "required" : [ "empty", "sorted", "unsorted" ],
+        "type" : "object",
+        "properties" : {
           "empty" : {
+            "type" : "boolean"
+          },
+          "sorted" : {
+            "type" : "boolean"
+          },
+          "unsorted" : {
             "type" : "boolean"
           }
         }
@@ -4078,6 +4094,16 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "sort" : {
+            "$ref" : "#/components/schemas/SortObject"
+          },
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
+          },
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "size" : {
             "type" : "integer",
             "format" : "int32"
@@ -4088,10 +4114,6 @@
               "$ref" : "#/components/schemas/SupportTicket"
             }
           },
-          "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
           "number" : {
             "type" : "integer",
             "format" : "int32"
@@ -4101,12 +4123,6 @@
           },
           "last" : {
             "type" : "boolean"
-          },
-          "sort" : {
-            "$ref" : "#/components/schemas/SortObject"
-          },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
           },
           "empty" : {
             "type" : "boolean"
@@ -4164,6 +4180,47 @@
             "items" : {
               "$ref" : "#/components/schemas/LedgerStatementLineDto"
             }
+          }
+        }
+      },
+      "PageResponseDtoSupportTicket" : {
+        "required" : [ "content", "empty", "first", "last", "number", "numberOfElements", "size", "totalElements", "totalPages" ],
+        "type" : "object",
+        "properties" : {
+          "content" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SupportTicket"
+            }
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "last" : {
+            "type" : "boolean"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "number" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "first" : {
+            "type" : "boolean"
+          },
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "empty" : {
+            "type" : "boolean"
           }
         }
       },
@@ -4250,7 +4307,7 @@
           }
         }
       },
-      "ApiResponsePageCustomerAddressDto" : {
+      "ApiResponsePageResponseDtoCustomerAddressDto" : {
         "required" : [ "message", "success", "timestamp" ],
         "type" : "object",
         "properties" : {
@@ -4264,7 +4321,7 @@
             "type" : "string"
           },
           "data" : {
-            "$ref" : "#/components/schemas/PageCustomerAddressDto"
+            "$ref" : "#/components/schemas/PageResponseDtoCustomerAddressDto"
           },
           "timestamp" : {
             "type" : "string",
@@ -4272,10 +4329,16 @@
           }
         }
       },
-      "PageCustomerAddressDto" : {
+      "PageResponseDtoCustomerAddressDto" : {
         "required" : [ "content", "empty", "first", "last", "number", "numberOfElements", "size", "totalElements", "totalPages" ],
         "type" : "object",
         "properties" : {
+          "content" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/CustomerAddressDto"
+            }
+          },
           "totalElements" : {
             "type" : "integer",
             "format" : "int64"
@@ -4284,17 +4347,10 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "last" : {
+            "type" : "boolean"
+          },
           "size" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "content" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/CustomerAddressDto"
-            }
-          },
-          "numberOfElements" : {
             "type" : "integer",
             "format" : "int32"
           },
@@ -4305,14 +4361,9 @@
           "first" : {
             "type" : "boolean"
           },
-          "last" : {
-            "type" : "boolean"
-          },
-          "sort" : {
-            "$ref" : "#/components/schemas/SortObject"
-          },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
           },
           "empty" : {
             "type" : "boolean"

@@ -47,6 +47,7 @@ CREATE TABLE orders (
     payment_method VARCHAR(50),
     payment_status VARCHAR(50),
     distance_km DECIMAL(10,2),
+    cash_collected_amount DECIMAL(10, 2),
 
     customer_name VARCHAR(255),
     delivered_at TIMESTAMP,
@@ -134,7 +135,7 @@ CREATE TABLE payment_intents (
     gateway_order_id VARCHAR(255),
     gateway_name VARCHAR(100),
     payment_method VARCHAR(50),
-    amount DECIMAL(15,2) NOT NULL CHECK (amount > 0)
+    amount DECIMAL(15,2) NOT NULL CHECK (amount > 0),
     status VARCHAR(50) DEFAULT 'INITIATED',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     -- When the row last changed state. RefundRetrySweeper needs this to find intents STUCK in
@@ -146,18 +147,26 @@ CREATE TABLE payment_intents (
 CREATE TABLE refunds (
     id UUID PRIMARY KEY,
     order_id UUID NOT NULL REFERENCES orders(id),
-    status VARCHAR(50) NOT NULL,
-    destination VARCHAR(50) NOT NULL,
-    fault_type VARCHAR(50) NOT NULL,
-    source VARCHAR(50) NOT NULL,
-    idempotency_key UUID NOT NULL UNIQUE,
-    initiated_by_type VARCHAR(50) NOT NULL,
-    initiated_by_id UUID NOT NULL,
+    payment_intent_id UUID NOT NULL REFERENCES payment_intents(id),
+    amount NUMERIC(14,2) NOT NULL CHECK (amount > 0),
+    currency CHAR(3) NOT NULL DEFAULT 'INR',
+    reason_code VARCHAR(40) NOT NULL,
+    reason_text VARCHAR(2000),
+    fault_type VARCHAR(32) NOT NULL,
+    destination VARCHAR(32) NOT NULL,
+    source VARCHAR(32) NOT NULL,
+    initiated_by_type VARCHAR(16) NOT NULL,
+    initiated_by_id UUID,
+    status VARCHAR(16) NOT NULL,
+    gateway_refund_id VARCHAR(255),
+    failure_reason VARCHAR(1000),
+    ticket_id UUID,
+    idempotency_key VARCHAR(255) NOT NULL UNIQUE,
     ledger_transaction_id UUID,
-    amount DECIMAL(15,2) NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    version INTEGER DEFAULT 0
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    completed_at TIMESTAMPTZ,
+    attempts INT NOT NULL DEFAULT 0
 );
 
 CREATE TABLE refund_items (

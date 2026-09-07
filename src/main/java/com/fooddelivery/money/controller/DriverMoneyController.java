@@ -18,6 +18,9 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/money/driver")
 @lombok.RequiredArgsConstructor
+
+
+
 public class DriverMoneyController {
 
     private final IOrderRepository orderRepository;
@@ -30,7 +33,7 @@ public class DriverMoneyController {
      */
     @GetMapping("/{driverId}/orders/{orderId}")
     @PreAuthorize("@moneyAccessPolicy.canAccessMoney(authentication, T(com.fooddelivery.common.security.money.MoneyOwnerType).DRIVER, #driverId)")
-    public ResponseEntity<DriverOrderEarnings> getOrderEarnings(
+    public ResponseEntity<DriverOrderEarnings> fetchOrderEarnings(
             @PathVariable UUID driverId,
             @PathVariable UUID orderId) {
 
@@ -57,7 +60,7 @@ public class DriverMoneyController {
      */
     @GetMapping("/orders/{orderId}/earnings")
     @PreAuthorize("hasRole('ADMIN') or hasRole('SERVICE')")
-    public ResponseEntity<DriverOrderEarnings> getOrderEarningsInternal(
+    public ResponseEntity<DriverOrderEarnings> fetchOrderEarningsInternal(
             @PathVariable UUID orderId) {
 
         Order order = orderRepository.findById(orderId)
@@ -94,7 +97,7 @@ public class DriverMoneyController {
 
     @PostMapping("/{driverId}/orders:batch")
     @PreAuthorize("hasRole('ADMIN') or hasRole('SERVICE')")
-    public ResponseEntity<java.util.List<DriverOrderEarnings>> getDriverOrderMoneyBatch(
+    public ResponseEntity<java.util.List<DriverOrderEarnings>> fetchDriverOrderMoneyBatch(
             @PathVariable("driverId") UUID driverId,
             @RequestBody java.util.List<String> orderIds) {
         java.util.List<DriverOrderEarnings> batch = new java.util.ArrayList<>();
@@ -114,7 +117,7 @@ public class DriverMoneyController {
 
     @GetMapping("/summary")
     @PreAuthorize("@moneyAccessPolicy.canAccessMoney(authentication, T(com.fooddelivery.common.security.money.MoneyOwnerType).DRIVER, T(java.util.UUID).fromString(authentication.name))")
-    public ResponseEntity<com.fooddelivery.customer.dto.DriverSummary> getSummary(
+    public ResponseEntity<com.fooddelivery.customer.dto.DriverSummary> fetchSummary(
             @RequestParam(required = false, defaultValue = "month") String period,
             Authentication authentication) {
         
@@ -124,7 +127,7 @@ public class DriverMoneyController {
 
     @GetMapping("/orders")
     @PreAuthorize("@moneyAccessPolicy.canAccessMoney(authentication, T(com.fooddelivery.common.security.money.MoneyOwnerType).DRIVER, T(java.util.UUID).fromString(authentication.name))")
-    public ResponseEntity<java.util.List<DriverOrderEarnings>> getOrders(
+    public ResponseEntity<java.util.List<DriverOrderEarnings>> fetchOrders(
             @RequestParam(required = false) String date,
             Authentication authentication) {
         
@@ -147,7 +150,7 @@ public class DriverMoneyController {
 
     @GetMapping("/statement")
     @PreAuthorize("@moneyAccessPolicy.canAccessMoney(authentication, T(com.fooddelivery.common.security.money.MoneyOwnerType).DRIVER, T(java.util.UUID).fromString(authentication.name))")
-    public ResponseEntity<com.fooddelivery.common.dto.PageResponseDto<com.fooddelivery.common.dto.ledger.LedgerStatementLineDto>> getStatement(
+    public ResponseEntity<com.fooddelivery.common.dto.PageResponseDto<com.fooddelivery.common.dto.ledger.LedgerStatementLineDto>> fetchStatement(
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "20") int size,
             Authentication authentication) {
@@ -158,7 +161,7 @@ public class DriverMoneyController {
 
     @GetMapping("/cash")
     @PreAuthorize("@moneyAccessPolicy.canAccessMoney(authentication, T(com.fooddelivery.common.security.money.MoneyOwnerType).DRIVER, T(java.util.UUID).fromString(authentication.name))")
-    public ResponseEntity<com.fooddelivery.common.dto.PageResponseDto<com.fooddelivery.common.dto.ledger.CashRemittanceDto>> getCash(
+    public ResponseEntity<com.fooddelivery.common.dto.PageResponseDto<com.fooddelivery.common.dto.ledger.CashRemittanceDto>> fetchCash(
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "20") int size,
             Authentication authentication) {

@@ -102,9 +102,6 @@ public class CustomerAddress {
     
 
     
-    public void setIsDefault(final Boolean isDefault) {
-        this.isDefault = isDefault;
-    }
 
     
 
