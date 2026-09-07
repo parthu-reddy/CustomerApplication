@@ -24,7 +24,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@SpringBootTest(properties = {"spring.kafka.bootstrap-servers=${spring.embedded.kafka.brokers}"})
+@SpringBootTest(properties = {
+    "spring.kafka.bootstrap-servers=${spring.embedded.kafka.brokers}",
+    "spring.kafka.consumer.auto-offset-reset=earliest"
+})
 @DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_CLASS)
 @EmbeddedKafka(partitions = 1, topics = {"customer-events", "customer-events.DLT"})
 @Import({KafkaResilienceIntegrationTest.TestConsumer.class, com.fooddelivery.common.config.KafkaConfig.class})
