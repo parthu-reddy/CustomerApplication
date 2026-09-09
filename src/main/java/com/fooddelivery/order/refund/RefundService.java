@@ -21,6 +21,7 @@ import com.fooddelivery.order.enums.FaultType;
 import com.fooddelivery.order.ledger.LedgerBookkeeper;
 import com.fooddelivery.order.repository.IOrderRepository;
 import com.fooddelivery.order.repository.IPaymentIntentRepository;
+import com.fooddelivery.order.repository.RefundItemRepository;
 import com.fooddelivery.order.repository.RefundRepository;
 import com.fooddelivery.common.enums.PaymentMethod;
 import com.fooddelivery.common.event.PaymentRefundRequestedEvent;
@@ -52,6 +53,7 @@ public class RefundService {
     private final LedgerBookkeeper ledgerBookkeeper;
     private final ObjectMapper objectMapper;
     private final WalletInternalClient walletClient;
+    private final RefundItemRepository refundItemRepository;
 
     @Transactional
     public RefundView request(RefundCommand command) {
@@ -67,27 +69,14 @@ public class RefundService {
         Order order = orderRepository.findById(command.getOrderId())
                 .orElseThrow(() -> new IllegalArgumentException("Order not found"));
 
-        BigDecimal remaining = intent.getAmount().subtract(refundRepository.sumCompletedByOrder(command.getOrderId()));
+        BigDecimal committed = refundRepository.sumByOrderAndStatusIn(command.getOrderId(),
+                List.of(RefundStatus.REQUESTED, RefundStatus.PROCESSING, RefundStatus.COMPLETED));
+        BigDecimal remaining = intent.getAmount().subtract(committed);
         if (command.getAmount().compareTo(remaining) > 0) {
             throw new IllegalStateException("REFUND_EXCEEDS_REMAINING");
         }
 
-        RefundDestination destination = command.getDestination();
-        if (destination == null) {
-            if (intent.getPaymentMethod() == PaymentMethod.CARD || intent.getPaymentMethod() == PaymentMethod.UPI) {
-                destination = RefundDestination.ORIGINAL_METHOD;
-            } else if (intent.getPaymentMethod() == PaymentMethod.WALLET) {
-                destination = RefundDestination.STORE_CREDIT;
-            } else if (intent.getPaymentMethod() == PaymentMethod.COD) {
-                if (intent.getStatus() == PaymentIntentStatus.PENDING_COLLECTION) {
-                    destination = RefundDestination.NONE;
-                } else {
-                    destination = RefundDestination.STORE_CREDIT;
-                }
-            } else {
-                destination = RefundDestination.STORE_CREDIT;
-            }
-        }
+        RefundDestination destination = resolveDestination(command, intent);
 
         Refund refund = Refund.builder()
                 .id(UUID.randomUUID())
@@ -162,6 +151,70 @@ public class RefundService {
         return toView(refund, order);
     }
 
+    /**
+     * Where the money goes. This method is the only authority on that question.
+     *
+     * <p>Callers used to pass a destination of their own -- six system paths hardcoded
+     * {@code ORIGINAL_METHOD} and the chat path hardcoded {@code STORE_CREDIT} -- which bypassed the
+     * matrix entirely: a wallet-paid order was pushed at a gateway that had never taken the money
+     * (so the customer was never repaid), a COD order threw mid-consumer, and a card-paid customer
+     * was handed store credit. Automatic callers must pass no destination and take the routing below.
+     *
+     * <p>The single permitted override is an administrator granting store credit as goodwill. It is
+     * recorded against that administrator via {@code initiatedById}.
+     */
+    private RefundDestination resolveDestination(RefundCommand command, PaymentIntent intent) {
+        RefundDestination override = command.getDestination();
+        if (override != null) {
+            if (override != RefundDestination.STORE_CREDIT) {
+                throw new IllegalStateException("REFUND_OVERRIDE_INVALID");
+            }
+            if (command.getInitiatorType() != com.fooddelivery.order.enums.InitiatorType.ADMIN) {
+                throw new IllegalStateException("REFUND_OVERRIDE_UNAUTHORIZED");
+            }
+            return RefundDestination.STORE_CREDIT;
+        }
+
+        PaymentMethod method = intent.getPaymentMethod();
+        if (method == null) {
+            throw new IllegalStateException("REFUND_METHOD_UNKNOWN");
+        }
+        // A gateway that told us the payment failed took no money, so there is none to give back.
+        // This is a real outcome of cancelling an order, not an error.
+        if (intent.getStatus() == PaymentIntentStatus.FAILED) {
+            return RefundDestination.NONE;
+        }
+        switch (method) {
+            case CARD:
+            case UPI:
+                if (intent.getStatus() == PaymentIntentStatus.SUCCESS
+                        || intent.getStatus() == PaymentIntentStatus.PARTIALLY_REFUNDED) {
+                    return RefundDestination.ORIGINAL_METHOD;
+                }
+                // INITIATED is deliberately not routed: we asked the gateway for money and do not
+                // know whether it took any. Refunding nothing could strand a real capture, so an
+                // operator must look.
+                throw new IllegalStateException("REFUND_STATE_INVALID");
+            case WALLET:
+                if (intent.getStatus() == PaymentIntentStatus.SUCCESS
+                        || intent.getStatus() == PaymentIntentStatus.PARTIALLY_REFUNDED) {
+                    return RefundDestination.STORE_CREDIT;
+                }
+                throw new IllegalStateException("REFUND_STATE_INVALID");
+            case COD:
+                if (intent.getStatus() == PaymentIntentStatus.PENDING_COLLECTION) {
+                    // Nothing was ever collected, so there is nothing to give back.
+                    return RefundDestination.NONE;
+                }
+                if (intent.getStatus() == PaymentIntentStatus.COLLECTED) {
+                    return RefundDestination.STORE_CREDIT;
+                }
+                throw new IllegalStateException("REFUND_STATE_INVALID");
+            default:
+                throw new IllegalStateException("REFUND_METHOD_UNKNOWN");
+        }
+    }
+
     @Transactional
     public void complete(UUID refundId, String gatewayRefundId) {
         Refund refund = refundRepository.findById(refundId)
@@ -174,14 +227,27 @@ public class RefundService {
         Order order = orderRepository.findById(refund.getOrderId())
                 .orElseThrow(() -> new IllegalArgumentException("Order not found"));
                 
+        PaymentIntent intent = paymentIntentRepository.findById(refund.getPaymentIntentId()).orElseThrow();
+        BigDecimal committed = refundRepository.sumByOrderAndStatusIn(refund.getOrderId(), List.of(RefundStatus.COMPLETED));
+        if (committed.add(refund.getAmount()).compareTo(intent.getAmount()) > 0) {
+            refund.setStatus(RefundStatus.FAILED);
+            refund.setFailureReason("OVER_REFUND_BLOCKED");
+            refundRepository.save(refund);
+            return;
+        }
+                
         completeInternal(refund, gatewayRefundId, order);
     }
 
     private void completeInternal(Refund refund, String gatewayRefundId, Order order) {
         refund.setStatus(RefundStatus.COMPLETED);
         refund.setGatewayRefundId(gatewayRefundId);
-        refund.setCompletedAt(LocalDateTime.now());
-        ledgerBookkeeper.bookRefund(order, refund);
+        refund.setCompletedAt(java.time.OffsetDateTime.now());
+        String gatewayName = paymentIntentRepository.findById(refund.getPaymentIntentId())
+                .map(PaymentIntent::getGatewayName)
+                .map(Enum::name)
+                .orElse(null);
+        ledgerBookkeeper.bookRefund(order, refund, gatewayName);
         sendSuccessNotification(order, refund);
     }
 
@@ -202,13 +268,13 @@ public class RefundService {
     
     @Transactional
     public void retryStuck() {
-        List<Refund> stuck = refundRepository.findStuckProcessing(LocalDateTime.now().minusMinutes(5));
+        List<Refund> stuck = refundRepository.findStuckProcessing(java.time.OffsetDateTime.now().minusMinutes(5));
         for (Refund refund : stuck) {
             refund.setAttempts(refund.getAttempts() + 1);
             if (refund.getAttempts() > 3) {
                 fail(refund.getId(), "Max retries exceeded");
             } else {
-                refund.setUpdatedAt(LocalDateTime.now());
+                refund.setUpdatedAt(java.time.OffsetDateTime.now());
                 PaymentIntent intent = paymentIntentRepository.findById(refund.getPaymentIntentId()).orElseThrow();
                 PaymentRefundRequestedEvent event = PaymentRefundRequestedEvent.builder()
                         .refundId(refund.getId().toString())
@@ -235,16 +301,31 @@ public class RefundService {
         }
     }
 
+    @Transactional(readOnly = true)
     public BigDecimal quote(UUID orderId, List<RefundCommand.Item> items) {
         Order order = orderRepository.findById(orderId).orElseThrow();
-        BigDecimal total = BigDecimal.ZERO;
+        if (order.getItemTotal() == null || order.getItemTotal().compareTo(BigDecimal.ZERO) == 0) {
+            throw new IllegalStateException("QUOTE_UNAVAILABLE");
+        }
+
+        BigDecimal itemsRefundTotal = BigDecimal.ZERO;
         for (RefundCommand.Item itemCmd : items) {
             OrderItem item = order.getOrderItems().stream()
                 .filter(i -> i.getId().equals(itemCmd.getOrderItemId()))
                 .findFirst().orElseThrow();
-            total = total.add(item.getPrice().multiply(new BigDecimal(itemCmd.getQuantity())));
+            
+            int alreadyRefunded = refundItemRepository.sumCompletedQuantity(itemCmd.getOrderItemId());
+            if (itemCmd.getQuantity() + alreadyRefunded > item.getQuantity()) {
+                throw new IllegalStateException("ITEM_ALREADY_REFUNDED");
+            }
+
+            itemsRefundTotal = itemsRefundTotal.add(item.getPrice().multiply(new BigDecimal(itemCmd.getQuantity())));
         }
-        return total;
+
+        BigDecimal itemRatio = itemsRefundTotal.divide(order.getItemTotal(), 4, java.math.RoundingMode.HALF_UP);
+        BigDecimal proratedSgst = order.getSgst() != null ? order.getSgst().multiply(itemRatio) : BigDecimal.ZERO;
+        BigDecimal proratedCgst = order.getCgst() != null ? order.getCgst().multiply(itemRatio) : BigDecimal.ZERO;
+        return itemsRefundTotal.add(proratedSgst).add(proratedCgst).setScale(2, java.math.RoundingMode.HALF_UP);
     }
     
     private void sendNotification(Order order, Refund refund) {
@@ -329,7 +410,7 @@ public class RefundService {
                 .reasonCode(refund.getReasonCode())
                 .requestedAt(refund.getCreatedAt())
                 .completedAt(refund.getCompletedAt())
-                .expectedBy(refund.getCreatedAt() != null ? refund.getCreatedAt().plusDays(5) : LocalDateTime.now().plusDays(5))
+                .expectedBy(refund.getCreatedAt() != null ? refund.getCreatedAt().plusDays(5) : java.time.OffsetDateTime.now().plusDays(5))
                 .build();
     }
 }

@@ -66,8 +66,13 @@ public class DynamicPricingService {
         BigDecimal custPaysDe = driverPayout.subtract(restPaysDe).max(BigDecimal.ZERO);
         BigDecimal totalCustomerDeliveryFee = custPaysDe.add(fixedPlatformFee);
         java.util.Set<com.fooddelivery.order.entity.OrderCharge> charges = new java.util.HashSet<>();
-        // 0. Platform pays Restaurant the Food Cost
-        charges.add(createCharge(com.fooddelivery.common.enums.ChargeCategory.FOOD_COST, com.fooddelivery.order.enums.ChargeEntityType.PLATFORM, com.fooddelivery.order.enums.ChargeEntityType.RESTAURANT, foodCost));
+        // 0. Platform pays Restaurant the Food Cost.
+        // Guarded like every other charge below: the ledger rejects a non-positive leg, and it
+        // rejects the whole command, so an unguarded 0.00 food cost would stop the driver payout
+        // and the taxes on that order from booking too. Found by LedgerInvariantTest.
+        if (foodCost.compareTo(BigDecimal.ZERO) > 0) {
+            charges.add(createCharge(com.fooddelivery.common.enums.ChargeCategory.FOOD_COST, com.fooddelivery.order.enums.ChargeEntityType.PLATFORM, com.fooddelivery.order.enums.ChargeEntityType.RESTAURANT, foodCost));
+        }
         // 1. Customer pays Fixed Platform Fee
         if (fixedPlatformFee.compareTo(BigDecimal.ZERO) > 0) {
             charges.add(createCharge(com.fooddelivery.common.enums.ChargeCategory.PLATFORM_FIXED_FEE, com.fooddelivery.order.enums.ChargeEntityType.CUSTOMER, com.fooddelivery.order.enums.ChargeEntityType.PLATFORM, fixedPlatformFee));

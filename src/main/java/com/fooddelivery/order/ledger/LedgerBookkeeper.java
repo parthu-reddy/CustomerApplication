@@ -15,6 +15,7 @@ import com.fooddelivery.common.enums.RefundDestination;
 import com.fooddelivery.order.entity.Refund;
 import com.fooddelivery.common.outbox.entity.OutboxEventEntity;
 import com.fooddelivery.common.outbox.repository.OutboxEventRepository;
+import com.fooddelivery.customer.client.LedgerClient;
 import com.fooddelivery.common.util.DeterministicIdUtils;
 import com.fooddelivery.order.entity.Order;
 import com.fooddelivery.order.entity.OrderCharge;
@@ -35,13 +36,20 @@ public class LedgerBookkeeper {
     private final OutboxEventRepository outboxEventRepository;
     private final ObjectMapper objectMapper;
     private final LedgerAccountResolver accountResolver;
+    private final LedgerClient ledgerClient;
 
     public void bookPaymentCaptured(Order order, String gateway) {
         if ("COD".equalsIgnoreCase(gateway) || "WALLET".equalsIgnoreCase(gateway)) {
             return;
         }
+        if (gateway == null || gateway.isBlank()) {
+            // Previously this hashed the literal string "null" and every card capture in the system
+            // landed in one bogus account. Fail where the fact is missing, not where it is read.
+            throw new IllegalStateException(
+                    "Cannot book a gateway capture for order " + order.getId() + " without a gateway name");
+        }
 
-        UUID gatewayAccountId = DeterministicIdUtils.ledgerId("gateway", gateway, "");
+        UUID gatewayAccountId = LedgerAccounts.gatewayOwnerId(gateway);
         
         LedgerLeg leg = new LedgerLeg();
         leg.setFromType(LedgerAccountType.GATEWAY_RECEIVABLE);
@@ -53,17 +61,17 @@ public class LedgerBookkeeper {
 
         UUID txId = DeterministicIdUtils.ledgerId("customer-application", order.getId(), "PAYMENT_CAPTURE");
         
-        LedgerTransactionCommand cmd = new LedgerTransactionCommand(txId, order.getId(), "customer-application", List.of(leg));
+        LedgerTransactionCommand cmd = new LedgerTransactionCommand(txId, order.getId(), "customer-application", "PAYMENT_CAPTURE", List.of(leg));
         saveOutboxEvent(txId, cmd);
     }
 
-    public void bookPaymentSuccess(Order order) {
-        bookPaymentCaptured(order, "unknown");
-    }
 
     public void bookCashCollected(Order order) {
         LedgerLeg leg = new LedgerLeg();
-        leg.setFromType(LedgerAccountType.DRIVER_PAYABLE);
+        // Cash the rider physically holds is a receivable owed to the platform, not a deduction
+        // from the rider's earnings. DRIVER_PAYABLE is a PAYABLE account, so debiting it here also
+        // tripped the ledger's insufficient-funds rule on almost every COD delivery.
+        leg.setFromType(LedgerAccountType.CASH_RECEIVABLE);
         leg.setFromId(order.getDeliveryExecutiveId());
         leg.setToType(LedgerAccountType.PLATFORM_CLEARING);
         leg.setToId(LedgerAccounts.PLATFORM_CLEARING);
@@ -72,7 +80,7 @@ public class LedgerBookkeeper {
 
         UUID txId = DeterministicIdUtils.ledgerId("customer-application", order.getId(), "CASH_COLLECTED");
         
-        LedgerTransactionCommand cmd = new LedgerTransactionCommand(txId, order.getId(), "customer-application", List.of(leg));
+        LedgerTransactionCommand cmd = new LedgerTransactionCommand(txId, order.getId(), "customer-application", "CASH_COLLECTED", List.of(leg));
         saveOutboxEvent(txId, cmd);
     }
 
@@ -97,17 +105,18 @@ public class LedgerBookkeeper {
 
 
         UUID txId = DeterministicIdUtils.ledgerId("customer-application", order.getId(), "DELIVERED");
-        LedgerTransactionCommand cmd = new LedgerTransactionCommand(txId, order.getId(), "customer-application", legs);
+        LedgerTransactionCommand cmd = new LedgerTransactionCommand(txId, order.getId(), "customer-application", "DELIVERED", legs);
         saveOutboxEvent(txId, cmd);
     }
 
-    public void bookRefund(Order order, Refund refund) {
+    public void bookRefund(Order order, Refund refund, String gatewayName) {
         List<LedgerLeg> legs = new ArrayList<>();
         
         // 1. Main refund leg (only for ORIGINAL_METHOD)
         if (refund.getDestination() == RefundDestination.ORIGINAL_METHOD) {
-            String gateway = order.getPaymentMethod() != null ? order.getPaymentMethod().name() : "unknown";
-            UUID gatewayAccountId = DeterministicIdUtils.ledgerId("gateway", gateway, "");
+            // The gateway comes from the payment intent, not from the payment method: CARD and UPI are
+            // how the customer paid, not where the money is held.
+            UUID gatewayAccountId = LedgerAccounts.gatewayOwnerId(gatewayName);
             
             LedgerLeg leg = new LedgerLeg();
             leg.setFromType(LedgerAccountType.PLATFORM_CLEARING);
@@ -130,12 +139,22 @@ public class LedgerBookkeeper {
             }
 
             if (refund.getFaultType() == FaultType.RESTAURANT_FAULT) {
+                if (order.getRestaurantId() == null) {
+                    throw new IllegalStateException("Cannot calculate clawback: Restaurant payout is null on the Order");
+                }
                 if (order.getRestaurantPayout() == null) {
                     throw new IllegalStateException("Cannot calculate clawback: Restaurant payout is null on the Order");
                 }
+                
+                java.math.BigDecimal alreadyClawedBack = getAlreadyClawedBack(order.getId(), order.getRestaurantId(), LedgerAccountType.RESTAURANT_PAYABLE);
                 java.math.BigDecimal restPayout = order.getRestaurantPayout();
+                
                 java.math.BigDecimal clawback = restPayout.multiply(refundRatio).setScale(2, java.math.RoundingMode.HALF_UP);
                 if (clawback.compareTo(refund.getAmount()) > 0) clawback = refund.getAmount();
+                
+                java.math.BigDecimal maxAllowed = restPayout.subtract(alreadyClawedBack);
+                if (clawback.compareTo(maxAllowed) > 0) clawback = maxAllowed;
+                
                 if (clawback.compareTo(java.math.BigDecimal.ZERO) > 0) {
                     LedgerLeg leg = new LedgerLeg();
                     leg.setFromType(LedgerAccountType.RESTAURANT_PAYABLE);
@@ -149,13 +168,23 @@ public class LedgerBookkeeper {
                     legs.add(leg);
                 }
             } else if (refund.getFaultType() == FaultType.RIDER_FAULT) {
+                if (order.getDeliveryExecutiveId() == null) {
+                    throw new IllegalStateException("Cannot calculate clawback: Rider payout is null on the Order");
+                }
                 if (order.getDriverNetPayout() == null) {
                     throw new IllegalStateException("Cannot calculate clawback: Rider payout is null on the Order");
                 }
+                
+                java.math.BigDecimal alreadyClawedBack = getAlreadyClawedBack(order.getId(), order.getDeliveryExecutiveId(), LedgerAccountType.DRIVER_PAYABLE);
                 java.math.BigDecimal riderPayout = order.getDriverNetPayout();
+                
                 java.math.BigDecimal clawback = riderPayout.multiply(refundRatio).setScale(2, java.math.RoundingMode.HALF_UP);
                 if (clawback.compareTo(refund.getAmount()) > 0) clawback = refund.getAmount();
-                if (clawback.compareTo(java.math.BigDecimal.ZERO) > 0 && order.getDeliveryExecutiveId() != null) {
+                
+                java.math.BigDecimal maxAllowed = riderPayout.subtract(alreadyClawedBack);
+                if (clawback.compareTo(maxAllowed) > 0) clawback = maxAllowed;
+                
+                if (clawback.compareTo(java.math.BigDecimal.ZERO) > 0) {
                     LedgerLeg leg = new LedgerLeg();
                     leg.setFromType(LedgerAccountType.DRIVER_PAYABLE);
                     leg.setFromId(order.getDeliveryExecutiveId());
@@ -183,8 +212,9 @@ public class LedgerBookkeeper {
         }
         
         if (!legs.isEmpty()) {
-            UUID txId = DeterministicIdUtils.ledgerId("customer-application", refund.getId(), "REFUND");
-            LedgerTransactionCommand cmd = new LedgerTransactionCommand(txId, order.getId(), "customer-application", legs);
+            String refundLeg = "REFUND:" + refund.getId();
+            UUID txId = DeterministicIdUtils.ledgerId("customer-application", order.getId(), refundLeg);
+            LedgerTransactionCommand cmd = new LedgerTransactionCommand(txId, order.getId(), "customer-application", refundLeg, legs);
             saveOutboxEvent(txId, cmd);
         }
     }
@@ -206,5 +236,36 @@ public class LedgerBookkeeper {
             log.error("Failed to save LEDGER_TRANSACTION_REQUEST event", e);
             throw new RuntimeException("Failed to save LEDGER_TRANSACTION_REQUEST event", e);
         }
+    }
+
+    /**
+     * What has already been clawed back from this payee on this order.
+     *
+     * <p>Matched on the account's <em>owner</em>, not on {@code accountId}: a statement line's
+     * accountId is the ledger account's own surrogate key, so comparing it against a restaurant or
+     * driver id matched nothing and the cap silently never applied -- two partial refunds each clawed
+     * back a full pro-rata share.
+     *
+     * <p>Fails closed. An unreachable ledger used to yield zero, which is indistinguishable from
+     * "nothing clawed back yet" and would let the cap be exceeded. Refusing to book is recoverable;
+     * over-charging a restaurant is not.
+     */
+    private java.math.BigDecimal getAlreadyClawedBack(UUID orderId, UUID payeeId, LedgerAccountType payeeAccountType) {
+        List<com.fooddelivery.common.dto.ledger.LedgerStatementLineDto> lines;
+        try {
+            lines = ledgerClient.getStatementByReference(orderId);
+        } catch (Exception e) {
+            throw new IllegalStateException(
+                    "Cannot cap the clawback for order " + orderId + ": the ledger statement is unavailable ("
+                    + e.getMessage() + "). Booking without the cap could claw back more than the payee earned.", e);
+        }
+        if (lines == null || lines.isEmpty()) return java.math.BigDecimal.ZERO;
+
+        return lines.stream()
+            .filter(l -> payeeId.equals(l.getOwnerId()) && l.getOwnerType() == payeeAccountType)
+            .filter(l -> l.getCategory() == ChargeCategory.CLAWBACK)
+            .filter(l -> l.getDirection() == com.fooddelivery.common.enums.TransactionDirection.DEBIT)
+            .map(com.fooddelivery.common.dto.ledger.LedgerStatementLineDto::getAmount)
+            .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
     }
 }

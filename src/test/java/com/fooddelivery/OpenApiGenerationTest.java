@@ -147,6 +147,10 @@ public class OpenApiGenerationTest {
     @org.springframework.boot.test.mock.mockito.MockBean
     private com.fooddelivery.customer.service.money.CustomerReceiptService customerReceiptService;
 
+    // CustomerMoneyController reads the customer's own wallet through this.
+    @org.springframework.boot.test.mock.mockito.MockBean
+    private com.fooddelivery.common.client.WalletServiceClient walletServiceClient;
+
     @org.springframework.boot.test.mock.mockito.MockBean
     private com.fooddelivery.customer.service.AdminOrderMoneyService adminOrderMoneyService;
 

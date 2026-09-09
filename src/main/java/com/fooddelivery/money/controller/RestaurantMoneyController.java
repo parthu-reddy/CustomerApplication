@@ -48,10 +48,7 @@ public class RestaurantMoneyController {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Order does not belong to this outlet");
         }
 
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (!moneyAccessPolicy.canAccessMoney(authentication, MoneyOwnerType.RESTAURANT, outletId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access Denied: You cannot view this order's earnings");
-        }
+
 
         return ResponseEntity.ok(buildRestaurantEarnings(order));
     }
@@ -71,24 +68,51 @@ public class RestaurantMoneyController {
         return ResponseEntity.ok(buildRestaurantEarnings(order));
     }
 
+    /**
+     * Refunds still in flight for this outlet.
+     *
+     * <p>Moved here 2026-09-09 from {@code RestaurantSupportTicketController}, which mapped it under
+     * {@code /api/v1/internal/restaurants/outlets/**}. The gateway 403s external calls to
+     * {@code /api/v1/internal/**} outside the admin carve-out, so the restaurant screen calling it
+     * could never have worked — and it was guarded by role alone, with no ownership check, so had
+     * it been reachable any RESTAURANT user could have read any outlet's refunds. It now sits on
+     * the routed, owner-scoped money surface beside its COMPLETED counterpart below.
+     */
+    @GetMapping("/{outletId}/refund-requests")
+    @PreAuthorize("@moneyAccessPolicy.canAccessMoney(authentication, T(com.fooddelivery.common.security.money.MoneyOwnerType).RESTAURANT, #outletId)")
+    public ResponseEntity<java.util.List<com.fooddelivery.order.refund.RefundView>> fetchActiveRefundRequests(
+            @PathVariable UUID outletId) {
+
+        java.util.List<com.fooddelivery.order.entity.Refund> refunds =
+                refundRepository.findRestaurantFaultRefunds(outletId, com.fooddelivery.common.enums.RefundStatus.PROCESSING);
+
+        return ResponseEntity.ok(refunds.stream()
+                .map(r -> com.fooddelivery.order.refund.RefundView.builder()
+                        .id(r.getId())
+                        .orderId(r.getOrderId())
+                        .amount(r.getAmount())
+                        .status(r.getStatus())
+                        .destination(r.getDestination())
+                        // method is deliberately absent: it lives on the order, and fetching one per
+                        // refund here would be an N+1. The restaurant view does not show it.
+                        .reasonCode(r.getReasonCode())
+                        .requestedAt(r.getCreatedAt())
+                        .completedAt(r.getCompletedAt())
+                        .build())
+                .collect(java.util.stream.Collectors.toList()));
+    }
+
     @GetMapping("/{outletId}/refunds")
     @PreAuthorize("@moneyAccessPolicy.canAccessMoney(authentication, T(com.fooddelivery.common.security.money.MoneyOwnerType).RESTAURANT, #outletId)")
     public ResponseEntity<java.util.List<com.fooddelivery.order.refund.RefundView>> fetchRestaurantRefunds(
             @PathVariable UUID outletId) {
 
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (!moneyAccessPolicy.canAccessMoney(authentication, MoneyOwnerType.RESTAURANT, outletId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access Denied: You cannot view this outlet's refunds");
-        }
+
 
         // Fetch all completed refunds that were RESTAURANT_FAULT
         java.util.List<com.fooddelivery.order.entity.Refund> refunds = refundRepository.findRestaurantFaultRefunds(outletId, com.fooddelivery.common.enums.RefundStatus.COMPLETED);
         
         java.util.List<com.fooddelivery.order.refund.RefundView> views = refunds.stream()
-            // Filter out non-restaurant fault refunds by looking at reason code? Wait, how do we know it's a restaurant fault?
-            // Phase 4 plan: "refunds with faultType == RESTAURANT_FAULT and their clawback amounts".
-            // Since we don't have faultType on Refund directly, we can check the related order or just return all refunds for now.
-            // Oh wait! We added faultType to RefundCommand, but not the Refund entity? Let's check Refund entity.
             .map(r -> com.fooddelivery.order.refund.RefundView.builder()
                 .id(r.getId())
                 .orderId(r.getOrderId())
@@ -97,7 +121,10 @@ public class RestaurantMoneyController {
                 .destination(r.getDestination())
                 .reasonCode(r.getReasonCode())
                 .requestedAt(r.getCreatedAt())
-                .completedAt(r.getUpdatedAt())
+                // completedAt, not updatedAt: the last touch on the row is not when the money
+                // moved. Corrected here 2026-09-09 to match RestaurantSupportTicketController,
+                // whose single endpoint was folded into this class.
+                .completedAt(r.getCompletedAt())
                 .build())
             .collect(java.util.stream.Collectors.toList());
 
@@ -110,10 +137,7 @@ public class RestaurantMoneyController {
             @PathVariable UUID outletId,
             @RequestParam(required = false, defaultValue = "month") String period) {
         
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (!moneyAccessPolicy.canAccessMoney(authentication, MoneyOwnerType.RESTAURANT, outletId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access Denied");
-        }
+
         
         return ResponseEntity.ok(restaurantSummaryService.getSummary(outletId, period));
     }
@@ -125,10 +149,7 @@ public class RestaurantMoneyController {
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "20") int size) {
         
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (!moneyAccessPolicy.canAccessMoney(authentication, MoneyOwnerType.RESTAURANT, outletId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access Denied");
-        }
+
         
         return ResponseEntity.ok(ledgerClient.getStatement("RESTAURANT_PAYABLE", outletId, page, size));
     }
@@ -141,14 +162,8 @@ public class RestaurantMoneyController {
             @RequestParam(required = false) String to,
             @RequestParam(value = "page", defaultValue = "0") int page) {
         
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (!moneyAccessPolicy.canAccessMoney(authentication, MoneyOwnerType.RESTAURANT, outletId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access Denied");
-        }
-        
-        // Return dummy or empty for now or map from orders
-        java.time.LocalDateTime start = java.time.LocalDateTime.now().minusMonths(1);
-        java.time.LocalDateTime end = java.time.LocalDateTime.now().plusDays(1);
+        java.time.LocalDateTime start = from != null ? java.time.LocalDateTime.parse(from, java.time.format.DateTimeFormatter.ISO_DATE_TIME) : java.time.LocalDateTime.now().minusMonths(1);
+        java.time.LocalDateTime end = to != null ? java.time.LocalDateTime.parse(to, java.time.format.DateTimeFormatter.ISO_DATE_TIME) : java.time.LocalDateTime.now().plusDays(1);
         java.util.List<Order> orders = orderRepository.findByRestaurantId(outletId).stream()
                 .filter(o -> o.getCreatedAt().isAfter(start) && o.getCreatedAt().isBefore(end))
                 .collect(java.util.stream.Collectors.toList());

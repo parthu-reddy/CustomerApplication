@@ -22,9 +22,11 @@ public class HandedOverState implements OrderState {
             ctx.getLedgerBookkeeper().bookDelivered(order);
             if (order.getPaymentMethod() == com.fooddelivery.common.enums.PaymentMethod.COD) {
                 ctx.getLedgerBookkeeper().bookCashCollected(order);
-                order.setPaymentStatus(com.fooddelivery.common.constants.PaymentIntentStatus.SUCCESS);
-                // The gatewayOrderId for COD is set by PaymentGatewayOrchestrator, but payment is now successful.
-                ctx.getActionService().updatePaymentIntentStatus(order.getId(), com.fooddelivery.common.constants.PaymentIntentStatus.SUCCESS);
+                // COLLECTED, not SUCCESS: it distinguishes cash the rider has actually taken from a
+                // gateway capture, which is what RefundService needs to decide whether a COD refund
+                // moves money at all.
+                order.setPaymentStatus(com.fooddelivery.common.constants.PaymentIntentStatus.COLLECTED);
+                ctx.getActionService().updatePaymentIntentStatus(order.getId(), com.fooddelivery.common.constants.PaymentIntentStatus.COLLECTED);
             }
         }
         ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_DELIVERED.name());

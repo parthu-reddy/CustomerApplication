@@ -62,14 +62,11 @@ public class RestaurantMoneyControllerTest {
         item.setQuantity(2);
         item.setPrice(BigDecimal.valueOf(42.5));
         testOrder.setOrderItems(Set.of(item));
-        when(orderRepository.findById(orderId)).thenReturn(Optional.of(testOrder));
     }
 
     @Test
-    void getOrderEarnings_Allowed_WhenOwnerOfOutlet() throws Exception {
-        when(moneyAccessPolicy.canAccessMoney(any(), eq(MoneyOwnerType.RESTAURANT), eq(restaurantId)))
-                .thenReturn(true);
-
+    void getOrderEarnings_ReturnsEarnings_WhenOrderBelongsToOutlet() throws Exception {
+        when(orderRepository.findById(orderId)).thenReturn(Optional.of(testOrder));
         mockMvc.perform(get("/api/v1/money/restaurant/" + restaurantId + "/orders/" + orderId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.orderId").value(orderId.toString()))
@@ -77,12 +74,33 @@ public class RestaurantMoneyControllerTest {
                 .andExpect(jsonPath("$.netPayout").value(85));
     }
 
+    /** Another outlet's order is not this outlet's business. */
     @Test
-    void getOrderEarnings_Forbidden_WhenNotOwner() throws Exception {
-        when(moneyAccessPolicy.canAccessMoney(any(), eq(MoneyOwnerType.RESTAURANT), eq(restaurantId)))
-                .thenReturn(false);
+    void getOrderEarnings_IsNotFound_WhenTheOrderBelongsToAnotherOutlet() throws Exception {
+        testOrder.setRestaurantId(UUID.randomUUID());
+        when(orderRepository.findById(orderId)).thenReturn(Optional.of(testOrder));
 
         mockMvc.perform(get("/api/v1/money/restaurant/" + restaurantId + "/orders/" + orderId))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void getOrderEarnings_IsNotFound_WhenTheOrderDoesNotExist() throws Exception {
+        when(orderRepository.findById(orderId)).thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/api/v1/money/restaurant/" + restaurantId + "/orders/" + orderId))
+                .andExpect(status().isNotFound());
+    }
+
+    /** The deductions are shown, not just the net: an outlet must see why it was paid that. */
+    @Test
+    void getOrderEarnings_ShowsTheDeductionsBehindTheNet() throws Exception {
+        when(orderRepository.findById(orderId)).thenReturn(Optional.of(testOrder));
+
+        mockMvc.perform(get("/api/v1/money/restaurant/" + restaurantId + "/orders/" + orderId))
+                .andExpect(status().isOk())
+                // Rupees as the API stores them, not paise.
+                .andExpect(jsonPath("$.platformFee").value(10))
+                .andExpect(jsonPath("$.deliveryContribution").value(5));
     }
 }

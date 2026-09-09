@@ -29,7 +29,7 @@ public class WalletCheckoutService {
                     txReq.setReferenceId(intent.startsWith("INTERNAL_") ? UUID.fromString(intent.replace("INTERNAL_", "")) : UUID.fromString(intent));
                     txReq.setCategory(com.fooddelivery.common.enums.ChargeCategory.ORDER_TOTAL);
                     txReq.setDescription("Order " + order.getId());
-                    walletServiceClient.debit(com.fooddelivery.common.enums.EntityType.CUSTOMER.name(), order.getCustomerId(), txReq, SERVICE_NAME);
+                    walletServiceClient.debit(com.fooddelivery.common.enums.WalletEntityType.CUSTOMER.name(), order.getCustomerId(), txReq, SERVICE_NAME);
                 }
                 String payload = String.format("{\"eventType\":\"PAYMENT_COMPLETED\", \"orderId\":\"%s\", \"gatewayOrderId\":\"%s\"}", order.getId(), intent);
                 com.fooddelivery.common.outbox.entity.OutboxEventEntity evt = com.fooddelivery.common.outbox.entity.OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.PAYMENT).aggregateId(intent).eventType(com.fooddelivery.common.constants.EventType.PAYMENT_COMPLETED).payload(payload).createdAt(java.time.LocalDateTime.now()).build();

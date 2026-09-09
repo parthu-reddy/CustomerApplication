@@ -83,4 +83,5 @@ class PaymentEventConsumerContractTest {
         await().atMost(15, TimeUnit.SECONDS).untilAsserted(() ->
                 verify(paymentIntentRepository).findByGatewayOrderId(anyString()));
     }
+
 }

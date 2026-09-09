@@ -20,6 +20,8 @@ public class AdminOrderMoneyService {
 
     private final IOrderRepository orderRepository;
     private final LedgerClient ledgerClient;
+    private final com.fooddelivery.order.repository.IPaymentIntentRepository paymentIntentRepository;
+    private final com.fooddelivery.order.repository.RefundRepository refundRepository;
 
     public AdminOrderMoney getOrderMoney(UUID orderId) {
         Order order = orderRepository.findById(orderId)
@@ -51,6 +53,28 @@ public class AdminOrderMoneyService {
 
         money.setSgst(order.getSgst());
         money.setCgst(order.getCgst());
+
+        money.setPaymentMethod(order.getPaymentMethod());
+        paymentIntentRepository.findByInternalOrderId(orderId).ifPresent(intent -> {
+            money.setPaymentStatus(intent.getStatus());
+            money.setGatewayName(intent.getGatewayName());
+            money.setGatewayOrderId(intent.getGatewayOrderId());
+        });
+
+        money.setRefunds(refundRepository.findByOrderId(orderId).stream()
+                .map(r -> AdminOrderMoney.RefundLine.builder()
+                        .id(r.getId())
+                        .amount(r.getAmount())
+                        .status(r.getStatus() != null ? r.getStatus().name() : null)
+                        .destination(r.getDestination() != null ? r.getDestination().name() : null)
+                        .faultType(r.getFaultType() != null ? r.getFaultType().name() : null)
+                        .reasonCode(r.getReasonCode())
+                        .gatewayRefundId(r.getGatewayRefundId())
+                        .failureReason(r.getFailureReason())
+                        .requestedAt(r.getCreatedAt())
+                        .completedAt(r.getCompletedAt())
+                        .build())
+                .toList());
 
         List<LedgerStatementLineDto> lines = ledgerClient.getStatementByReference(orderId);
         money.setLedgerLines(lines);

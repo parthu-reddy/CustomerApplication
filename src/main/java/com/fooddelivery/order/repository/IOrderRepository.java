@@ -126,4 +126,20 @@ public interface IOrderRepository extends JpaRepository<Order, UUID> {
 
     @org.springframework.data.jpa.repository.Query("SELECT COALESCE(SUM(o.totalAmount), 0) FROM Order o WHERE o.status NOT IN :excludedStatuses AND CAST(o.createdAt AS date) = :date")
     java.math.BigDecimal sumOrderTotalsByDate(@org.springframework.data.repository.query.Param("date") java.time.LocalDate date, @org.springframework.data.repository.query.Param("excludedStatuses") List<com.fooddelivery.common.enums.OrderStatus> excludedStatuses);
+
+    /**
+     * What the orders say was owed to restaurants for deliveries on this date.
+     *
+     * <p>Dated on {@code deliveredAt}, because that is when {@code LedgerBookkeeper.bookDelivered}
+     * raises the payable. Dating on {@code createdAt} would compare an order placed near midnight
+     * against a payable booked the next day and report a break every night.
+     */
+    @org.springframework.data.jpa.repository.Query("SELECT COALESCE(SUM(o.restaurantPayout), 0) FROM Order o "
+            + "WHERE o.deliveredAt IS NOT NULL AND CAST(o.deliveredAt AS date) = :date")
+    java.math.BigDecimal sumRestaurantPayableByDeliveryDate(@org.springframework.data.repository.query.Param("date") java.time.LocalDate date);
+
+    /** The same, for riders. */
+    @org.springframework.data.jpa.repository.Query("SELECT COALESCE(SUM(o.driverNetPayout), 0) FROM Order o "
+            + "WHERE o.deliveredAt IS NOT NULL AND CAST(o.deliveredAt AS date) = :date")
+    java.math.BigDecimal sumDriverPayableByDeliveryDate(@org.springframework.data.repository.query.Param("date") java.time.LocalDate date);
 }

@@ -33,9 +33,20 @@ public class InternalMoneyController {
         return new com.fooddelivery.customer.dto.DailyTotalDto(orderTotals);
     }
 
-    @GetMapping("/admin/refunds")
-    @PreAuthorize("hasRole('ADMIN')")
-    public java.util.List<com.fooddelivery.order.refund.RefundView> getRefunds() {
-        return new java.util.ArrayList<>();
+    // Endpoint: /api/v1/internal/money/daily-payables
+    @GetMapping("/daily-payables")
+    @PreAuthorize("hasRole('SERVICE')")
+    public com.fooddelivery.customer.dto.DailyPayableDto getDailyPayables(@RequestParam("date") LocalDate date) {
+        return new com.fooddelivery.customer.dto.DailyPayableDto(
+                orderRepository.sumRestaurantPayableByDeliveryDate(date),
+                orderRepository.sumDriverPayableByDeliveryDate(date));
     }
+
+    // Deleted 2026-09-09: GET /admin/refunds returned `new ArrayList<>()` unconditionally -- an
+    // ADMIN endpoint that answered "no refunds exist" whatever the database held. Nothing called it
+    // (the generated UI client carried it, but no component used it), and there is no admin
+    // refund-listing screen: the admin refund queue works from support tickets via
+    // AdminRefundController, and stuck refunds appear under Money Operations. An endpoint that
+    // lies is worse than one that is absent; if a refund list is wanted, it should be built
+    // against a real screen.
 }

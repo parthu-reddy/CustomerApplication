@@ -1341,6 +1341,36 @@
         }
       }
     },
+    "/api/v1/money/restaurant/{outletId}/refund-requests" : {
+      "get" : {
+        "tags" : [ "restaurant-money-controller" ],
+        "operationId" : "fetchActiveRefundRequests",
+        "parameters" : [ {
+          "name" : "outletId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/RefundView"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/money/restaurant/{outletId}/orders" : {
       "get" : {
         "tags" : [ "restaurant-money-controller" ],
@@ -1648,6 +1678,61 @@
         }
       }
     },
+    "/api/v1/money/customer/wallet" : {
+      "get" : {
+        "tags" : [ "customer-money-controller" ],
+        "operationId" : "getMyWallet",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/WalletDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/money/customer/wallet/transactions" : {
+      "get" : {
+        "tags" : [ "customer-money-controller" ],
+        "operationId" : "getMyWalletTransactions",
+        "parameters" : [ {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponseDtoMapStringObject"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/money/customer/refunds" : {
       "get" : {
         "tags" : [ "customer-money-controller" ],
@@ -1719,33 +1804,6 @@
               "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/CustomerReceipt"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/internal/restaurants/outlets/{outletId}/refund-requests" : {
-      "get" : {
-        "tags" : [ "restaurant-support-ticket-controller" ],
-        "operationId" : "getActiveRefundRequests",
-        "parameters" : [ {
-          "name" : "outletId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string",
-            "format" : "uuid"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseListRefundView"
                 }
               }
             }
@@ -1906,20 +1964,26 @@
         }
       }
     },
-    "/api/v1/internal/money/admin/refunds" : {
+    "/api/v1/internal/money/daily-payables" : {
       "get" : {
         "tags" : [ "internal-money-controller" ],
-        "operationId" : "getRefunds",
+        "operationId" : "getDailyPayables",
+        "parameters" : [ {
+          "name" : "date",
+          "in" : "query",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        } ],
         "responses" : {
           "200" : {
             "description" : "OK",
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "type" : "array",
-                  "items" : {
-                    "$ref" : "#/components/schemas/RefundView"
-                  }
+                  "$ref" : "#/components/schemas/DailyPayableDto"
                 }
               }
             }
@@ -2255,83 +2319,6 @@
               "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ApiResponsePageResponseDtoCustomerAddressDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/delivery/orders/history" : {
-      "get" : {
-        "tags" : [ "driver-order-controller" ],
-        "operationId" : "getHistoryOrders",
-        "parameters" : [ {
-          "name" : "date",
-          "in" : "query",
-          "required" : false,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "pageable",
-          "in" : "query",
-          "required" : true,
-          "schema" : {
-            "$ref" : "#/components/schemas/Pageable"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponsePageResponseDtoOrderResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/delivery/orders/available" : {
-      "get" : {
-        "tags" : [ "driver-order-controller" ],
-        "operationId" : "getAvailableOrders",
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseListOrderResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/delivery/orders/active" : {
-      "get" : {
-        "tags" : [ "driver-order-controller" ],
-        "operationId" : "getActiveOrders_1",
-        "parameters" : [ {
-          "name" : "pageable",
-          "in" : "query",
-          "required" : true,
-          "schema" : {
-            "$ref" : "#/components/schemas/Pageable"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponsePageResponseDtoOrderResponse"
                 }
               }
             }
@@ -3513,6 +3500,18 @@
             "type" : "string",
             "format" : "uuid"
           },
+          "accountId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "ownerId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "ownerType" : {
+            "type" : "string",
+            "enum" : [ "GATEWAY_RECEIVABLE", "CASH_RECEIVABLE", "BANK", "PLATFORM_CLEARING", "PLATFORM_REVENUE", "TAX_PAYABLE", "PAYOUT_IN_TRANSIT", "RESTAURANT_PAYABLE", "DRIVER_PAYABLE", "CUSTOMER_CREDIT", "ADVERTISER_PREPAID" ]
+          },
           "category" : {
             "type" : "string",
             "enum" : [ "DELIVERY_FEE", "PLATFORM_FIXED_FEE", "PLATFORM_BONUS", "FOOD_COST", "SGST", "CGST", "REFUND", "ORDER_TOTAL", "AD_IMPRESSION", "AD_CLICK", "AD_CONVERSION", "AD_WALLET_TOPUP", "CLAWBACK", "PAYOUT_TRANSFER", "CASH_COLLECTED", "CASH_REMITTED", "STORE_CREDIT" ]
@@ -3714,6 +3713,78 @@
           }
         }
       },
+      "WalletDto" : {
+        "required" : [ "balance", "currency", "entityId", "entityType", "id", "status" ],
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "entityId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "entityType" : {
+            "type" : "string",
+            "enum" : [ "CUSTOMER", "ADVERTISER" ]
+          },
+          "balance" : {
+            "type" : "number"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "ACTIVE", "SUSPENDED", "CLOSED" ]
+          }
+        }
+      },
+      "PageResponseDtoMapStringObject" : {
+        "required" : [ "content", "empty", "first", "last", "number", "numberOfElements", "size", "totalElements", "totalPages" ],
+        "type" : "object",
+        "properties" : {
+          "content" : {
+            "type" : "array",
+            "items" : {
+              "type" : "object",
+              "additionalProperties" : {
+                "type" : "object"
+              }
+            }
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "last" : {
+            "type" : "boolean"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "number" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "first" : {
+            "type" : "boolean"
+          },
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "empty" : {
+            "type" : "boolean"
+          }
+        }
+      },
       "CustomerReceipt" : {
         "type" : "object",
         "properties" : {
@@ -3771,31 +3842,6 @@
           },
           "price" : {
             "type" : "number"
-          }
-        }
-      },
-      "ApiResponseListRefundView" : {
-        "required" : [ "message", "success", "timestamp" ],
-        "type" : "object",
-        "properties" : {
-          "success" : {
-            "type" : "boolean"
-          },
-          "message" : {
-            "type" : "string"
-          },
-          "errorCode" : {
-            "type" : "string"
-          },
-          "data" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/RefundView"
-            }
-          },
-          "timestamp" : {
-            "type" : "string",
-            "format" : "date-time"
           }
         }
       },
@@ -4007,6 +4053,16 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "first" : {
+            "type" : "boolean"
+          },
+          "last" : {
+            "type" : "boolean"
+          },
+          "number" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "size" : {
             "type" : "integer",
             "format" : "int32"
@@ -4016,16 +4072,6 @@
             "items" : {
               "$ref" : "#/components/schemas/Order"
             }
-          },
-          "number" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "first" : {
-            "type" : "boolean"
-          },
-          "last" : {
-            "type" : "boolean"
           },
           "empty" : {
             "type" : "boolean"
@@ -4082,6 +4128,17 @@
           }
         }
       },
+      "DailyPayableDto" : {
+        "type" : "object",
+        "properties" : {
+          "restaurantPayable" : {
+            "type" : "number"
+          },
+          "driverPayable" : {
+            "type" : "number"
+          }
+        }
+      },
       "PageSupportTicket" : {
         "required" : [ "content", "empty", "first", "last", "number", "numberOfElements", "size", "totalElements", "totalPages" ],
         "type" : "object",
@@ -4104,6 +4161,16 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "first" : {
+            "type" : "boolean"
+          },
+          "last" : {
+            "type" : "boolean"
+          },
+          "number" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "size" : {
             "type" : "integer",
             "format" : "int32"
@@ -4113,16 +4180,6 @@
             "items" : {
               "$ref" : "#/components/schemas/SupportTicket"
             }
-          },
-          "number" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "first" : {
-            "type" : "boolean"
-          },
-          "last" : {
-            "type" : "boolean"
           },
           "empty" : {
             "type" : "boolean"
@@ -4175,11 +4232,70 @@
           "cgst" : {
             "type" : "number"
           },
+          "paymentMethod" : {
+            "type" : "string",
+            "enum" : [ "CARD", "UPI", "WALLET", "COD" ]
+          },
+          "paymentStatus" : {
+            "type" : "string",
+            "enum" : [ "INITIATED", "SUCCESS", "FAILED", "PENDING_COLLECTION", "COLLECTED", "PARTIALLY_REFUNDED", "REFUNDED", "REFUND_PENDING", "REFUND_FAILED" ]
+          },
+          "gatewayName" : {
+            "type" : "string",
+            "enum" : [ "RAZORPAY", "CASHFREE", "VYAPAR" ]
+          },
+          "gatewayOrderId" : {
+            "type" : "string"
+          },
+          "refunds" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RefundLine"
+            }
+          },
           "ledgerLines" : {
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/LedgerStatementLineDto"
             }
+          }
+        }
+      },
+      "RefundLine" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "amount" : {
+            "type" : "number"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "destination" : {
+            "type" : "string"
+          },
+          "faultType" : {
+            "type" : "string"
+          },
+          "reasonCode" : {
+            "type" : "string"
+          },
+          "gatewayRefundId" : {
+            "type" : "string"
+          },
+          "failureReason" : {
+            "type" : "string"
+          },
+          "requestedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "completedAt" : {
+            "type" : "string",
+            "format" : "date-time"
           }
         }
       },

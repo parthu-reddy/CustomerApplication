@@ -19,7 +19,10 @@ public class TerminalState implements OrderState {
         ctx.getActionService().updatePaymentIntentStatus(order.getId(), com.fooddelivery.common.constants.PaymentIntentStatus.SUCCESS);
         
         if (ctx.getLedgerBookkeeper() != null) {
-            ctx.getLedgerBookkeeper().bookPaymentSuccess(order);
+            // A payment landing after the order is already terminal is still a real capture and must be
+            // booked against the gateway that took it -- previously this went through bookPaymentSuccess,
+            // which booked every one of them to a single "unknown" gateway account.
+            ctx.getLedgerBookkeeper().bookPaymentCaptured(order, ctx.getGateway());
         }
         
         if (order.getStatus() != com.fooddelivery.common.enums.OrderStatus.CANCELLED && order.getStatus() != com.fooddelivery.common.enums.OrderStatus.HANDED_OVER) {

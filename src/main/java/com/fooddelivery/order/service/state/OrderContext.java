@@ -17,7 +17,7 @@ public class OrderContext {
     private final String gateway;
     private boolean requiresRefund = false;
 
-    public OrderContext(Order order, JsonNode eventPayload, OrderActionService actionService, com.fooddelivery.order.ledger.LedgerBookkeeper ledgerBookkeeper) {
-        this(order, eventPayload, actionService, ledgerBookkeeper, null);
-    }
+    // No 4-argument convenience constructor: it defaulted the gateway to null, and every construction
+    // site took it, so bookPaymentCaptured hashed the string "null". Callers with no gateway now pass
+    // null visibly, and booking a capture with one fails loudly.
 }

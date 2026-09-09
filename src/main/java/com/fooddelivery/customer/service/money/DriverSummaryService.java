@@ -12,6 +12,7 @@ import com.fooddelivery.customer.dto.PayoutSummaryDto;
 
 @Service
 @lombok.RequiredArgsConstructor
+@lombok.extern.slf4j.Slf4j
 public class DriverSummaryService {
     private final IOrderRepository orderRepository;
     private final LedgerClient ledgerClient;
@@ -43,16 +44,29 @@ public class DriverSummaryService {
         summary.setGross(gross);
         summary.setTaxes(taxes);
         summary.setNet(net);
-        summary.setCashCollected(BigDecimal.ZERO);
-        summary.setCashRemitted(BigDecimal.ZERO);
-        summary.setCashInHand(BigDecimal.ZERO);
-        
+        // Cash and payout figures used to be hardcoded zeros behind a discarded call to the
+        // admin-only pending queue, so a rider carrying cash was always shown nothing in hand.
         try {
-            ledgerClient.getPendingPayouts(0, 100);
-            summary.setPendingBalance(BigDecimal.ZERO);
-            summary.setLastPayout(new PayoutSummaryDto());
+            var cash = ledgerClient.getCashSummary(driverId);
+            summary.setCashCollected(cash.getCashCollected());
+            summary.setCashRemitted(cash.getCashRemitted());
+            summary.setCashInHand(cash.getCashInHand());
         } catch (Exception e) {
-            summary.setPendingBalance(BigDecimal.ZERO);
+            log.warn("Cash summary unavailable for driver {}: {}", driverId, e.getMessage());
+            summary.setCashCollected(null);
+            summary.setCashRemitted(null);
+            summary.setCashInHand(null);
+        }
+
+        try {
+            var payeeSummary = ledgerClient.getPayeeSummary("DRIVER", driverId);
+            summary.setPendingBalance(payeeSummary.getUnsettledAmount() == null
+                    ? BigDecimal.ZERO : payeeSummary.getUnsettledAmount());
+            summary.setLastPayout(RestaurantSummaryService.toPayoutSummary(payeeSummary.getLastPayout()));
+        } catch (Exception e) {
+            log.warn("Ledger summary unavailable for driver {}: {}", driverId, e.getMessage());
+            summary.setPendingBalance(null);
+            summary.setLastPayout(null);
         }
         
         return summary;

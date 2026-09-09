@@ -7,7 +7,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -15,13 +15,17 @@ import java.util.UUID;
 @Repository
 public interface RefundRepository extends JpaRepository<Refund, UUID> {
     
-    @Query("SELECT COALESCE(SUM(r.amount), 0) FROM Refund r WHERE r.orderId = :orderId AND r.status IN ('COMPLETED', 'PROCESSING')")
-    BigDecimal sumCompletedByOrder(@Param("orderId") UUID orderId);
+    @Query("SELECT COALESCE(SUM(r.amount), 0) FROM Refund r WHERE r.orderId = :orderId AND r.status IN :statuses")
+    BigDecimal sumByOrderAndStatusIn(@Param("orderId") UUID orderId, @Param("statuses") List<com.fooddelivery.common.enums.RefundStatus> statuses);
 
     Optional<Refund> findByIdempotencyKey(String idempotencyKey);
 
     @Query("SELECT r FROM Refund r WHERE r.status = 'PROCESSING' AND r.updatedAt < :threshold")
-    List<Refund> findStuckProcessing(@Param("threshold") LocalDateTime threshold);
+    List<Refund> findStuckProcessing(@Param("threshold") OffsetDateTime threshold);
+
+    /** Oldest refund still in flight, used by the RefundStuck alert. */
+    @Query("SELECT MIN(r.createdAt) FROM Refund r WHERE r.status IN ('REQUESTED', 'PROCESSING')")
+    OffsetDateTime findOldestInFlightCreatedAt();
 
     List<Refund> findByOrderId(UUID orderId);
     

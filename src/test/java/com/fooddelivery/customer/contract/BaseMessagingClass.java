@@ -139,6 +139,7 @@ public abstract class BaseMessagingClass {
                 java.util.UUID.fromString(transferId),
                 java.util.UUID.fromString("3f2504e0-4f89-41d3-9a0c-0305e82c3301"),
                 "customer-application",
+                transferId,
                 java.util.List.of(leg)
         );
         publishViaOutbox(com.fooddelivery.common.constants.AggregateType.LEDGER, transferId,

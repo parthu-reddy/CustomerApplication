@@ -51,4 +51,5 @@ public class WalletContractConsumerTest {
         assertEquals("123e4567-e89b-12d3-a456-426614174000", response.getEntityId().toString());
         assertEquals(500.00, response.getBalance().doubleValue());
     }
+
 }

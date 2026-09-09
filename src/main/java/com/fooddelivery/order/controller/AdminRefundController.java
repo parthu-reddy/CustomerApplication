@@ -103,34 +103,9 @@ public class AdminRefundController {
                 ticket.setRefundAmount(refundAmount);
             }
             
-            com.fooddelivery.common.enums.FaultType faultType = request.faultType() != null 
-                    ? com.fooddelivery.common.enums.FaultType.valueOf(request.faultType()) 
-                    : com.fooddelivery.common.enums.FaultType.UNKNOWN;
-
-            // Increment refundedQuantity for items in the request
-            if (ticket.getRequestedRefundItems() != null && !ticket.getRequestedRefundItems().isBlank()) {
-                try {
-                    JsonNode itemsNode = objectMapper.readTree(ticket.getRequestedRefundItems());
-                    if (itemsNode.isArray()) {
-                        for (JsonNode itemNode : itemsNode) {
-                            UUID itemId = UUID.fromString(itemNode.get("itemId").asText());
-                            int quantityToRefund = itemNode.get("quantity").asInt();
-                            
-                            // order.getOrderItems().stream()
-                            //         .filter(item -> item.getId().equals(itemId))
-                            //         .findFirst()
-                            //         .ifPresent(item -> {
-                            //             int currentRefunded = item.getRefundedQuantity() != null ? item.getRefundedQuantity() : 0;
-                            //             item.setRefundedQuantity(currentRefunded + quantityToRefund);
-                            //         });
-                        }
-                        orderRepository.save(order);
-                    }
-                } catch (Exception e) {
-                    throw new IllegalStateException("Failed to parse requested refund items", e);
-                }
-            }
-
+            // Refunded quantities are no longer tracked on order_items: the column was removed and the
+            // already-refunded quantity is derived from refund_items of COMPLETED refunds. The loop
+            // that used to increment it lived here as dead commented-out code.
             java.util.List<com.fooddelivery.order.refund.RefundCommand.Item> refundCommandItems = new java.util.ArrayList<>();
             if (ticket.getRequestedRefundItems() != null && !ticket.getRequestedRefundItems().isBlank()) {
                 try {
@@ -153,7 +128,9 @@ public class AdminRefundController {
                .amount(refundAmount)
                .items(refundCommandItems.isEmpty() ? null : refundCommandItems)
                .faultType(request.faultType() != null ? com.fooddelivery.order.enums.FaultType.valueOf(request.faultType()) : com.fooddelivery.order.enums.FaultType.UNKNOWN)
-               .destination(com.fooddelivery.common.enums.RefundDestination.ORIGINAL_METHOD)
+               // No destination: RefundService routes from the payment method and intent state.
+               // Hardcoding ORIGINAL_METHOD here pushed wallet-paid orders at a gateway that had
+               // never taken the money, and threw REFUND_STATE_INVALID on every COD ticket.
                .initiatorType(com.fooddelivery.order.enums.InitiatorType.ADMIN)
                .initiatorId(adminId)
                .ticketId(ticketId)

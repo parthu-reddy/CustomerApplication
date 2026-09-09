@@ -68,4 +68,5 @@ public class PaymentContractConsumerTest {
         String response = paymentServiceClient.createOrder("RAZORPAY", req);
         assertNotNull(response);
     }
+
 }

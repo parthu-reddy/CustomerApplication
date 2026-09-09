@@ -16,20 +16,33 @@ public class CreatedState implements OrderState {
     @Override
     public void handlePaymentSuccess(OrderContext ctx) {
         Order order = ctx.getOrder();
+        if (order.getPaymentMethod() == com.fooddelivery.common.enums.PaymentMethod.COD) {
+            // Cash orders are not payments. They have their own handler so that nothing here can
+            // accidentally treat one as collected money.
+            handleCodPlaced(ctx);
+            return;
+        }
         order.setStatus(OrderStatus.PENDING_ACCEPTANCE);
         order.setPaymentStatus(PaymentIntentStatus.SUCCESS);
         ctx.getActionService().saveOrder(order);
 
-        // Record initial payment from customer to platform if not COD
-        if (order.getPaymentMethod() != com.fooddelivery.common.enums.PaymentMethod.COD) {
-            ctx.getLedgerBookkeeper().bookPaymentCaptured(order, ctx.getGateway());
-            ctx.getActionService().emitOrderPaidEvent(order);
-        } else {
-            // For COD, the payment is completed upon delivery. We emit a special event for restaurant.
-            ctx.getActionService().emitOrderPlacedCodEvent(order);
-        }
+        ctx.getLedgerBookkeeper().bookPaymentCaptured(order, ctx.getGateway());
+        ctx.getActionService().emitOrderPaidEvent(order);
         ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_PAID.name());
         ctx.getActionService().updatePaymentIntentStatus(order.getId(), PaymentIntentStatus.SUCCESS);
+    }
+
+    @Override
+    public void handleCodPlaced(OrderContext ctx) {
+        Order order = ctx.getOrder();
+        order.setStatus(OrderStatus.PENDING_ACCEPTANCE);
+        // The rider collects on delivery; until then nothing has been received.
+        order.setPaymentStatus(PaymentIntentStatus.PENDING_COLLECTION);
+        ctx.getActionService().saveOrder(order);
+
+        ctx.getActionService().emitOrderPlacedCodEvent(order);
+        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_PAID.name());
+        ctx.getActionService().updatePaymentIntentStatus(order.getId(), PaymentIntentStatus.PENDING_COLLECTION);
     }
 
     @Override

@@ -25,5 +25,32 @@ public class AdminOrderMoney {
     private BigDecimal sgst;
     private BigDecimal cgst;
 
+    /**
+     * How it was paid, and where the money is held. Without these an administrator cannot tell a
+     * card capture from cash the rider collected, which is what decides how a refund is routed.
+     */
+    private com.fooddelivery.common.enums.PaymentMethod paymentMethod;
+    private com.fooddelivery.common.constants.PaymentIntentStatus paymentStatus;
+    private com.fooddelivery.common.enums.PaymentGateway gatewayName;
+    private String gatewayOrderId;
+
+    private java.util.List<RefundLine> refunds;
+
     private java.util.List<LedgerStatementLineDto> ledgerLines;
+
+    /** One refund on this order, as the admin needs to see it. */
+    @Data
+    @lombok.Builder
+    public static class RefundLine {
+        private UUID id;
+        private BigDecimal amount;
+        private String status;
+        private String destination;
+        private String faultType;
+        private String reasonCode;
+        private String gatewayRefundId;
+        private String failureReason;
+        private java.time.OffsetDateTime requestedAt;
+        private java.time.OffsetDateTime completedAt;
+    }
 }

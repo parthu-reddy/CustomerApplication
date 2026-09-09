@@ -6,6 +6,16 @@ import com.fooddelivery.common.exception.IllegalStateTransitionException;
 
 public interface OrderState {
 
+    /**
+     * A cash order reaching the restaurant. Deliberately separate from {@link #handlePaymentSuccess}:
+     * no money has moved, so nothing may be captured and the intent must stay PENDING_COLLECTION.
+     * Routing it through the payment handler is what let a cancellation pay out store credit for cash
+     * that was never collected.
+     */
+    default void handleCodPlaced(OrderContext ctx) {
+        throw new IllegalStateTransitionException("Cannot place a COD order. Current status: " + ctx.getOrder().getStatus());
+    }
+
     default void handlePaymentSuccess(OrderContext ctx) {
         throw new IllegalStateTransitionException("Cannot process payment success. Current status: " + ctx.getOrder().getStatus());
     }

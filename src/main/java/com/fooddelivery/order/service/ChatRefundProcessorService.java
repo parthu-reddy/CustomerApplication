@@ -177,34 +177,17 @@ public class ChatRefundProcessorService {
                     ticket.setRequestedRefundItems(payload.get("items").toString());
                 }
                 supportTicketRepository.save(ticket);
-                
-                // Issue refund request
-                List<com.fooddelivery.order.refund.RefundCommand.Item> commandItems = new java.util.ArrayList<>();
-                if (payload.has("items")) {
-                    for (JsonNode itemNode : payload.get("items")) {
-                        com.fooddelivery.order.refund.RefundCommand.Item ci = new com.fooddelivery.order.refund.RefundCommand.Item();
-                        ci.setOrderItemId(UUID.fromString(itemNode.get("itemId").asText()));
-                        ci.setQuantity(itemNode.get("quantity").asInt());
-                        commandItems.add(ci);
-                    }
-                }
-                
-                com.fooddelivery.order.refund.RefundCommand cmd = com.fooddelivery.order.refund.RefundCommand.builder()
-                        .orderId(orderId)
-                        .amount(quoteAmount)
-                        .items(commandItems.isEmpty() ? null : commandItems)
-                        .reasonCode(reason)
-                        .reasonText(description)
-                        .faultType(com.fooddelivery.order.enums.FaultType.CUSTOMER_FAULT)
-                        .destination(com.fooddelivery.common.enums.RefundDestination.STORE_CREDIT) // default to store credit for chat
-                        .source(com.fooddelivery.order.enums.RefundSource.CUSTOMER_TICKET)
-                        .initiatorType(com.fooddelivery.order.enums.InitiatorType.CUSTOMER)
-                        .initiatorId(customerId)
-                        .ticketId(ticket.getId())
-                        .idempotencyKey("chat_" + event.getAggregateId())
-                        .build();
-                        
-                refundService.request(cmd);
+
+                // The ticket is the request; it is not the refund.
+                //
+                // This flow used to raise an OPEN ticket *and* immediately issue a refund, while
+                // telling the customer their request was "under review by our support team". An
+                // administrator resolving that same ticket through AdminRefundController then issued
+                // a second refund: the remaining-amount guard stopped the money leaving twice, but
+                // it did so by throwing, so resolving a chat ticket always failed with a 500.
+                //
+                // A customer cannot approve their own refund. The quote is recorded on the ticket
+                // and an administrator decides, which is what the customer is told happens.
                 
                 // Publish CHAT_REFUND_DECISION to notify user
                 Map<String, Object> responseMap = new HashMap<>();

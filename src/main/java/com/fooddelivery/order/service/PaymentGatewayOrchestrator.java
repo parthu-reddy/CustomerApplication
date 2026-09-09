@@ -38,8 +38,14 @@ public class PaymentGatewayOrchestrator {
                     .internalOrderId(order.getId())
                     .gatewayOrderId(INTERNAL_INTENT_PREFIX + UUID.randomUUID().toString())
                     .amount(order.getTotalAmount())
-                    .status(com.fooddelivery.common.constants.PaymentIntentStatus.INITIATED)
-                    .createdAt(LocalDateTime.now())
+                    // COD is not paid at checkout: it is pending collection until the rider hands
+                    // the cash over. Marking it INITIATED/SUCCESS told the refund router that money had
+                    // been taken, so cancelling an uncollected order issued real store credit.
+                    .status(method == com.fooddelivery.common.enums.PaymentMethod.COD
+                            ? com.fooddelivery.common.constants.PaymentIntentStatus.PENDING_COLLECTION
+                            : com.fooddelivery.common.constants.PaymentIntentStatus.INITIATED)
+                    .paymentMethod(method)
+                    .createdAt(java.time.OffsetDateTime.now())
                     .gatewayName(null)
                     .build();
                 paymentIntentRepository.save(intent);
@@ -53,7 +59,7 @@ public class PaymentGatewayOrchestrator {
             CreateOrderRequest request = new CreateOrderRequest(order.getId().toString(), order.getTotalAmount());
             String returnedGatewayOrderId = paymentClient.createOrder(targetGateway.name(), request);
             if (returnedGatewayOrderId != null && !returnedGatewayOrderId.isEmpty()) {
-                PaymentIntent intent = PaymentIntent.builder().id(UUID.randomUUID()).internalOrderId(order.getId()).gatewayOrderId(returnedGatewayOrderId).amount(order.getTotalAmount()).status(com.fooddelivery.common.constants.PaymentIntentStatus.INITIATED).createdAt(LocalDateTime.now()).build();
+                PaymentIntent intent = PaymentIntent.builder().id(UUID.randomUUID()).internalOrderId(order.getId()).gatewayOrderId(returnedGatewayOrderId).amount(order.getTotalAmount()).status(com.fooddelivery.common.constants.PaymentIntentStatus.INITIATED).paymentMethod(method).gatewayName(targetGateway).createdAt(java.time.OffsetDateTime.now()).build();
                 paymentIntentRepository.save(intent);
                 return returnedGatewayOrderId;
             } else {

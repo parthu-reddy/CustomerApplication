@@ -20,6 +20,38 @@ public class CustomerMoneyController {
     private final RefundRepository refundRepository;
     private final com.fooddelivery.order.repository.IOrderRepository orderRepository;
     private final com.fooddelivery.customer.service.money.CustomerReceiptService customerReceiptService;
+    private final com.fooddelivery.common.client.WalletServiceClient walletServiceClient;
+
+    /**
+     * The customer's own wallet.
+     *
+     * <p>Phase 1 deleted {@code /api/v1/wallets/**} and moved owner-scoped wallet reads behind
+     * {@code MoneyAccessPolicy} in the owning services. This is the customer half of that; the
+     * advertiser half is {@code /api/v1/money/advertiser} in WalletService, which the gateway routes
+     * there directly. WalletService's own endpoints are SERVICE/ADMIN-only, so this call carries the
+     * service identity and the ownership decision is made here, against the signed-in principal.
+     *
+     * <p>Until 2026-09-09 neither half existed and four screens called the deleted path through a
+     * stale generated client, showing a zero balance whatever the wallet held.
+     */
+    @GetMapping("/wallet")
+    @PreAuthorize("@moneyAccessPolicy.canAccessMoney(authentication, T(com.fooddelivery.common.security.money.MoneyOwnerType).CUSTOMER, T(java.util.UUID).fromString(principal.name))")
+    public ResponseEntity<com.fooddelivery.common.dto.wallet.WalletDto> getMyWallet(Principal principal) {
+        return ResponseEntity.ok(walletServiceClient.getWallet(
+                com.fooddelivery.common.enums.WalletEntityType.CUSTOMER.name(),
+                UUID.fromString(principal.getName())));
+    }
+
+    @GetMapping("/wallet/transactions")
+    @PreAuthorize("@moneyAccessPolicy.canAccessMoney(authentication, T(com.fooddelivery.common.security.money.MoneyOwnerType).CUSTOMER, T(java.util.UUID).fromString(principal.name))")
+    public ResponseEntity<com.fooddelivery.common.dto.PageResponseDto<java.util.Map<String, Object>>> getMyWalletTransactions(
+            Principal principal,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(walletServiceClient.getWalletTransactions(
+                com.fooddelivery.common.enums.WalletEntityType.CUSTOMER.name(),
+                UUID.fromString(principal.getName()), page, size));
+    }
 
     @GetMapping("/refunds")
     @PreAuthorize("@moneyAccessPolicy.canAccessMoney(authentication, T(com.fooddelivery.common.security.money.MoneyOwnerType).CUSTOMER, T(java.util.UUID).fromString(principal.name))")

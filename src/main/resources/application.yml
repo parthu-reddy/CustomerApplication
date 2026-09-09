@@ -44,3 +44,5 @@ resilience4j:
         baseConfig: default
       bidding-engine:
         timeoutDuration: 100ms
+idempotency:
+  retention-days: 400

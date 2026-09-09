@@ -90,7 +90,7 @@ public class OrderEventConsumer {
                                 log.warn("Order {} not found, skipping event", orderId);
                                 return null;
                             }
-                            com.fooddelivery.order.service.state.OrderContext context = new com.fooddelivery.order.service.state.OrderContext(order, payloadNode, orderActionService, ledgerBookkeeper);
+                            com.fooddelivery.order.service.state.OrderContext context = new com.fooddelivery.order.service.state.OrderContext(order, payloadNode, orderActionService, ledgerBookkeeper, null /* no gateway: order-lifecycle events book no capture */);
                             com.fooddelivery.order.service.state.OrderState state = com.fooddelivery.order.service.state.OrderStateFactory.getState(order.getStatus());
                             try {
                                 java.util.function.BiConsumer<com.fooddelivery.order.service.state.OrderState, com.fooddelivery.order.service.state.OrderContext> handler = EVENT_HANDLERS.get(eventType);
@@ -120,12 +120,14 @@ public class OrderEventConsumer {
                                         .orderId(order.getId())
                                         .amount(order.getTotalAmount())
                                         .faultType(com.fooddelivery.order.enums.FaultType.UNKNOWN)
-                                        .destination(com.fooddelivery.common.enums.RefundDestination.ORIGINAL_METHOD)
+                                        // No destination: RefundService routes it. Forcing ORIGINAL_METHOD
+                                        // made a COD order throw inside this consumer, rolling back the
+                                        // state change and poisoning the partition on every retry.
                                         .initiatorType(com.fooddelivery.order.enums.InitiatorType.SYSTEM)
                                         .reasonCode(eventType)
                                         .idempotencyKey("event_" + order.getId() + "_" + eventType)
                                         .build();
-                                refundService.request(cmd);
+                                requestRefundWithoutPoisoningTheEvent(order.getId(), cmd);
                             }
                             return null;
                         } catch (RuntimeException e) {
@@ -151,5 +153,25 @@ public class OrderEventConsumer {
     @org.springframework.kafka.annotation.DltHandler
     public void handleDlt(String message, @org.springframework.messaging.handler.annotation.Headers java.util.Map<String, Object> headers) {
         log.error("DLT processing: Message exhausted all retries in CustomerApplication. Message: {}, Headers: {}", message, headers);
+    }
+
+    /**
+     * A refund the matrix refuses must not roll back the state transition that triggered it.
+     *
+     * <p>The refund request runs inside this listener's transaction. When routing throws -- an
+     * intent still INITIATED, so nobody knows whether the gateway took money -- the exception
+     * unwinds the transaction, the delivery-failed or cancellation is lost, and Kafka redelivers
+     * the same event forever, blocking every other order on the partition. The state change is the
+     * more important of the two and is kept; the refund is left loudly unmade for an operator.
+     */
+    private void requestRefundWithoutPoisoningTheEvent(java.util.UUID orderId,
+                                                       com.fooddelivery.order.refund.RefundCommand cmd) {
+        try {
+            refundService.request(cmd);
+        } catch (IllegalStateException e) {
+            log.error("REFUND_NOT_ROUTED: order {} needs a refund but it could not be routed ({}). "
+                    + "The order state change is kept; resolve this from the admin refund queue.",
+                    orderId, e.getMessage());
+        }
     }
 }

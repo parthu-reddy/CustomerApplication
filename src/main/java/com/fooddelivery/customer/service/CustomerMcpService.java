@@ -23,7 +23,7 @@ public class CustomerMcpService {
     private final CustomerTrackingController trackingController;
     private final AdminOrderController adminOrderController;
     private final AdminCustomerController adminCustomerController;
-    private final DriverOrderController driverOrderController;
+    private final com.fooddelivery.order.controller.InternalOrderController internalOrderController;
     private final ObjectMapper objectMapper;
 
 
@@ -184,20 +184,21 @@ public class CustomerMcpService {
         }
     }
 
-    // DriverOrderController
-    @Tool(description = "Driver: Get available orders. Provide driverId.")
-    public String getAvailableOrders(String driverId) {
-        try {
-            return objectMapper.writeValueAsString(driverOrderController.getAvailableOrders(createMockPrincipal(driverId)).getBody());
-        } catch (Exception e) {
-            return "Error: " + e.getMessage();
-        }
-    }
-
+    // Driver order reads.
+    //
+    // These used to call CustomerApplication's own DriverOrderController at
+    // /api/v1/delivery/orders/**. That controller duplicated DeliveryExecutiveApplication's
+    // identically-mapped one and was deleted on 2026-09-09: the gateway routes /api/v1/delivery/**
+    // to delivery-service, which is the facade the rider app actually uses, and which reaches this
+    // service over the internal endpoints below. "Available orders" was part of that duplicate --
+    // it is assignment state owned by delivery-service (OrderAssignmentService's pending ping), not
+    // something CustomerApplication can answer, so it is no longer offered here.
     @Tool(description = "Driver: Get active orders. Provide driverId.")
     public String getActiveOrders(String driverId) {
         try {
-            return objectMapper.writeValueAsString(driverOrderController.getActiveOrders(createMockPrincipal(driverId), org.springframework.data.domain.PageRequest.of(0, 50)).getBody());
+            return objectMapper.writeValueAsString(internalOrderController.getActiveOrdersForDriver(
+                    java.util.UUID.fromString(driverId),
+                    org.springframework.data.domain.PageRequest.of(0, 50)).getBody());
         } catch (Exception e) {
             return "Error: " + e.getMessage();
         }
@@ -206,7 +207,9 @@ public class CustomerMcpService {
     @Tool(description = "Driver: Get history orders. Provide driverId and date (optional).")
     public String getHistoryOrders(String driverId, String date) {
         try {
-            return objectMapper.writeValueAsString(driverOrderController.getHistoryOrders(createMockPrincipal(driverId), date, org.springframework.data.domain.PageRequest.of(0, 50)).getBody());
+            return objectMapper.writeValueAsString(internalOrderController.getOrderHistoryForDriver(
+                    java.util.UUID.fromString(driverId), date,
+                    org.springframework.data.domain.PageRequest.of(0, 50)).getBody());
         } catch (Exception e) {
             return "Error: " + e.getMessage();
         }

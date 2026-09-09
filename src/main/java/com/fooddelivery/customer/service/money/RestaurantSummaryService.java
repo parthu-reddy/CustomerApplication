@@ -13,6 +13,7 @@ import com.fooddelivery.customer.dto.BeneficiaryStatusDto;
 
 @Service
 @lombok.RequiredArgsConstructor
+@lombok.extern.slf4j.Slf4j
 public class RestaurantSummaryService {
     private final IOrderRepository orderRepository;
     private final LedgerClient ledgerClient;
@@ -52,15 +53,45 @@ public class RestaurantSummaryService {
         summary.setPlatformBonus(BigDecimal.ZERO);
         summary.setClawbacks(BigDecimal.ZERO);
         
+        // These three used to be hardcoded: the ledger was called for the admin-only queue of every
+        // payee on the platform, the response was thrown away, and the card always read zero with an
+        // empty last payout. They now come from this outlet's own summary.
         try {
-            ledgerClient.getPendingPayouts(0, 100);
-            summary.setPendingBalance(BigDecimal.ZERO); // find if outlet is in pending
-            summary.setLastPayout(new PayoutSummaryDto());
-            summary.setBeneficiaryStatus(new BeneficiaryStatusDto());
+            var payeeSummary = ledgerClient.getPayeeSummary("RESTAURANT", outletId);
+            summary.setPendingBalance(nz(payeeSummary.getUnsettledAmount()));
+            summary.setLastPayout(toPayoutSummary(payeeSummary.getLastPayout()));
+            summary.setBeneficiaryStatus(toBeneficiaryStatus(payeeSummary.getBeneficiary()));
         } catch (Exception e) {
-            summary.setPendingBalance(BigDecimal.ZERO);
+            // Degrade rather than 500 the whole earnings screen, but do not invent a balance.
+            log.warn("Ledger summary unavailable for outlet {}: {}", outletId, e.getMessage());
+            summary.setPendingBalance(null);
+            summary.setLastPayout(null);
+            summary.setBeneficiaryStatus(null);
         }
         
         return summary;
+    }
+
+    private static BigDecimal nz(BigDecimal v) {
+        return v == null ? BigDecimal.ZERO : v;
+    }
+
+    static PayoutSummaryDto toPayoutSummary(com.fooddelivery.common.dto.ledger.PayoutDto payout) {
+        if (payout == null) return null;
+        return PayoutSummaryDto.builder()
+                .payoutId(payout.getId() != null ? payout.getId().toString() : null)
+                .amount(payout.getAmount())
+                .status(payout.getStatus())
+                .timestamp(payout.getPaidAt() != null ? payout.getPaidAt().toInstant() : null)
+                .build();
+    }
+
+    static BeneficiaryStatusDto toBeneficiaryStatus(com.fooddelivery.common.dto.ledger.BeneficiaryResponse b) {
+        if (b == null) return null;
+        return BeneficiaryStatusDto.builder()
+                .beneficiaryId(b.getAccountNumberMasked())
+                .verificationStatus(b.isVerified() ? "VERIFIED" : "UNVERIFIED")
+                .active(b.isVerified())
+                .build();
     }
 }

@@ -132,12 +132,21 @@ public class PaymentEventConsumer {
                                 .orderId(orderToRefund.getId())
                                 .amount(orderToRefund.getTotalAmount())
                                 .faultType(com.fooddelivery.order.enums.FaultType.UNKNOWN)
-                                .destination(com.fooddelivery.common.enums.RefundDestination.ORIGINAL_METHOD)
+                                // No destination: RefundService routes it from the payment method
+                                // and intent state.
                                 .initiatorType(com.fooddelivery.order.enums.InitiatorType.SYSTEM)
                                 .reasonCode("SYSTEM_AUTO_REFUND")
                                 .idempotencyKey("payment_fail_" + orderToRefund.getId())
                                 .build();
-                             refundService.request(cmd);
+                             try {
+                                 refundService.request(cmd);
+                             } catch (IllegalStateException e) {
+                                 // See OrderEventConsumer: a routing refusal must not unwind the
+                                 // payment-state transition and re-poison the partition.
+                                 log.error("REFUND_NOT_ROUTED: order {} needs a refund but it could not "
+                                         + "be routed ({}). The payment state change is kept; resolve "
+                                         + "this from the admin refund queue.", orderToRefund.getId(), e.getMessage());
+                             }
                         }
                     });
                     success = true;

@@ -2,9 +2,10 @@ package com.fooddelivery.customer.client;
 
 import com.fooddelivery.common.dto.PageResponseDto;
 import com.fooddelivery.common.dto.ledger.CashRemittanceDto;
+import com.fooddelivery.common.dto.ledger.CashSummaryDto;
 import com.fooddelivery.common.dto.ledger.LedgerStatementLineDto;
+import com.fooddelivery.common.dto.ledger.PayeeMoneySummaryDto;
 import com.fooddelivery.common.dto.ledger.PayoutDto;
-import com.fooddelivery.common.dto.ledger.PendingPayoutResponseDto;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -19,12 +20,17 @@ public class LedgerClientFallback implements LedgerClient {
     }
 
     @Override
-    public List<PendingPayoutResponseDto> getPendingPayouts(int page, int size) {
+    public PayeeMoneySummaryDto getPayeeSummary(String payeeType, UUID payeeId) {
         throw new IllegalStateException("Ledger service is unavailable");
     }
 
     @Override
     public PageResponseDto<PayoutDto> getPayouts(String payeeType, UUID payeeId, int page, int size) {
+        throw new IllegalStateException("Ledger service is unavailable");
+    }
+
+    @Override
+    public CashSummaryDto getCashSummary(UUID driverId) {
         throw new IllegalStateException("Ledger service is unavailable");
     }
 

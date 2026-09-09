@@ -32,7 +32,7 @@ public class LedgerBookkeeperTest {
         outboxRepo = mock(OutboxEventRepository.class);
         objectMapper = new ObjectMapper();
         accountResolver = mock(LedgerAccountResolver.class);
-        bookkeeper = new LedgerBookkeeper(outboxRepo, objectMapper, accountResolver);
+        bookkeeper = new LedgerBookkeeper(outboxRepo, objectMapper, accountResolver, mock(com.fooddelivery.customer.client.LedgerClient.class));
     }
 
     @Test
@@ -79,7 +79,7 @@ public class LedgerBookkeeperTest {
         refund.setAmount(new BigDecimal("20.00"));
         refund.setInitiatedByType(InitiatorType.CUSTOMER);
 
-        bookkeeper.bookRefund(order, refund);
+        bookkeeper.bookRefund(order, refund, "RAZORPAY");
 
         ArgumentCaptor<OutboxEventEntity> captor = ArgumentCaptor.forClass(OutboxEventEntity.class);
         verify(outboxRepo, times(1)).save(captor.capture());

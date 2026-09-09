@@ -116,7 +116,7 @@ public class OrderSagaOrchestrator {
     public void cancelOrderLocally(Order order, String reason) {
         Order orderToRefund = transactionTemplate.execute(status -> {
             Order dbOrder = orderRepository.findById(order.getId()).orElse(order);
-            com.fooddelivery.order.service.state.OrderContext context = new com.fooddelivery.order.service.state.OrderContext(dbOrder, objectMapper.createObjectNode(), orderActionService, ledgerBookkeeper);
+            com.fooddelivery.order.service.state.OrderContext context = new com.fooddelivery.order.service.state.OrderContext(dbOrder, objectMapper.createObjectNode(), orderActionService, ledgerBookkeeper, null /* no gateway: local cancellation books no capture */);
             com.fooddelivery.order.service.state.OrderState state = com.fooddelivery.order.service.state.OrderStateFactory.getState(dbOrder.getStatus());
             try {
                 state.cancelByCustomer(context, reason);
@@ -134,7 +134,7 @@ public class OrderSagaOrchestrator {
                .orderId(orderToRefund.getId())
                .amount(orderToRefund.getTotalAmount())
                .faultType(com.fooddelivery.order.enums.FaultType.UNKNOWN)
-               .destination(com.fooddelivery.common.enums.RefundDestination.ORIGINAL_METHOD)
+               // No destination: RefundService routes it from the payment method and intent state.
                .initiatorType(com.fooddelivery.order.enums.InitiatorType.SYSTEM)
                .reasonCode("SAGA_COMPENSATION")
                .idempotencyKey("saga_" + orderToRefund.getId())
