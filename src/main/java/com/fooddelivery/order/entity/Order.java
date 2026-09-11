@@ -81,6 +81,13 @@ public class Order {
                 log.error("Invalid state transition: Attempted to move order {} backward from {} to {}", this.id, this.status, status);
                 throw new IllegalStateException("Cannot move order status backward from " + this.status + " to " + status);
             }
+            // Every terminal status shares sequence 100, so the backward check above cannot see a
+            // move between two of them. A settled cancellation must not be relabelled by a late
+            // event -- who ended the order decides who is clawed back for it.
+            if (this.status.isTerminal() && status.isTerminal() && this.status != status) {
+                log.error("Invalid state transition: order {} is already terminal as {}; refusing to relabel it {}", this.id, this.status, status);
+                throw new IllegalStateException("Cannot move order status from " + this.status + " to " + status + ": both are terminal");
+            }
         }
         if (this.status != status) {
             log.info("Customer order {} status changing from {} to {}", this.id, this.status, status);
@@ -203,166 +210,4 @@ public class Order {
 
     @Column(name = "delivered_at")
     private LocalDateTime deliveredAt;
-
-    
-
-    
-
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-    public void setTotalAmount(final BigDecimal totalAmount) {
-        this.totalAmount = totalAmount;
-        this.itemTotal = itemTotal;
-        this.customerPlatformFee = customerPlatformFee;
-        this.restaurantPlatformFee = restaurantPlatformFee;
-        this.platformBonus = platformBonus;
-        this.restaurantDeliveryContribution = restaurantDeliveryContribution;
-        this.restaurantPayout = restaurantPayout;
-        this.sgst = sgst;
-        this.cgst = cgst;
-        this.deliveryFee = deliveryFee;
-        this.driverGrossPayout = driverGrossPayout;
-        this.driverTaxes = driverTaxes;
-        this.driverNetPayout = driverNetPayout;
-
-    }
-
-    
-
-    
-
-    
-
-    
-
-    
-    public void setUpdatedAt(final LocalDateTime updatedAt, final LocalDateTime deliveredAt) {
-        this.updatedAt = updatedAt;
-        this.deliveredAt = deliveredAt;
-    }
-
-    
-
-    
-
-    
-
-    
 }

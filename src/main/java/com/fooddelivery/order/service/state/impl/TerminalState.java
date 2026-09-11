@@ -19,30 +19,52 @@ public class TerminalState implements OrderState {
         ctx.getActionService().updatePaymentIntentStatus(order.getId(), com.fooddelivery.common.constants.PaymentIntentStatus.SUCCESS);
         
         if (ctx.getLedgerBookkeeper() != null) {
-            // A payment landing after the order is already terminal is still a real capture and must be
-            // booked against the gateway that took it -- previously this went through bookPaymentSuccess,
-            // which booked every one of them to a single "unknown" gateway account.
-            ctx.getLedgerBookkeeper().bookPaymentCaptured(order, ctx.getGateway());
+            // A payment landing after the order is already terminal is still a real capture and must
+            // be booked -- but against the account that actually holds it. Routing this on the
+            // gateway alone made a late wallet capture throw here for the same reason CreatedState
+            // did: a wallet intent has no gateway name.
+            bookLateCapture(ctx, order);
         }
         
-        if (order.getStatus() != com.fooddelivery.common.enums.OrderStatus.CANCELLED && order.getStatus() != com.fooddelivery.common.enums.OrderStatus.HANDED_OVER) {
-            order.setStatus(com.fooddelivery.common.enums.OrderStatus.CANCELLED);
-            ctx.getActionService().saveOrder(order);
+        // The status is deliberately not touched. This state is only ever reached for an order that
+        // is already terminal -- OrderStateFactory maps HANDED_OVER to HandedOverState -- so the
+        // code that used to force CANCELLED here was overwriting the real reason the order ended,
+        // and the two HANDED_OVER comparisons around it were unreachable. Relabelling a
+        // CANCELLED_BY_RESTAURANT order as CANCELLED loses the fault that decides the clawback,
+        // and Order.setStatus now refuses it outright.
+
+        // Money was taken for an order that will not be delivered, so it goes back. Unconditionally.
+        //
+        // This used to read `if (!"Cancelled by customer".equals(order.getCancellationReason()))`,
+        // which decided a money question on free text: the same situation refunded or did not
+        // depending on whether the cancellation reason happened to be that exact string. It was
+        // not, in practice -- CustomerOrderService passes "Cancelled by customer via UI" -- so the
+        // branch that kept the money fired only for cancellations raised internally.
+        ctx.setRequiresRefund(true);
+    }
+
+    /** Same routing as {@link CreatedState}: the account depends on the method, not the gateway. */
+    private void bookLateCapture(OrderContext ctx, Order order) {
+        com.fooddelivery.common.enums.PaymentMethod method = ctx.getPaymentMethod();
+        if (method == null) {
+            throw new IllegalStateException("Order " + order.getId() + " has no payment method");
         }
-        
-        if (order.getStatus() != com.fooddelivery.common.enums.OrderStatus.HANDED_OVER) {
-            // Do not refund if customer cancelled the order
-            if (!"Cancelled by customer".equals(order.getCancellationReason())) {
-                ctx.setRequiresRefund(true);
-            } else {
-                log.info("Order {} was cancelled by customer. No refund will be issued for this late payment.", order.getId());
-            }
-        }
+        // Switch expression for the same reason as CreatedState: a statement switch over an enum is
+        // not exhaustiveness-checked, so a new payment method would silently book nothing here.
+        Runnable book = switch (method) {
+            case CARD, UPI -> () -> ctx.getLedgerBookkeeper().bookPaymentCaptured(order, ctx.getGateway());
+            case WALLET -> () -> ctx.getLedgerBookkeeper().bookWalletCaptured(order);
+            // Cash cannot arrive late through a payment event -- it is booked when the rider
+            // delivers, by HandedOverState.
+            case COD -> () -> log.info("Ignoring a payment event for COD order {}: cash is booked on delivery",
+                    order.getId());
+        };
+        book.run();
     }
 
     @Override
     public void handlePaymentFailure(OrderContext ctx) {
-        log.info("Ignoring payment failure for Order {} because it is already in terminal state {}", 
+        log.info("Ignoring payment failure for Order {} because it is already in terminal state {}",
                 ctx.getOrder().getId(), ctx.getOrder().getStatus());
     }
 

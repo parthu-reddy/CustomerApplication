@@ -114,7 +114,7 @@ public abstract class BaseMessagingClass {
                 com.fooddelivery.common.event.NotificationRequestEvent.builder()
                         .userId(customerId)
                         .channel(com.fooddelivery.common.enums.ChannelType.PUSH)
-                        .eventName("ORDER_CONFIRMED")
+                        .eventName(com.fooddelivery.common.constants.NotificationTemplate.ORDER_DELIVERED)
                         .templateParams(java.util.List.of("3f2504e0-4f89-41d3-9a0c-0305e82c3301"))
                         .build();
         publishViaOutbox(com.fooddelivery.common.constants.AggregateType.NOTIFICATION,

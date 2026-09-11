@@ -27,7 +27,7 @@ public class RefundOverCompletionTest {
         IOrderRepository orderRepo = Mockito.mock(IOrderRepository.class);
         IPaymentIntentRepository intentRepo = Mockito.mock(IPaymentIntentRepository.class);
 
-        RefundService service = new RefundService(refundRepo, orderRepo, intentRepo, null, null, null, null, null);
+        RefundService service = new RefundService(refundRepo, orderRepo, intentRepo, null, null, null, null);
 
         UUID refundId = UUID.randomUUID();
         UUID orderId = UUID.randomUUID();
@@ -71,7 +71,7 @@ public class RefundOverCompletionTest {
                 Mockito.mock(com.fooddelivery.order.ledger.LedgerBookkeeper.class);
         RefundService service = new RefundService(refundRepo, orderRepo, intentRepo,
                 Mockito.mock(com.fooddelivery.common.outbox.repository.OutboxEventRepository.class),
-                bookkeeper, new com.fasterxml.jackson.databind.ObjectMapper(), null, null);
+                bookkeeper, new com.fasterxml.jackson.databind.ObjectMapper(), null);
 
         UUID refundId = UUID.randomUUID();
         UUID orderId = UUID.randomUUID();
@@ -114,7 +114,7 @@ public class RefundOverCompletionTest {
         com.fooddelivery.order.ledger.LedgerBookkeeper bookkeeper =
                 Mockito.mock(com.fooddelivery.order.ledger.LedgerBookkeeper.class);
         RefundService service = new RefundService(refundRepo, Mockito.mock(IOrderRepository.class),
-                Mockito.mock(IPaymentIntentRepository.class), null, bookkeeper, null, null, null);
+                Mockito.mock(IPaymentIntentRepository.class), null, bookkeeper, null, null);
 
         UUID refundId = UUID.randomUUID();
         Refund refund = new Refund();

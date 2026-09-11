@@ -86,7 +86,8 @@ public class RefundNotificationTest {
                 new com.fasterxml.jackson.databind.ObjectMapper()
                         .readValue(saved.getPayload(),
                                 com.fooddelivery.common.event.NotificationRequestEvent.class);
-        assertEquals("REFUND_FAILED", event.getEventName());
+        assertEquals(com.fooddelivery.common.constants.NotificationTemplate.REFUND_FAILED,
+                event.getEventName());
         assertEquals(order.getCustomerId(), event.getUserId());
         assertTrue(event.getTemplateParams().contains(orderId.toString()),
                 "the message must name the order, was: " + event.getTemplateParams());

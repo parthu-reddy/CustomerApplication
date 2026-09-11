@@ -14,27 +14,4 @@ public class OrderItemRequest {
     @NotNull
     @Min(1)
     private Integer quantity;
-
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
 }

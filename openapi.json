@@ -2524,7 +2524,7 @@
           },
           "status" : {
             "type" : "string",
-            "enum" : [ "CREATED", "PENDING_ACCEPTANCE", "AWAITING_DELAY_APPROVAL", "ACCEPTED", "PREPARING", "READY_FOR_PICKUP", "HANDED_OVER", "CANCELLED", "CANCELLED_BY_RESTAURANT" ]
+            "enum" : [ "CREATED", "PENDING_ACCEPTANCE", "AWAITING_DELAY_APPROVAL", "ACCEPTED", "PREPARING", "READY_FOR_PICKUP", "HANDED_OVER", "CANCELLED", "CANCELLED_BY_RESTAURANT", "CANCELLED_BY_PLATFORM", "DELIVERY_FAILED" ]
           },
           "deliveryStatus" : {
             "type" : "string",
@@ -2605,6 +2605,16 @@
             "format" : "int64"
           },
           "distanceKm" : {
+            "type" : "number"
+          },
+          "paymentMethod" : {
+            "type" : "string",
+            "enum" : [ "CARD", "UPI", "WALLET", "COD" ]
+          },
+          "cancellationReason" : {
+            "type" : "string"
+          },
+          "cashCollectedAmount" : {
             "type" : "number"
           },
           "expiresAt" : {
@@ -3514,7 +3524,7 @@
           },
           "category" : {
             "type" : "string",
-            "enum" : [ "DELIVERY_FEE", "PLATFORM_FIXED_FEE", "PLATFORM_BONUS", "FOOD_COST", "SGST", "CGST", "REFUND", "ORDER_TOTAL", "AD_IMPRESSION", "AD_CLICK", "AD_CONVERSION", "AD_WALLET_TOPUP", "CLAWBACK", "PAYOUT_TRANSFER", "CASH_COLLECTED", "CASH_REMITTED", "STORE_CREDIT" ]
+            "enum" : [ "DELIVERY_FEE", "PLATFORM_FIXED_FEE", "PLATFORM_BONUS", "FOOD_COST", "SGST", "CGST", "REFUND", "ORDER_TOTAL", "AD_IMPRESSION", "AD_CLICK", "AD_CONVERSION", "AD_WALLET_TOPUP", "CLAWBACK", "PAYOUT_TRANSFER", "CASH_COLLECTED", "CASH_SHORTFALL", "CASH_REMITTED", "STORE_CREDIT" ]
           },
           "amount" : {
             "type" : "number"
@@ -3869,7 +3879,7 @@
           },
           "status" : {
             "type" : "string",
-            "enum" : [ "CREATED", "PENDING_ACCEPTANCE", "AWAITING_DELAY_APPROVAL", "ACCEPTED", "PREPARING", "READY_FOR_PICKUP", "HANDED_OVER", "CANCELLED", "CANCELLED_BY_RESTAURANT" ]
+            "enum" : [ "CREATED", "PENDING_ACCEPTANCE", "AWAITING_DELAY_APPROVAL", "ACCEPTED", "PREPARING", "READY_FOR_PICKUP", "HANDED_OVER", "CANCELLED", "CANCELLED_BY_RESTAURANT", "CANCELLED_BY_PLATFORM", "DELIVERY_FAILED" ]
           },
           "paymentMethod" : {
             "type" : "string",
@@ -4375,7 +4385,7 @@
           },
           "orderStatus" : {
             "type" : "string",
-            "enum" : [ "CREATED", "PENDING_ACCEPTANCE", "AWAITING_DELAY_APPROVAL", "ACCEPTED", "PREPARING", "READY_FOR_PICKUP", "HANDED_OVER", "CANCELLED", "CANCELLED_BY_RESTAURANT" ]
+            "enum" : [ "CREATED", "PENDING_ACCEPTANCE", "AWAITING_DELAY_APPROVAL", "ACCEPTED", "PREPARING", "READY_FOR_PICKUP", "HANDED_OVER", "CANCELLED", "CANCELLED_BY_RESTAURANT", "CANCELLED_BY_PLATFORM", "DELIVERY_FAILED" ]
           },
           "totalAmount" : {
             "type" : "number"

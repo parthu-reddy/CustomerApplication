@@ -64,6 +64,9 @@ public class OrderMapper {
             .estimatedCompletionTime(order.getEstimatedCompletionTime())
             .riderId(order.getDeliveryExecutiveId())
             .deliveryExecutiveId(order.getDeliveryExecutiveId())
+            .paymentMethod(order.getPaymentMethod())
+            .cancellationReason(order.getCancellationReason())
+            .cashCollectedAmount(order.getCashCollectedAmount())
             .build();
     }
 }

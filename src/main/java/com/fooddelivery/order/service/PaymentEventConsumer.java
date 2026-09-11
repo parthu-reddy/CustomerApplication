@@ -51,115 +51,115 @@ public class PaymentEventConsumer {
             throw new IllegalArgumentException("Missing eventId header");
         }
         final String resolvedEventId = extractedEventId;
+        // No retry loop here. This used to read
+        //     int retries = 0; boolean success = false;
+        //     while (!success && retries < AppConstants.MAX_OPTIMISTIC_LOCK_RETRIES) { ... }
+        // with `retries` never incremented and every catch rethrowing, so the body ran exactly once
+        // by construction while reading as if it retried three times. Retrying is the listener's
+        // job: the optimistic-lock catch below rethrows so the retry topic handles it.
         try {
-            int retries = 0;
-            boolean success = false;
-            while (!success && retries < AppConstants.MAX_OPTIMISTIC_LOCK_RETRIES) {
+            transactionTemplate.executeWithoutResult(status -> {
+                String idempotencyKeyStr = "processed_event:payment:" + resolvedEventId;
+                if (idempotencyKeyRepository.existsById(idempotencyKeyStr)) {
+                    log.info("Duplicate event ignored inside transaction: {}", resolvedEventId);
+                    return;
+                }
+                idempotencyKeyRepository.save(new IdempotencyKey(idempotencyKeyStr));
+                
+                Order orderToRefund = null;
                 try {
-                    transactionTemplate.executeWithoutResult(status -> {
-                        String idempotencyKeyStr = "processed_event:payment:" + resolvedEventId;
-                        if (idempotencyKeyRepository.existsById(idempotencyKeyStr)) {
-                            log.info("Duplicate event ignored inside transaction: {}", resolvedEventId);
-                            return;
+                    com.fasterxml.jackson.databind.JsonNode rootNode = objectMapper.readTree(payload);
+                    if (!rootNode.has(FIELD_ORDER_ID) || !rootNode.has(FIELD_GATEWAY_ORDER_ID)) {
+                        log.info("Ignoring unrecognized event payload: {}", payload);
+                        return;
+                    }
+                    String gatewayOrderId = rootNode.get(FIELD_GATEWAY_ORDER_ID).asText();
+                    String internalOrderId = rootNode.get(FIELD_ORDER_ID).asText();
+                    if (rootNode.has(FIELD_EVENT_TYPE) && com.fooddelivery.common.constants.EventType.PAYMENT_REFUNDED.name().equals(rootNode.get(FIELD_EVENT_TYPE).asText())) {
+                        log.info("Processing PAYMENT_REFUNDED event for order: {}", internalOrderId);
+                        if (rootNode.has("refundId") && rootNode.has("isSuccess")) {
+                            UUID refundId = UUID.fromString(rootNode.get("refundId").asText());
+                            boolean isSuccess = rootNode.get("isSuccess").asBoolean();
+                            String gatewayRefundId = rootNode.has("gatewayRefundId") ? rootNode.get("gatewayRefundId").asText() : null;
+                            
+                            if (isSuccess) {
+                                refundService.complete(refundId, gatewayRefundId);
+                            } else {
+                                refundService.fail(refundId, rootNode.has("failureReason") ? rootNode.get("failureReason").asText() : "Unknown failure");
+                            }
+                        } else {
+                            log.warn("PAYMENT_REFUNDED event missing refundId or isSuccess");
                         }
-                        idempotencyKeyRepository.save(new IdempotencyKey(idempotencyKeyStr));
-                        
-                        Order orderToRefund = null;
-                        try {
-                            com.fasterxml.jackson.databind.JsonNode rootNode = objectMapper.readTree(payload);
-                            if (!rootNode.has(FIELD_ORDER_ID) || !rootNode.has(FIELD_GATEWAY_ORDER_ID)) {
-                                log.info("Ignoring unrecognized event payload: {}", payload);
-                                return;
-                            }
-                            String gatewayOrderId = rootNode.get(FIELD_GATEWAY_ORDER_ID).asText();
-                            String internalOrderId = rootNode.get(FIELD_ORDER_ID).asText();
-                            if (rootNode.has(FIELD_EVENT_TYPE) && com.fooddelivery.common.constants.EventType.PAYMENT_REFUNDED.name().equals(rootNode.get(FIELD_EVENT_TYPE).asText())) {
-                                log.info("Processing PAYMENT_REFUNDED event for order: {}", internalOrderId);
-                                if (rootNode.has("refundId") && rootNode.has("isSuccess")) {
-                                    UUID refundId = UUID.fromString(rootNode.get("refundId").asText());
-                                    boolean isSuccess = rootNode.get("isSuccess").asBoolean();
-                                    String gatewayRefundId = rootNode.has("gatewayRefundId") ? rootNode.get("gatewayRefundId").asText() : null;
-                                    
-                                    if (isSuccess) {
-                                        refundService.complete(refundId, gatewayRefundId);
-                                    } else {
-                                        refundService.fail(refundId, rootNode.has("failureReason") ? rootNode.get("failureReason").asText() : "Unknown failure");
-                                    }
-                                } else {
-                                    log.warn("PAYMENT_REFUNDED event missing refundId or isSuccess");
-                                }
-                                return;
-                            }
-                            if (rootNode.has(FIELD_EVENT_TYPE) && com.fooddelivery.common.constants.EventType.PAYMENT_PARTIALLY_REFUNDED.name().equals(rootNode.get(FIELD_EVENT_TYPE).asText())) {
-                                log.warn("Ignoring deprecated PAYMENT_PARTIALLY_REFUNDED event");
-                                return;
-                            }
-                            boolean isFailure = rootNode.has(FIELD_FAILURE_REASON) || (rootNode.has(FIELD_EVENT_TYPE) && com.fooddelivery.common.constants.EventType.PAYMENT_FAILED.name().equals(rootNode.get(FIELD_EVENT_TYPE).asText()));
-                            log.info("Payment event for gateway order {}. Finding internal order {}. IsFailure: {}", gatewayOrderId, internalOrderId, isFailure);
-                            com.fooddelivery.order.entity.PaymentIntent intent = paymentIntentRepository.findByGatewayOrderId(gatewayOrderId).orElse(null);
-                            if (intent == null) {
-                                log.warn("PaymentIntent for gateway order {} not found", gatewayOrderId);
-                                return;
-                            }
-                            UUID orderUUID = intent.getInternalOrderId();
-                            Order order = orderRepository.findById(orderUUID).orElse(null);
-                            if (order == null) {
-                                log.warn("Order {} not found, skipping status update", orderUUID);
-                                return;
-                            }
-                            com.fooddelivery.order.service.state.OrderContext context = new com.fooddelivery.order.service.state.OrderContext(order, rootNode, orderActionService, ledgerBookkeeper, intent != null && intent.getGatewayName() != null ? intent.getGatewayName().name() : null);
-                            com.fooddelivery.order.service.state.OrderState state = com.fooddelivery.order.service.state.OrderStateFactory.getState(order.getStatus());
-                            try {
-                                if (isFailure) {
-                                    state.handlePaymentFailure(context);
-                                } else {
-                                    state.handlePaymentSuccess(context);
-                                }
-                            } catch (com.fooddelivery.common.exception.IllegalStateTransitionException e) {
-                                log.error("ILLEGAL_STATE_TRANSITION: {}", e.getMessage());
-                            }
-                            if (context.isRequiresRefund()) {
-                                orderToRefund = order;
-                            }
-                        } catch (RuntimeException e) {
-                            throw e;
-                        } catch (Exception e) {
-                            throw new RuntimeException("Failed to process payment event", e);
+                        return;
+                    }
+                    if (rootNode.has(FIELD_EVENT_TYPE) && com.fooddelivery.common.constants.EventType.PAYMENT_PARTIALLY_REFUNDED.name().equals(rootNode.get(FIELD_EVENT_TYPE).asText())) {
+                        log.warn("Ignoring deprecated PAYMENT_PARTIALLY_REFUNDED event");
+                        return;
+                    }
+                    boolean isFailure = rootNode.has(FIELD_FAILURE_REASON) || (rootNode.has(FIELD_EVENT_TYPE) && com.fooddelivery.common.constants.EventType.PAYMENT_FAILED.name().equals(rootNode.get(FIELD_EVENT_TYPE).asText()));
+                    log.info("Payment event for gateway order {}. Finding internal order {}. IsFailure: {}", gatewayOrderId, internalOrderId, isFailure);
+                    com.fooddelivery.order.entity.PaymentIntent intent = paymentIntentRepository.findByGatewayOrderId(gatewayOrderId).orElse(null);
+                    if (intent == null) {
+                        log.warn("PaymentIntent for gateway order {} not found", gatewayOrderId);
+                        return;
+                    }
+                    UUID orderUUID = intent.getInternalOrderId();
+                    Order order = orderRepository.findById(orderUUID).orElse(null);
+                    if (order == null) {
+                        log.warn("Order {} not found, skipping status update", orderUUID);
+                        return;
+                    }
+                    com.fooddelivery.order.service.state.OrderContext context = new com.fooddelivery.order.service.state.OrderContext(
+                            order, rootNode, orderActionService, ledgerBookkeeper,
+                            intent != null && intent.getGatewayName() != null ? intent.getGatewayName().name() : null,
+                            intent.getPaymentMethod());
+                    com.fooddelivery.order.service.state.OrderState state = com.fooddelivery.order.service.state.OrderStateFactory.getState(order.getStatus());
+                    try {
+                        if (isFailure) {
+                            state.handlePaymentFailure(context);
+                        } else {
+                            state.handlePaymentSuccess(context);
                         }
-                        
-                        if (orderToRefund != null) {
-                             com.fooddelivery.order.refund.RefundCommand cmd = com.fooddelivery.order.refund.RefundCommand.builder()
-                                .orderId(orderToRefund.getId())
-                                .amount(orderToRefund.getTotalAmount())
-                                .faultType(com.fooddelivery.order.enums.FaultType.UNKNOWN)
-                                // No destination: RefundService routes it from the payment method
-                                // and intent state.
-                                .initiatorType(com.fooddelivery.order.enums.InitiatorType.SYSTEM)
-                                .reasonCode("SYSTEM_AUTO_REFUND")
-                                .idempotencyKey("payment_fail_" + orderToRefund.getId())
-                                .build();
-                             try {
-                                 refundService.request(cmd);
-                             } catch (IllegalStateException e) {
-                                 // See OrderEventConsumer: a routing refusal must not unwind the
-                                 // payment-state transition and re-poison the partition.
-                                 log.error("REFUND_NOT_ROUTED: order {} needs a refund but it could not "
-                                         + "be routed ({}). The payment state change is kept; resolve "
-                                         + "this from the admin refund queue.", orderToRefund.getId(), e.getMessage());
-                             }
-                        }
-                    });
-                    success = true;
-                } catch (org.springframework.orm.ObjectOptimisticLockingFailureException e) {
-                    log.warn("Optimistic locking failure in handlePaymentEvents, delegating to Kafka retry.");
+                    } catch (com.fooddelivery.common.exception.IllegalStateTransitionException e) {
+                        log.error("ILLEGAL_STATE_TRANSITION: {}", e.getMessage());
+                    }
+                    if (context.isRequiresRefund()) {
+                        orderToRefund = order;
+                    }
+                } catch (RuntimeException e) {
                     throw e;
                 } catch (Exception e) {
-                    log.error("Error processing payment event payload", e);
                     throw new RuntimeException("Failed to process payment event", e);
                 }
-            }
-        } catch (Exception e) {
+                
+                if (orderToRefund != null) {
+                     com.fooddelivery.order.refund.RefundCommand cmd = com.fooddelivery.order.refund.RefundCommand.builder()
+                        .orderId(orderToRefund.getId())
+                        .amount(orderToRefund.getTotalAmount())
+                        .faultType(com.fooddelivery.order.enums.FaultType.UNKNOWN)
+                        // No destination: RefundService routes it from the payment method
+                        // and intent state.
+                        .initiatorType(com.fooddelivery.order.enums.InitiatorType.SYSTEM)
+                        .reasonCode("SYSTEM_AUTO_REFUND")
+                        .idempotencyKey("payment_fail_" + orderToRefund.getId())
+                        .build();
+                     try {
+                         refundService.request(cmd);
+                     } catch (IllegalStateException e) {
+                         // See OrderEventConsumer: a routing refusal must not unwind the
+                         // payment-state transition and re-poison the partition.
+                         log.error("REFUND_NOT_ROUTED: order {} needs a refund but it could not "
+                                 + "be routed ({}). The payment state change is kept; resolve "
+                                 + "this from the admin refund queue.", orderToRefund.getId(), e.getMessage());
+                     }
+                }
+            });
+        } catch (org.springframework.orm.ObjectOptimisticLockingFailureException e) {
+            log.warn("Optimistic locking failure in handlePaymentEvents, delegating to Kafka retry.");
             throw e;
+        } catch (Exception e) {
+            log.error("Error processing payment event payload", e);
+            throw new RuntimeException("Failed to process payment event", e);
         }
     }
 }

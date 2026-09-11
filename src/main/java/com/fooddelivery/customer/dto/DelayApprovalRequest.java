@@ -4,16 +4,4 @@ package com.fooddelivery.customer.dto;
 public class DelayApprovalRequest {
     @jakarta.validation.constraints.NotNull
     private boolean approved;
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
 }

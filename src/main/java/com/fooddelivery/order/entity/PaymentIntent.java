@@ -37,8 +37,6 @@ public class PaymentIntent {
     @Enumerated(EnumType.STRING)
     @Column(name = "gateway_name")
     private PaymentGateway gatewayName;
-    
-
 
     @Column(name = "created_at")
     private OffsetDateTime createdAt;
@@ -51,49 +49,4 @@ public class PaymentIntent {
     @org.hibernate.annotations.UpdateTimestamp
     @Column(name = "updated_at")
     private OffsetDateTime updatedAt;
-
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-
 }

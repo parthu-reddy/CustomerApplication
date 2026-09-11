@@ -58,8 +58,15 @@ public class RestaurantTimeoutSweeper {
             return;
         }
         LocalDateTime threshold = LocalDateTime.now().minusMinutes(60);
-        List<OrderStatus> stuckStatuses = List.of(OrderStatus.ACCEPTED, OrderStatus.PREPARING, OrderStatus.READY_FOR_PICKUP);
-        org.springframework.data.domain.Page<Order> stuckOrdersPage = orderRepository.findByStatusInAndUpdatedAtBefore(stuckStatuses, threshold, org.springframework.data.domain.PageRequest.of(0, 500));
+        // ACCEPTED and PREPARING only. READY_FOR_PICKUP with a rider en route is not a restaurant
+        // that has stalled, and an order whose delivery has already failed is terminal by now --
+        // sweeping either of them here cancelled the order a second time, as the restaurant's fault.
+        List<OrderStatus> stuckStatuses = List.of(OrderStatus.ACCEPTED, OrderStatus.PREPARING);
+        List<com.fooddelivery.common.enums.DeliveryStatus> endedDelivery = List.of(
+                com.fooddelivery.common.enums.DeliveryStatus.FAILED,
+                com.fooddelivery.common.enums.DeliveryStatus.CANCELLED,
+                com.fooddelivery.common.enums.DeliveryStatus.DELIVERED);
+        org.springframework.data.domain.Page<Order> stuckOrdersPage = orderRepository.findStuckInRestaurantStates(stuckStatuses, endedDelivery, threshold, org.springframework.data.domain.PageRequest.of(0, 500));
         List<Order> stuckOrders = stuckOrdersPage.getContent();
         if (!stuckOrders.isEmpty()) {
             log.info("Found {} orders stuck in restaurant states (ACCEPTED/PREPARING/READY) for > 60 mins. Cancelling them...", stuckOrders.size());
@@ -134,9 +141,8 @@ public class RestaurantTimeoutSweeper {
         try {
             boolean refundNeeded = Boolean.TRUE.equals(transactionTemplate.execute(status -> {
                 Order currentOrder = orderRepository.findById(order.getId()).orElse(null);
-                if (currentOrder != null && (currentOrder.getStatus() == OrderStatus.ACCEPTED || 
-                                             currentOrder.getStatus() == OrderStatus.PREPARING || 
-                                             currentOrder.getStatus() == OrderStatus.READY_FOR_PICKUP)) {
+                if (currentOrder != null && (currentOrder.getStatus() == OrderStatus.ACCEPTED
+                                             || currentOrder.getStatus() == OrderStatus.PREPARING)) {
                     currentOrder.setStatus(OrderStatus.CANCELLED_BY_RESTAURANT); 
                     currentOrder.setCancellationReason(reason);
                     orderRepository.save(currentOrder);

@@ -58,7 +58,9 @@ public class LedgerBookkeeperTest {
         order.setDeliveryExecutiveId(UUID.randomUUID());
         order.setTotalAmount(new BigDecimal("50.00"));
 
-        bookkeeper.bookCashCollected(order);
+        // The declared amount, not the order total. Booking the total regardless of what the rider
+        // said is the defect this argument exists to remove.
+        bookkeeper.bookCashCollected(order, new BigDecimal("50.00"));
 
         ArgumentCaptor<OutboxEventEntity> captor = ArgumentCaptor.forClass(OutboxEventEntity.class);
         verify(outboxRepo, times(1)).save(captor.capture());

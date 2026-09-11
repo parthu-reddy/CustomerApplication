@@ -19,10 +19,14 @@ public class OrderStateFactory {
         stateMap.put(OrderStatus.READY_FOR_PICKUP, new ReadyForPickupState());
         stateMap.put(OrderStatus.HANDED_OVER, new HandedOverState());
         
-        // Terminal states
+        // Terminal states. Driven off isTerminal() rather than a hand-listed set, so a new terminal
+        // status cannot arrive without a state and blow up OrderStateFactory.getState at runtime.
         TerminalState terminalState = new TerminalState();
-        stateMap.put(OrderStatus.CANCELLED, terminalState);
-        stateMap.put(OrderStatus.CANCELLED_BY_RESTAURANT, terminalState);
+        for (OrderStatus status : OrderStatus.values()) {
+            if (status.isTerminal()) {
+                stateMap.put(status, terminalState);
+            }
+        }
     }
 
     public static OrderState getState(OrderStatus status) {

@@ -1,3 +1,12 @@
+# The two delivery radii, bound by DeliveryZoneConfig. They default to the same value and are
+# separate because they answer separate questions: how far the customer may be from the restaurant,
+# and how far a rider may be from the restaurant.
+delivery:
+  zone:
+    max-radius-km: 5.0
+    fleet-search-radius-km: 5.0
+    default-city: BLR
+
 spring:
   application:
     name: customer-service

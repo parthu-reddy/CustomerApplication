@@ -60,93 +60,93 @@ public class OrderEventConsumer {
 
         String idempotencyKeyStr = "processed_event:" + resolvedEventId;
 
+        // No retry loop here. This used to read
+        //     int retries = 0; boolean success = false;
+        //     while (!success && retries < AppConstants.MAX_OPTIMISTIC_LOCK_RETRIES) { ... }
+        // with `retries` never incremented and every catch rethrowing, so the body ran exactly once
+        // by construction while reading as if it retried three times. Retrying is the listener's
+        // job: the optimistic-lock catch below rethrows so the retry topic handles it.
         try {
-            int retries = 0;
-            boolean success = false;
-            while (!success && retries < AppConstants.MAX_OPTIMISTIC_LOCK_RETRIES) {
-                try {
-                    transactionTemplate.execute(status -> {
-                        if (idempotencyKeyRepository.existsById(idempotencyKeyStr)) {
-                            log.info("Duplicate event ignored: {}", idempotencyKeyStr);
-                            return null;
-                        }
-                        idempotencyKeyRepository.save(new IdempotencyKey(idempotencyKeyStr));
+            transactionTemplate.execute(status -> {
+                if (idempotencyKeyRepository.existsById(idempotencyKeyStr)) {
+                    log.info("Duplicate event ignored: {}", idempotencyKeyStr);
+                    return null;
+                }
+                idempotencyKeyRepository.save(new IdempotencyKey(idempotencyKeyStr));
 
-                        try {
-                            com.fasterxml.jackson.databind.JsonNode rootNode = objectMapper.readTree(payload);
-                            com.fasterxml.jackson.databind.JsonNode payloadNode = rootNode;
-                            String eventType = com.fooddelivery.common.util.KafkaHeaderUtils.extractEventType(headers, rootNode);
-                            String orderIdStr = payloadNode.path("orderId").asText(null);
-                            if (orderIdStr == null && payloadNode.has("id")) {
-                                orderIdStr = payloadNode.get("id").asText();
+                try {
+                    com.fasterxml.jackson.databind.JsonNode rootNode = objectMapper.readTree(payload);
+                    com.fasterxml.jackson.databind.JsonNode payloadNode = rootNode;
+                    String eventType = com.fooddelivery.common.util.KafkaHeaderUtils.extractEventType(headers, rootNode);
+                    String orderIdStr = payloadNode.path("orderId").asText(null);
+                    if (orderIdStr == null && payloadNode.has("id")) {
+                        orderIdStr = payloadNode.get("id").asText();
+                    }
+                    if (orderIdStr == null || eventType == null) {
+                        log.warn("Missing orderId or eventType. Ignored.");
+                        return null;
+                    }
+                    UUID orderId = UUID.fromString(orderIdStr);
+                    Order order = orderRepository.findById(orderId).orElse(null);
+                    if (order == null) {
+                        log.warn("Order {} not found, skipping event", orderId);
+                        return null;
+                    }
+                    com.fooddelivery.order.service.state.OrderContext context = new com.fooddelivery.order.service.state.OrderContext(
+                            order, payloadNode, orderActionService, ledgerBookkeeper,
+                            null /* no gateway: order-lifecycle events book no capture */,
+                            order.getPaymentMethod());
+                    com.fooddelivery.order.service.state.OrderState state = com.fooddelivery.order.service.state.OrderStateFactory.getState(order.getStatus());
+                    try {
+                        java.util.function.BiConsumer<com.fooddelivery.order.service.state.OrderState, com.fooddelivery.order.service.state.OrderContext> handler = EVENT_HANDLERS.get(eventType);
+                        if (handler != null) {
+                            handler.accept(state, context);
+                        } else if (EventType.ORDER_STATUS_UPDATED.name().equals(eventType)) {
+                            String updateStatus = payloadNode.path("status").asText(null);
+                            if (EventType.DELIVERY_FAILED.name().equals(updateStatus)) {
+                                state.handleDeliveryFailed(context);
+                            } else {
+                                state.handleStatusUpdate(context);
                             }
-                            if (orderIdStr == null || eventType == null) {
-                                log.warn("Missing orderId or eventType. Ignored.");
-                                return null;
-                            }
-                            UUID orderId = UUID.fromString(orderIdStr);
-                            Order order = orderRepository.findById(orderId).orElse(null);
-                            if (order == null) {
-                                log.warn("Order {} not found, skipping event", orderId);
-                                return null;
-                            }
-                            com.fooddelivery.order.service.state.OrderContext context = new com.fooddelivery.order.service.state.OrderContext(order, payloadNode, orderActionService, ledgerBookkeeper, null /* no gateway: order-lifecycle events book no capture */);
-                            com.fooddelivery.order.service.state.OrderState state = com.fooddelivery.order.service.state.OrderStateFactory.getState(order.getStatus());
-                            try {
-                                java.util.function.BiConsumer<com.fooddelivery.order.service.state.OrderState, com.fooddelivery.order.service.state.OrderContext> handler = EVENT_HANDLERS.get(eventType);
-                                if (handler != null) {
-                                    handler.accept(state, context);
-                                } else if (EventType.ORDER_STATUS_UPDATED.name().equals(eventType)) {
-                                    String updateStatus = payloadNode.path("status").asText(null);
-                                    if (EventType.DELIVERY_FAILED.name().equals(updateStatus)) {
-                                        state.handleDeliveryFailed(context);
-                                    } else {
-                                        state.handleStatusUpdate(context);
-                                    }
-                                } else if (EventType.ORDER_DRIVER_REJECTED.name().equals(eventType)) {
-                                    log.info("Driver rejected/timed out ping for Order {}. Redispatching will be handled by DeliveryExecutiveApplication.", orderId);
-                                    order.setDeliveryExecutiveId(null);
-                                    orderRepository.save(order);
-                                    orderActionService.emitOrderStatusSyncEvent(order.getId(), order.getStatus());
-                                } else {
-                                    log.warn("Unmapped event type {} for Order {}. Ignoring.", eventType, orderId);
-                                }
-                            } catch (com.fooddelivery.common.exception.IllegalStateTransitionException e) {
-                                log.error("ILLEGAL_STATE_TRANSITION: {}", e.getMessage());
-                                orderActionService.emitOrderStatusSyncEvent(order.getId(), order.getStatus());
-                            }
-                            if (context.isRequiresRefund()) {
-                                com.fooddelivery.order.refund.RefundCommand cmd = com.fooddelivery.order.refund.RefundCommand.builder()
-                                        .orderId(order.getId())
-                                        .amount(order.getTotalAmount())
-                                        .faultType(com.fooddelivery.order.enums.FaultType.UNKNOWN)
-                                        // No destination: RefundService routes it. Forcing ORIGINAL_METHOD
-                                        // made a COD order throw inside this consumer, rolling back the
-                                        // state change and poisoning the partition on every retry.
-                                        .initiatorType(com.fooddelivery.order.enums.InitiatorType.SYSTEM)
-                                        .reasonCode(eventType)
-                                        .idempotencyKey("event_" + order.getId() + "_" + eventType)
-                                        .build();
-                                requestRefundWithoutPoisoningTheEvent(order.getId(), cmd);
-                            }
-                            return null;
-                        } catch (RuntimeException e) {
-                            throw e;
-                        } catch (Exception e) {
-                            throw new RuntimeException("Failed to process order event inner", e);
+                        } else if (EventType.ORDER_DRIVER_REJECTED.name().equals(eventType)) {
+                            log.info("Driver rejected/timed out ping for Order {}. Redispatching will be handled by DeliveryExecutiveApplication.", orderId);
+                            order.setDeliveryExecutiveId(null);
+                            orderRepository.save(order);
+                            orderActionService.emitOrderStatusSyncEvent(order.getId(), order.getStatus());
+                        } else {
+                            log.warn("Unmapped event type {} for Order {}. Ignoring.", eventType, orderId);
                         }
-                    });
-                    success = true;
-                } catch (org.springframework.orm.ObjectOptimisticLockingFailureException e) {
-                    log.warn("Optimistic locking failure in handleOrderEvents, delegating to Kafka retry.");
+                    } catch (com.fooddelivery.common.exception.IllegalStateTransitionException e) {
+                        log.error("ILLEGAL_STATE_TRANSITION: {}", e.getMessage());
+                        orderActionService.emitOrderStatusSyncEvent(order.getId(), order.getStatus());
+                    }
+                    if (context.isRequiresRefund()) {
+                        com.fooddelivery.order.refund.RefundCommand cmd = com.fooddelivery.order.refund.RefundCommand.builder()
+                                .orderId(order.getId())
+                                .amount(order.getTotalAmount())
+                                .faultType(faultTypeFor(eventType))
+                                // No destination: RefundService routes it. Forcing ORIGINAL_METHOD
+                                // made a COD order throw inside this consumer, rolling back the
+                                // state change and poisoning the partition on every retry.
+                                .initiatorType(com.fooddelivery.order.enums.InitiatorType.SYSTEM)
+                                .reasonCode(eventType)
+                                .idempotencyKey("event_" + order.getId() + "_" + eventType)
+                                .build();
+                        requestRefundWithoutPoisoningTheEvent(order.getId(), cmd);
+                    }
+                    return null;
+                } catch (RuntimeException e) {
                     throw e;
                 } catch (Exception e) {
-                    log.error("Error processing order event", e);
-                    throw new RuntimeException("Failed to process order event", e);
+                    throw new RuntimeException("Failed to process order event inner", e);
                 }
-            }
-        } catch (Exception e) {
+            });
+        } catch (org.springframework.orm.ObjectOptimisticLockingFailureException e) {
+            log.warn("Optimistic locking failure in handleOrderEvents, delegating to Kafka retry.");
             throw e;
+        } catch (Exception e) {
+            log.error("Error processing order event", e);
+            throw new RuntimeException("Failed to process order event", e);
         }
     }
 
@@ -164,6 +164,30 @@ public class OrderEventConsumer {
      * the same event forever, blocking every other order on the partition. The state change is the
      * more important of the two and is kept; the refund is left loudly unmade for an operator.
      */
+    /**
+     * Who is at fault for a refund raised by an event, which is what decides the clawback.
+     *
+     * <p>Every event-driven refund used to be booked as {@code UNKNOWN}, so a dispatch failure --
+     * the platform's own failure to find a rider -- was settled the same way as a restaurant
+     * cancellation.
+     */
+    private static com.fooddelivery.order.enums.FaultType faultTypeFor(String eventType) {
+        if (eventType == null) {
+            return com.fooddelivery.order.enums.FaultType.UNKNOWN;
+        }
+        if (EventType.DISPATCH_FAILED.name().equals(eventType)
+                || EventType.DELIVERY_FAILED.name().equals(eventType)
+                || EventType.MANUAL_INTERVENTION_REQUIRED.name().equals(eventType)) {
+            return com.fooddelivery.order.enums.FaultType.PLATFORM_FAULT;
+        }
+        if (EventType.ORDER_REJECTED.name().equals(eventType)
+                || EventType.ORDER_CANCELLED_BY_RESTAURANT.name().equals(eventType)
+                || EventType.ORDER_DELAY_REJECTED.name().equals(eventType)) {
+            return com.fooddelivery.order.enums.FaultType.RESTAURANT_FAULT;
+        }
+        return com.fooddelivery.order.enums.FaultType.UNKNOWN;
+    }
+
     private void requestRefundWithoutPoisoningTheEvent(java.util.UUID orderId,
                                                        com.fooddelivery.order.refund.RefundCommand cmd) {
         try {

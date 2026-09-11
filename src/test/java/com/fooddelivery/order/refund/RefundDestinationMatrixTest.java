@@ -1,7 +1,6 @@
 package com.fooddelivery.order.refund;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fooddelivery.common.client.WalletInternalClient;
 import com.fooddelivery.common.constants.PaymentIntentStatus;
 import com.fooddelivery.common.enums.PaymentMethod;
 import com.fooddelivery.common.enums.RefundDestination;
@@ -26,6 +25,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -45,7 +45,6 @@ public class RefundDestinationMatrixTest {
     private IPaymentIntentRepository intentRepo;
     private OutboxEventRepository outboxRepo;
     private LedgerBookkeeper bookkeeper;
-    private WalletInternalClient walletClient;
     private RefundService service;
 
     private final UUID orderId = UUID.randomUUID();
@@ -57,11 +56,10 @@ public class RefundDestinationMatrixTest {
         intentRepo = Mockito.mock(IPaymentIntentRepository.class);
         outboxRepo = Mockito.mock(OutboxEventRepository.class);
         bookkeeper = Mockito.mock(LedgerBookkeeper.class);
-        walletClient = Mockito.mock(WalletInternalClient.class);
         RefundItemRepository refundItemRepo = Mockito.mock(RefundItemRepository.class);
 
         service = new RefundService(refundRepo, orderRepo, intentRepo, outboxRepo, bookkeeper,
-                new ObjectMapper(), walletClient, refundItemRepo);
+                new ObjectMapper(), refundItemRepo);
 
         when(refundRepo.sumByOrderAndStatusIn(any(), any())).thenReturn(BigDecimal.ZERO);
         when(refundRepo.save(any(Refund.class))).thenAnswer(i -> i.getArgument(0));
@@ -132,7 +130,10 @@ public class RefundDestinationMatrixTest {
     @Test
     void uncollectedCodRefundsNothing() {
         assertEquals(RefundDestination.NONE, route(PaymentMethod.COD, PaymentIntentStatus.PENDING_COLLECTION));
-        verify(walletClient, never()).credit(any(), any(), any(), any());
+        // The credit is now a hand-off through the outbox rather than a direct call, so the
+        // observable changed -- but the assertion is the same one: uncollected cash issues nothing.
+        verify(outboxRepo, never()).save(argThat(e ->
+                e.getEventType() == com.fooddelivery.common.constants.EventType.WALLET_CREDIT_REQUESTED));
     }
 
     @Test

@@ -54,7 +54,8 @@ public class CodLifecycleTest {
     }
 
     private OrderContext ctx(Order order, String gateway) {
-        return new OrderContext(order, objectMapper.createObjectNode(), actionService, bookkeeper, gateway);
+        return new OrderContext(order, objectMapper.createObjectNode(), actionService, bookkeeper,
+                gateway, order.getPaymentMethod());
     }
 
     @Test
@@ -86,43 +87,12 @@ public class CodLifecycleTest {
         verify(actionService, never()).emitOrderPlacedCodEvent(any());
     }
 
-    @Test
-    void deliveringACodOrderCollectsTheCash() {
-        Order order = order(PaymentMethod.COD);
-        order.setStatus(OrderStatus.HANDED_OVER);
-        order.setDeliveryExecutiveId(UUID.randomUUID());
-
-        new HandedOverState().handleOrderDelivered(ctx(order, null));
-
-        assertEquals(DeliveryStatus.DELIVERED, order.getDeliveryStatus());
-        verify(bookkeeper).bookCashCollected(order);
-        assertEquals(PaymentIntentStatus.COLLECTED, order.getPaymentStatus(),
-                "collected cash is distinct from a gateway capture");
-        verify(actionService).updatePaymentIntentStatus(order.getId(), PaymentIntentStatus.COLLECTED);
-    }
-
-    @Test
-    void deliveringAGatewayOrderCollectsNoCash() {
-        Order order = order(PaymentMethod.CARD);
-        order.setStatus(OrderStatus.HANDED_OVER);
-        order.setDeliveryExecutiveId(UUID.randomUUID());
-
-        new HandedOverState().handleOrderDelivered(ctx(order, "RAZORPAY"));
-
-        verify(bookkeeper).bookDelivered(order);
-        verify(bookkeeper, never()).bookCashCollected(any());
-    }
-
-    @Test
-    void deliveryAlwaysBooksTheOrderEconomics() {
-        Order order = order(PaymentMethod.COD);
-        order.setStatus(OrderStatus.HANDED_OVER);
-        order.setDeliveryExecutiveId(UUID.randomUUID());
-
-        new HandedOverState().handleOrderDelivered(ctx(order, null));
-
-        ArgumentCaptor<Order> captor = ArgumentCaptor.forClass(Order.class);
-        verify(bookkeeper).bookDelivered(captor.capture());
-        assertEquals(order.getId(), captor.getValue().getId());
-    }
+    // The three delivery tests that were here are superseded by
+    // com.fooddelivery.order.lifecycle.CashTruthTest.
+    //
+    // They asserted on a mocked OrderActionService, and completing a delivery is now that service's
+    // job -- one definition shared by HandedOverState and ReadyForPickupState, which previously had
+    // two implementations that disagreed about whether COD cash was collected at all. Against a
+    // mock those assertions would pass or fail on the mock, not on the behaviour. CashTruthTest
+    // uses the real OrderActionService and the real LedgerBookkeeper and checks the ledger legs.
 }

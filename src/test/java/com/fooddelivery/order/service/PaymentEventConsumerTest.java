@@ -87,6 +87,11 @@ public class PaymentEventConsumerTest {
 
         com.fooddelivery.order.entity.PaymentIntent intent = new com.fooddelivery.order.entity.PaymentIntent();
         intent.setInternalOrderId(orderId);
+        // PaymentGatewayOrchestrator sets both on every intent it creates, so an intent without them
+        // cannot exist in production. Leaving them null here made the fixture describe a state the
+        // system never produces, and the state machine now refuses it as the data defect it is.
+        intent.setPaymentMethod(com.fooddelivery.common.enums.PaymentMethod.CARD);
+        intent.setGatewayName(com.fooddelivery.common.enums.PaymentGateway.RAZORPAY);
         when(paymentIntentRepository.findByGatewayOrderId("GATEWAY_123")).thenReturn(Optional.of(intent));
 
         Order order = new Order();
@@ -117,6 +122,11 @@ public class PaymentEventConsumerTest {
 
         com.fooddelivery.order.entity.PaymentIntent intent = new com.fooddelivery.order.entity.PaymentIntent();
         intent.setInternalOrderId(orderId);
+        // PaymentGatewayOrchestrator sets both on every intent it creates, so an intent without them
+        // cannot exist in production. Leaving them null here made the fixture describe a state the
+        // system never produces, and the state machine now refuses it as the data defect it is.
+        intent.setPaymentMethod(com.fooddelivery.common.enums.PaymentMethod.CARD);
+        intent.setGatewayName(com.fooddelivery.common.enums.PaymentGateway.RAZORPAY);
         when(paymentIntentRepository.findByGatewayOrderId("GATEWAY_123")).thenReturn(Optional.of(intent));
 
         Order order = new Order();
@@ -156,6 +166,11 @@ public class PaymentEventConsumerTest {
 
         com.fooddelivery.order.entity.PaymentIntent intent = new com.fooddelivery.order.entity.PaymentIntent();
         intent.setInternalOrderId(orderId);
+        // PaymentGatewayOrchestrator sets both on every intent it creates, so an intent without them
+        // cannot exist in production. Leaving them null here made the fixture describe a state the
+        // system never produces, and the state machine now refuses it as the data defect it is.
+        intent.setPaymentMethod(com.fooddelivery.common.enums.PaymentMethod.CARD);
+        intent.setGatewayName(com.fooddelivery.common.enums.PaymentGateway.RAZORPAY);
         when(paymentIntentRepository.findByGatewayOrderId("GATEWAY_123")).thenReturn(Optional.of(intent));
 
         Order order = new Order();

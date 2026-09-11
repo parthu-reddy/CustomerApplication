@@ -32,7 +32,7 @@ public class PendingAcceptanceState implements OrderState {
         Order order = ctx.getOrder();
         order.setStatus(OrderStatus.AWAITING_DELAY_APPROVAL);
         ctx.getActionService().saveOrder(order);
-        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), com.fooddelivery.common.constants.NotificationTemplate.DELAY_APPROVAL_REQUESTED.name());
+        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), com.fooddelivery.common.constants.NotificationTemplate.DELAY_APPROVAL_REQUESTED);
     }
 
     @Override
@@ -41,7 +41,7 @@ public class PendingAcceptanceState implements OrderState {
         order.setStatus(OrderStatus.CANCELLED_BY_RESTAURANT);
         order.setCancellationReason(ctx.getEventPayload().path("reason").asText("Restaurant could not fulfill the order"));
         ctx.getActionService().saveOrder(order);
-        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_CANCELLED_BY_RESTAURANT.name());
+        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), com.fooddelivery.common.constants.NotificationTemplate.ORDER_CANCELLED_BY_RESTAURANT);
         ctx.setRequiresRefund(true);
     }
 
@@ -62,7 +62,7 @@ public class PendingAcceptanceState implements OrderState {
         order.setStatus(OrderStatus.CANCELLED);
         order.setCancellationReason(ctx.getEventPayload().path("reason").asText("Cancelled by Admin"));
         ctx.getActionService().saveOrder(order);
-        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_CANCELLED_BY_ADMIN.name());
+        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), com.fooddelivery.common.constants.NotificationTemplate.ORDER_CANCELLED_BY_ADMIN);
         ctx.setRequiresRefund(true);
     }
 }

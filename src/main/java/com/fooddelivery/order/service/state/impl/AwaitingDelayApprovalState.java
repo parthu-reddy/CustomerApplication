@@ -34,7 +34,7 @@ public class AwaitingDelayApprovalState implements OrderState {
         order.setCancellationReason(ctx.getEventPayload().path("reason").asText("Customer rejected delay"));
         ctx.getActionService().saveOrder(order);
         
-        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_DELAY_REJECTED.name());
+        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), com.fooddelivery.common.constants.NotificationTemplate.ORDER_DELAY_REJECTED);
         ctx.setRequiresRefund(true);
     }
     
@@ -45,7 +45,7 @@ public class AwaitingDelayApprovalState implements OrderState {
         order.setCancellationReason(ctx.getEventPayload().path("reason").asText("Restaurant could not fulfill the order"));
         ctx.getActionService().saveOrder(order);
         
-        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_CANCELLED_BY_RESTAURANT.name());
+        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), com.fooddelivery.common.constants.NotificationTemplate.ORDER_CANCELLED_BY_RESTAURANT);
         ctx.setRequiresRefund(true);
     }
 
@@ -68,7 +68,7 @@ public class AwaitingDelayApprovalState implements OrderState {
         order.setCancellationReason(ctx.getEventPayload().path("reason").asText("Cancelled by Admin"));
         ctx.getActionService().saveOrder(order);
         
-        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_CANCELLED_BY_ADMIN.name());
+        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), com.fooddelivery.common.constants.NotificationTemplate.ORDER_CANCELLED_BY_ADMIN);
         ctx.setRequiresRefund(true);
     }
 }

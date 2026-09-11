@@ -24,7 +24,7 @@ public class RefundQuoteTest {
         IOrderRepository orderRepo = Mockito.mock(IOrderRepository.class);
         RefundItemRepository itemRepo = Mockito.mock(RefundItemRepository.class);
 
-        RefundService service = new RefundService(null, orderRepo, null, null, null, null, null, itemRepo);
+        RefundService service = new RefundService(null, orderRepo, null, null, null, null, itemRepo);
 
         UUID orderId = UUID.randomUUID();
         Order order = new Order();
@@ -66,7 +66,7 @@ public class RefundQuoteTest {
     void quoteRefusesWhenThereIsNoItemTotalToProrateAgainst() {
         IOrderRepository orderRepo = Mockito.mock(IOrderRepository.class);
         RefundItemRepository itemRepo = Mockito.mock(RefundItemRepository.class);
-        RefundService service = new RefundService(null, orderRepo, null, null, null, null, null, itemRepo);
+        RefundService service = new RefundService(null, orderRepo, null, null, null, null, itemRepo);
 
         UUID orderId = UUID.randomUUID();
         Order order = new Order();
@@ -83,7 +83,7 @@ public class RefundQuoteTest {
     void quoteRefusesAnItemThatHasAlreadyBeenRefunded() {
         IOrderRepository orderRepo = Mockito.mock(IOrderRepository.class);
         RefundItemRepository itemRepo = Mockito.mock(RefundItemRepository.class);
-        RefundService service = new RefundService(null, orderRepo, null, null, null, null, null, itemRepo);
+        RefundService service = new RefundService(null, orderRepo, null, null, null, null, itemRepo);
 
         UUID orderId = UUID.randomUUID();
         Order order = new Order();
@@ -115,7 +115,7 @@ public class RefundQuoteTest {
     void quoteAllowsTheUnrefundedRemainderOfAPartlyRefundedItem() {
         IOrderRepository orderRepo = Mockito.mock(IOrderRepository.class);
         RefundItemRepository itemRepo = Mockito.mock(RefundItemRepository.class);
-        RefundService service = new RefundService(null, orderRepo, null, null, null, null, null, itemRepo);
+        RefundService service = new RefundService(null, orderRepo, null, null, null, null, itemRepo);
 
         UUID orderId = UUID.randomUUID();
         Order order = new Order();

@@ -13,22 +13,62 @@ import java.util.UUID;
 
 public class CreatedState implements OrderState {
 
+    /**
+     * Routes on how the customer paid, and nothing else.
+     *
+     * <p>This used to branch on COD and send everything else to {@code bookPaymentCaptured}, which
+     * requires a gateway name. A wallet intent has none, so every wallet order threw here, rolled
+     * back, and was retried into the DLT -- after the wallet had already been debited. The
+     * {@code switch} is exhaustive so that a fifth payment method fails to compile rather than
+     * falling into a branch that takes no money.
+     */
     @Override
     public void handlePaymentSuccess(OrderContext ctx) {
         Order order = ctx.getOrder();
-        if (order.getPaymentMethod() == com.fooddelivery.common.enums.PaymentMethod.COD) {
-            // Cash orders are not payments. They have their own handler so that nothing here can
-            // accidentally treat one as collected money.
-            handleCodPlaced(ctx);
-            return;
+        com.fooddelivery.common.enums.PaymentMethod method = ctx.getPaymentMethod();
+        if (method == null) {
+            // A data defect, not a state-transition error: deliberately not an
+            // IllegalStateTransitionException, which the consumers catch and swallow.
+            throw new IllegalStateException("Order " + order.getId() + " has no payment method");
         }
+
+        // A switch *expression*, not a statement: only the expression form is exhaustiveness-checked
+        // against the enum, so adding a fifth payment method is a compile error here rather than a
+        // silently unhandled case. (A statement switch over an enum compiles happily with a missing
+        // constant, which is how this was written the first time.)
+        Runnable capture = switch (method) {
+            case CARD, UPI -> () -> captureViaGateway(ctx, order);
+            case WALLET -> () -> captureFromWallet(ctx, order);
+            // Cash orders are not payments. Their own handler exists so that nothing here can
+            // accidentally treat one as collected money.
+            case COD -> () -> handleCodPlaced(ctx);
+        };
+        capture.run();
+    }
+
+    private void captureViaGateway(OrderContext ctx, Order order) {
         order.setStatus(OrderStatus.PENDING_ACCEPTANCE);
         order.setPaymentStatus(PaymentIntentStatus.SUCCESS);
         ctx.getActionService().saveOrder(order);
 
         ctx.getLedgerBookkeeper().bookPaymentCaptured(order, ctx.getGateway());
+        announcePaid(ctx, order);
+    }
+
+    private void captureFromWallet(OrderContext ctx, Order order) {
+        order.setStatus(OrderStatus.PENDING_ACCEPTANCE);
+        order.setPaymentStatus(PaymentIntentStatus.SUCCESS);
+        ctx.getActionService().saveOrder(order);
+
+        // The money moved inside WalletService before this event was published, so there is no
+        // gateway to name -- but it did move, and the book has to say so.
+        ctx.getLedgerBookkeeper().bookWalletCaptured(order);
+        announcePaid(ctx, order);
+    }
+
+    private void announcePaid(OrderContext ctx, Order order) {
         ctx.getActionService().emitOrderPaidEvent(order);
-        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_PAID.name());
+        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), com.fooddelivery.common.constants.NotificationTemplate.ORDER_PAID);
         ctx.getActionService().updatePaymentIntentStatus(order.getId(), PaymentIntentStatus.SUCCESS);
     }
 
@@ -41,7 +81,9 @@ public class CreatedState implements OrderState {
         ctx.getActionService().saveOrder(order);
 
         ctx.getActionService().emitOrderPlacedCodEvent(order);
-        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_PAID.name());
+        // ORDER_PLACED, not ORDER_PAID: nothing has been paid. The customer owes cash to the rider,
+        // and the copy has to say so or they will not have it ready.
+        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), com.fooddelivery.common.constants.NotificationTemplate.ORDER_PLACED);
         ctx.getActionService().updatePaymentIntentStatus(order.getId(), PaymentIntentStatus.PENDING_COLLECTION);
     }
 
@@ -74,7 +116,7 @@ public class CreatedState implements OrderState {
         order.setCancellationReason(ctx.getEventPayload().path("reason").asText("Cancelled by Admin"));
         ctx.getActionService().saveOrder(order);
         
-        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_CANCELLED_BY_ADMIN.name());
+        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), com.fooddelivery.common.constants.NotificationTemplate.ORDER_CANCELLED_BY_ADMIN);
         
         if (order.getPaymentStatus() == PaymentIntentStatus.SUCCESS) {
             ctx.setRequiresRefund(true);

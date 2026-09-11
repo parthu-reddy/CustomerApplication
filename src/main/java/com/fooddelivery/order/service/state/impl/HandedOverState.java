@@ -15,30 +15,22 @@ public class HandedOverState implements OrderState {
 
     @Override
     public void handleOrderDelivered(OrderContext ctx) {
-        Order order = ctx.getOrder();
-        order.setDeliveryStatus(com.fooddelivery.common.enums.DeliveryStatus.DELIVERED);
-        ctx.getActionService().saveOrder(order);
-        if (ctx.getLedgerBookkeeper() != null) {
-            ctx.getLedgerBookkeeper().bookDelivered(order);
-            if (order.getPaymentMethod() == com.fooddelivery.common.enums.PaymentMethod.COD) {
-                ctx.getLedgerBookkeeper().bookCashCollected(order);
-                // COLLECTED, not SUCCESS: it distinguishes cash the rider has actually taken from a
-                // gateway capture, which is what RefundService needs to decide whether a COD refund
-                // moves money at all.
-                order.setPaymentStatus(com.fooddelivery.common.constants.PaymentIntentStatus.COLLECTED);
-                ctx.getActionService().updatePaymentIntentStatus(order.getId(), com.fooddelivery.common.constants.PaymentIntentStatus.COLLECTED);
-            }
-        }
-        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_DELIVERED.name());
+        ctx.getActionService().completeDelivery(ctx);
     }
 
 
+    /**
+     * The rider had the food and it did not arrive. Terminal, so the stuck-order sweeper does not
+     * later cancel the same order a second time and attempt a second refund.
+     */
     @Override
     public void handleDeliveryFailed(OrderContext ctx) {
         Order order = ctx.getOrder();
+        order.setStatus(OrderStatus.DELIVERY_FAILED);
         order.setDeliveryStatus(com.fooddelivery.common.enums.DeliveryStatus.FAILED);
+        order.setCancellationReason(ctx.getEventPayload().path("reason").asText("Delivery failed"));
         ctx.getActionService().saveOrder(order);
-        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.DELIVERY_FAILED.name());
+        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), com.fooddelivery.common.constants.NotificationTemplate.DELIVERY_FAILED);
         ctx.setRequiresRefund(true);
     }
 
@@ -48,7 +40,7 @@ public class HandedOverState implements OrderState {
         order.setStatus(OrderStatus.CANCELLED);
         order.setCancellationReason(ctx.getEventPayload().path("reason").asText("Cancelled by Admin (Delivery abandoned or failed)"));
         ctx.getActionService().saveOrder(order);
-        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), EventType.ORDER_CANCELLED_BY_ADMIN.name());
+        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), com.fooddelivery.common.constants.NotificationTemplate.ORDER_CANCELLED_BY_ADMIN);
         ctx.setRequiresRefund(true);
     }
 }

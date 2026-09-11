@@ -1,14 +1,11 @@
 package com.fooddelivery.order.refund;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fooddelivery.common.client.WalletInternalClient;
 import com.fooddelivery.common.constants.AggregateType;
 import com.fooddelivery.common.constants.EventType;
-import com.fooddelivery.common.dto.wallet.TransactionRequest;
 import com.fooddelivery.common.enums.OutboxStatus;
 import com.fooddelivery.common.enums.RefundDestination;
 import com.fooddelivery.common.enums.RefundStatus;
-import com.fooddelivery.common.enums.WalletEntityType;
 import com.fooddelivery.common.outbox.entity.OutboxEventEntity;
 import com.fooddelivery.common.outbox.repository.OutboxEventRepository;
 import com.fooddelivery.order.entity.Order;
@@ -52,7 +49,6 @@ public class RefundService {
     private final OutboxEventRepository outboxEventRepository;
     private final LedgerBookkeeper ledgerBookkeeper;
     private final ObjectMapper objectMapper;
-    private final WalletInternalClient walletClient;
     private final RefundItemRepository refundItemRepository;
 
     @Transactional
@@ -137,18 +133,53 @@ public class RefundService {
                 throw new RuntimeException("Failed to save outbox event", e);
             }
         } else if (destination == RefundDestination.STORE_CREDIT) {
-            TransactionRequest txReq = new TransactionRequest()
-                .amount(refund.getAmount())
-                .referenceId(refund.getId())
-                .category(com.fooddelivery.common.enums.ChargeCategory.STORE_CREDIT)
-                .description("RefundService");
-            walletClient.credit(WalletEntityType.CUSTOMER, order.getCustomerId(), txReq, "RefundService");
-            completeInternal(refund, "WALLET", order);
+            // Handed off, not called. The wallet credit must not happen inside this transaction: a
+            // rollback after a successful Feign call left the money credited with no refund row, and
+            // the retry generated a new refund id, so the wallet's entity-scoped idempotency (keyed
+            // on the refund id) could not recognise it as the same credit. The refund stays
+            // PROCESSING until WalletService reports back, exactly as the gateway path does.
+            refund.setStatus(RefundStatus.PROCESSING);
+            enqueueWalletCredit(refund, order, intent);
         } else if (destination == RefundDestination.NONE) {
             completeInternal(refund, null, order);
         }
 
         return toView(refund, order);
+    }
+
+    /**
+     * Asks WalletService to credit the customer, through the outbox.
+     *
+     * <p>Carries {@code orderId} and {@code gatewayOrderId} because the completion comes back as a
+     * {@code PAYMENT_REFUNDED} event, and {@code PaymentEventConsumer} requires both fields before
+     * it will look at one.
+     */
+    private void enqueueWalletCredit(Refund refund, Order order, PaymentIntent intent) {
+        try {
+            com.fasterxml.jackson.databind.node.ObjectNode payload = objectMapper.createObjectNode();
+            payload.put("eventType", EventType.WALLET_CREDIT_REQUESTED.name());
+            payload.put("refundId", refund.getId().toString());
+            payload.put("orderId", order.getId().toString());
+            payload.put("gatewayOrderId", intent.getGatewayOrderId());
+            payload.put("customerId", order.getCustomerId().toString());
+            payload.put("amount", refund.getAmount().toPlainString());
+
+            OutboxEventEntity outboxEvent = OutboxEventEntity.builder()
+                    .id(UUID.randomUUID())
+                    .aggregateType(AggregateType.WALLET)
+                    .aggregateId(order.getCustomerId().toString())
+                    .eventType(EventType.WALLET_CREDIT_REQUESTED)
+                    // The refund id is stable across retries of this request, so a redelivery
+                    // cannot enqueue a second credit for the same refund.
+                    .idempotencyKey("wallet_credit:" + refund.getId())
+                    .payload(objectMapper.writeValueAsString(payload))
+                    .createdAt(LocalDateTime.now())
+                    .status(OutboxStatus.UNPROCESSED)
+                    .build();
+            outboxEventRepository.save(outboxEvent);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to enqueue store-credit refund " + refund.getId(), e);
+        }
     }
 
     /**
@@ -333,7 +364,7 @@ public class RefundService {
             NotificationRequestEvent notificationEvent = NotificationRequestEvent.builder()
                     .userId(order.getCustomerId())
                     .channel(ChannelType.PUSH)
-                    .eventName("REFUND_REQUESTED")
+                    .eventName(com.fooddelivery.common.constants.NotificationTemplate.REFUND_REQUESTED)
                     .templateParams(List.of(order.getId().toString(), refund.getAmount().toString(), refund.getDestination().name()))
                     .build();
             OutboxEventEntity outboxEvent = OutboxEventEntity.builder()
@@ -356,7 +387,7 @@ public class RefundService {
             NotificationRequestEvent notificationEvent = NotificationRequestEvent.builder()
                     .userId(order.getCustomerId())
                     .channel(ChannelType.PUSH)
-                    .eventName("REFUND_FAILED")
+                    .eventName(com.fooddelivery.common.constants.NotificationTemplate.REFUND_FAILED)
                     .templateParams(List.of(order.getId().toString(), refund.getAmount().toString()))
                     .build();
             OutboxEventEntity outboxEvent = OutboxEventEntity.builder()
@@ -377,7 +408,9 @@ public class RefundService {
     private void sendSuccessNotification(Order order, Refund refund) {
         try {
             boolean isPartial = refund.getAmount().compareTo(order.getTotalAmount()) < 0;
-            String eventName = isPartial ? "PAYMENT_PARTIALLY_REFUNDED" : "PAYMENT_REFUNDED";
+            com.fooddelivery.common.constants.NotificationTemplate eventName = isPartial
+                    ? com.fooddelivery.common.constants.NotificationTemplate.PAYMENT_PARTIALLY_REFUNDED
+                    : com.fooddelivery.common.constants.NotificationTemplate.PAYMENT_REFUNDED;
             NotificationRequestEvent notificationEvent = NotificationRequestEvent.builder()
                     .userId(order.getCustomerId())
                     .channel(ChannelType.PUSH)

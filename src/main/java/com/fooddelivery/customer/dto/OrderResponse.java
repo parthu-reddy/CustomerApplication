@@ -64,141 +64,18 @@ public class OrderResponse {
     private Long remainingPingSeconds;
     private BigDecimal distanceKm;
 
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-
-
-
-
-
-
-
-
-
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
+    /**
+     * How the order is paid for.
+     *
+     * <p>The customer's order view could not tell a prepaid order from a cash one, so it could not
+     * say "pay in cash on delivery" -- and the UI patched the gap by declaring paymentMethod on its
+     * own Order type, over a DTO that never sent it.
+     */
+    private com.fooddelivery.common.enums.PaymentMethod paymentMethod;
+
+    /** Why a terminal order ended, set by the state that ended it. Null while the order is live. */
+    private String cancellationReason;
+
+    /** What the rider actually collected. Only ever set for a delivered COD order. */
+    private BigDecimal cashCollectedAmount;
 }

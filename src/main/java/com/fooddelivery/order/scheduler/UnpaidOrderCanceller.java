@@ -56,15 +56,11 @@ public class UnpaidOrderCanceller {
         }
 
         // 2. Cancel stale PENDING_ACCEPTANCE orders
-        List<Order> stuckPending = orderRepository.findByStatusAndCreatedAtBefore(OrderStatus.PENDING_ACCEPTANCE, threshold);
-        for (Order order : stuckPending) {
-            log.warn("Sweeper: Cancelling stuck order {} (in PENDING_ACCEPTANCE state > 15m)", order.getId());
-            try {
-                orderSagaOrchestrator.cancelOrderLocally(order, "Order stuck in PENDING_ACCEPTANCE state");
-            } catch (Exception e) {
-                log.error("Failed to cancel stuck PENDING_ACCEPTANCE order " + order.getId(), e);
-            }
-        }
+        // PENDING_ACCEPTANCE is RestaurantTimeoutSweeper's, at 10 minutes, as CANCELLED_BY_RESTAURANT
+        // with RESTAURANT_FAULT. This class used to sweep the same state at 15 minutes through
+        // cancelOrderLocally -- producing CANCELLED with FaultType.UNKNOWN and telling the
+        // restaurant the *customer* had cancelled. Whichever fired first decided who was at fault.
+        // One condition, one sweeper.
     }
 
     private void processStaleCreatedOrder(Order order) {

@@ -1,7 +1,6 @@
 package com.fooddelivery.order.refund;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fooddelivery.common.client.WalletInternalClient;
 import com.fooddelivery.common.constants.PaymentIntentStatus;
 import com.fooddelivery.common.enums.PaymentGateway;
 import com.fooddelivery.common.enums.PaymentMethod;
@@ -99,8 +98,7 @@ class RefundNeverExceedsOrderTest {
 
         refundService = new RefundService(refundRepository, orderRepository, intentRepository,
                 Mockito.mock(OutboxEventRepository.class), Mockito.mock(LedgerBookkeeper.class),
-                new ObjectMapper(), Mockito.mock(WalletInternalClient.class),
-                Mockito.mock(RefundItemRepository.class));
+                new ObjectMapper(), Mockito.mock(RefundItemRepository.class));
     }
 
     private RefundCommand request(String amount) {

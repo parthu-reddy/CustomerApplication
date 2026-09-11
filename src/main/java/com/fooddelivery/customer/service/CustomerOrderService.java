@@ -57,6 +57,7 @@ public class CustomerOrderService {
     private final DynamicPricingService dynamicPricingService;
     private final com.fooddelivery.common.client.WalletServiceClient walletServiceClient;
     private final WalletCheckoutService walletCheckoutService;
+    private final com.fooddelivery.customer.config.DeliveryZoneConfig deliveryZoneConfig;
     public record OrderWithPayment(Order order, String paymentIntent) {
     }
 
@@ -72,7 +73,18 @@ public class CustomerOrderService {
         return orderRepository.findByCustomerId(customerId);
     }
 
-    private static final List<com.fooddelivery.common.enums.OrderStatus> REFUND_STATUSES = List.of(com.fooddelivery.common.enums.OrderStatus.CANCELLED, com.fooddelivery.common.enums.OrderStatus.CANCELLED_BY_RESTAURANT, com.fooddelivery.common.enums.OrderStatus.CANCELLED_BY_RESTAURANT);
+    /**
+     * The statuses that mean the order is over, derived rather than listed.
+     *
+     * <p>The hand-written list named CANCELLED_BY_RESTAURANT twice and CANCELLED once, which was
+     * harmless only because the duplicate was the same value. It would not have stayed harmless:
+     * Phase 3 adds CANCELLED_BY_PLATFORM and DELIVERY_FAILED, and a list that did not know about
+     * them would show a cancelled order as active in the customer's app forever.
+     */
+    private static final List<com.fooddelivery.common.enums.OrderStatus> REFUND_STATUSES =
+        java.util.Arrays.stream(com.fooddelivery.common.enums.OrderStatus.values())
+            .filter(com.fooddelivery.common.enums.OrderStatus::isTerminal)
+            .toList();
 
     public org.springframework.data.domain.Page<Order> getActiveOrdersPaginated(UUID customerId, org.springframework.data.domain.Pageable pageable) {
         return orderRepository.findActiveOrdersForCustomer(customerId, REFUND_STATUSES, java.util.List.of(com.fooddelivery.common.enums.DeliveryStatus.DELIVERED, com.fooddelivery.common.enums.DeliveryStatus.FAILED, com.fooddelivery.common.enums.DeliveryStatus.CANCELLED), pageable);
@@ -222,7 +234,7 @@ public class CustomerOrderService {
                     Double rLat = com.fooddelivery.common.util.JsonNumberUtils.toDouble(restaurantData.get("lat"));
                     Double rLng = com.fooddelivery.common.util.JsonNumberUtils.toDouble(restaurantData.get("lng"));
                     try {
-                        com.fooddelivery.common.dto.maps.FleetAvailabilityResponseDto mapsResponse = mapsClient.checkFleetAvailability("BLR", rLat, rLng, com.fooddelivery.common.constants.AppConstants.MAX_DELIVERY_RADIUS_KM);
+                        com.fooddelivery.common.dto.maps.FleetAvailabilityResponseDto mapsResponse = mapsClient.checkFleetAvailability(deliveryZoneConfig.getDefaultCity(), rLat, rLng, deliveryZoneConfig.getFleetSearchRadiusKm());
                         if (mapsResponse != null) {
                             return Boolean.TRUE.equals(mapsResponse.getAvailable());
                         }
@@ -452,8 +464,14 @@ public class CustomerOrderService {
                     }
 
                     double distance = resolveDistanceKm(address, request.getRestaurantId(), rLat, rLng);
-                    if (distance > 7.0) {
-                        throw new IllegalArgumentException("The restaurant is too far away (over 7km). Please select a closer restaurant.");
+                    double maxRadiusKm = deliveryZoneConfig.getMaxRadiusKm();
+                    if (distance > maxRadiusKm) {
+                        // The message states the limit that was actually applied. It used to say
+                        // "over 7km" while the fleet check a few lines up used 5.0, so a customer
+                        // 6 km out was told the quote was fine and then that no rider was free.
+                        throw new IllegalArgumentException(String.format(
+                                "The restaurant is too far away (over %.0fkm). Please select a closer restaurant.",
+                                maxRadiusKm));
                     }
 
                     BigDecimal totalAmount = BigDecimal.ZERO;

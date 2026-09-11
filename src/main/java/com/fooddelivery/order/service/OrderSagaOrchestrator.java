@@ -44,14 +44,10 @@ public class OrderSagaOrchestrator {
     private static final String FIELD_FAILURE_REASON = "failureReason";
     private final IOrderRepository orderRepository;
     private final OutboxEventRepository outboxEventRepository;
-    private final IPaymentIntentRepository paymentIntentRepository;
     private final ObjectMapper objectMapper;
-    private final KafkaTemplate<String, String> kafkaTemplate;
 
-    private final com.fooddelivery.common.client.PaymentServiceClient paymentClient;
     private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
     private final com.fooddelivery.order.service.state.OrderActionService orderActionService;
-    private final StringRedisTemplate redisTemplate;
     private final com.fooddelivery.order.ledger.LedgerBookkeeper ledgerBookkeeper;
     private final com.fooddelivery.order.refund.RefundService refundService;
 
@@ -116,7 +112,10 @@ public class OrderSagaOrchestrator {
     public void cancelOrderLocally(Order order, String reason) {
         Order orderToRefund = transactionTemplate.execute(status -> {
             Order dbOrder = orderRepository.findById(order.getId()).orElse(order);
-            com.fooddelivery.order.service.state.OrderContext context = new com.fooddelivery.order.service.state.OrderContext(dbOrder, objectMapper.createObjectNode(), orderActionService, ledgerBookkeeper, null /* no gateway: local cancellation books no capture */);
+            com.fooddelivery.order.service.state.OrderContext context = new com.fooddelivery.order.service.state.OrderContext(
+                        dbOrder, objectMapper.createObjectNode(), orderActionService, ledgerBookkeeper,
+                        null /* no gateway: local cancellation books no capture */,
+                        dbOrder.getPaymentMethod());
             com.fooddelivery.order.service.state.OrderState state = com.fooddelivery.order.service.state.OrderStateFactory.getState(dbOrder.getStatus());
             try {
                 state.cancelByCustomer(context, reason);
@@ -172,17 +171,7 @@ public class OrderSagaOrchestrator {
             this.payload = payload;
         }
 
-        
-
-        
-
-        
-
-        
     }
-
-
-
 
     public static class PayloadData {
         private PaymentData payment;
@@ -201,13 +190,6 @@ public class OrderSagaOrchestrator {
             this.payment = payment;
         }
 
-        
-
-        
-
-        
-
-        
     }
 
 
@@ -228,13 +210,6 @@ public class OrderSagaOrchestrator {
             this.entity = entity;
         }
 
-        
-
-        
-
-        
-
-        
     }
 
 
@@ -279,33 +254,7 @@ public class OrderSagaOrchestrator {
             this.amount = amount;
         }
 
-        
-
-        
-
-        
-
-        
     }
-
-    private void sendNotification(String orderId, UUID customerId, String templateCode) {
-        try {
-            com.fooddelivery.common.event.NotificationRequestEvent notificationEvent = com.fooddelivery.common.event.NotificationRequestEvent.builder().userId(customerId).channel(com.fooddelivery.common.enums.ChannelType.PUSH).eventName(templateCode).templateParams(java.util.List.of(orderId)).build();
-            OutboxEventEntity outboxEvent = OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.NOTIFICATION).aggregateId(customerId.toString()).eventType(EventType.NOTIFICATION_REQUEST).payload(objectMapper.writeValueAsString(notificationEvent)).createdAt(LocalDateTime.now()).build();
-            log.info("Triggering event: {} for customer: {}", EventType.NOTIFICATION_REQUEST.name(), customerId);
-            outboxEventRepository.save(outboxEvent);
-            log.info("Saved notification request to outbox for order {} to customer {}", orderId, customerId);
-        } catch (Exception e) {
-            log.error("Failed to save notification request to outbox", e);
-            throw new RuntimeException("Failed to save notification", e);
-        }
-    }
-
-    private boolean isTerminalState(OrderStatus status) {
-        return status == OrderStatus.HANDED_OVER || status == OrderStatus.CANCELLED || status == OrderStatus.CANCELLED_BY_RESTAURANT;
-    }
-
-    
 
 
 }

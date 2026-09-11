@@ -41,8 +41,6 @@ public class OrderActionService {
         });
     }
 
-
-
     public void emitOrderCancelledEvent(UUID orderId, String reason) {
         try {
             com.fasterxml.jackson.databind.node.ObjectNode payloadNode = objectMapper.createObjectNode();
@@ -121,48 +119,18 @@ public class OrderActionService {
     }
 
     public void emitOrderPaidEvent(Order order) {
-        try {
-            String itemsJsonStr = "[]";
-            try {
-                java.util.List<java.util.Map<String, Object>> itemList = order.getOrderItems().stream().map(i -> {
-                    java.util.Map<String, Object> map = new java.util.HashMap<>();
-                    map.put("name", i.getName());
-                    map.put("quantity", i.getQuantity());
-                    map.put("price", i.getPrice());
-                    return map;
-                }).collect(java.util.stream.Collectors.toList());
-                itemsJsonStr = objectMapper.writeValueAsString(itemList);
-            } catch (Exception ex) {
-                log.error("Failed to serialize items", ex);
-            }
-            com.fooddelivery.common.event.OrderPaidEvent paidEvent = com.fooddelivery.common.event.OrderPaidEvent.builder()
-                    .orderId(order.getId())
-                    .restaurantId(order.getRestaurantId())
-                    .customerName(order.getCustomerName())
-                    .estimatedPrepTimeMinutes(order.getEstimatedPrepTimeMinutes())
-                    .deliveryLat(order.getDeliveryLat())
-                    .deliveryLng(order.getDeliveryLng())
-                    .deliveryAddress(order.getDeliveryAddress())
-                    .itemsJson(itemsJsonStr)
-                    .pickupOtp(order.getPickupOtp())
-                    .deliveryOtp(order.getOtp())
-                    .totalAmount(order.getTotalAmount())
-                    .itemTotal(order.getItemTotal())
-                    .restaurantPlatformFee(order.getRestaurantPlatformFee())
-                    .restaurantDeliveryContribution(order.getRestaurantDeliveryContribution())
-                    .platformBonus(order.getPlatformBonus())
-                    .restaurantPayout(order.getRestaurantPayout())
-                    .build();
-            OutboxEventEntity outboxEvent = OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER).aggregateId(order.getId().toString()).eventType(EventType.ORDER_PAID).payload(objectMapper.writeValueAsString(paidEvent)).createdAt(LocalDateTime.now()).status(com.fooddelivery.common.enums.OutboxStatus.UNPROCESSED).build();
-            log.info("Triggering event: {} for order: {}", EventType.ORDER_PAID.name(), order.getId());
-            outboxEventRepository.save(outboxEvent);
-        } catch (Exception e) {
-            log.error("Failed to publish ORDER_PAID event", e);
-            throw new OrderProcessingException("Failed to publish ORDER_PAID event", e);
-        }
+        emitOrderPlacedEvent(order, EventType.ORDER_PAID);
     }
 
     public void emitOrderPlacedCodEvent(Order order) {
+        emitOrderPlacedEvent(order, EventType.ORDER_PLACED_COD);
+    }
+
+    /**
+     * The one builder for both. They were byte-identical apart from the event type, which is how
+     * {@code customerId} came to be missing from an event the restaurant service reads it from.
+     */
+    private void emitOrderPlacedEvent(Order order, EventType eventType) {
         try {
             String itemsJsonStr = "[]";
             try {
@@ -180,7 +148,9 @@ public class OrderActionService {
             com.fooddelivery.common.event.OrderPaidEvent paidEvent = com.fooddelivery.common.event.OrderPaidEvent.builder()
                     .orderId(order.getId())
                     .restaurantId(order.getRestaurantId())
+                    .customerId(order.getCustomerId())
                     .customerName(order.getCustomerName())
+                    .paymentMethod(order.getPaymentMethod())
                     .estimatedPrepTimeMinutes(order.getEstimatedPrepTimeMinutes())
                     .deliveryLat(order.getDeliveryLat())
                     .deliveryLng(order.getDeliveryLng())
@@ -195,16 +165,16 @@ public class OrderActionService {
                     .platformBonus(order.getPlatformBonus())
                     .restaurantPayout(order.getRestaurantPayout())
                     .build();
-            OutboxEventEntity outboxEvent = OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER).aggregateId(order.getId().toString()).eventType(EventType.ORDER_PLACED_COD).payload(objectMapper.writeValueAsString(paidEvent)).createdAt(LocalDateTime.now()).status(com.fooddelivery.common.enums.OutboxStatus.UNPROCESSED).build();
-            log.info("Triggering event: {} for order: {}", EventType.ORDER_PLACED_COD.name(), order.getId());
+            OutboxEventEntity outboxEvent = OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER).aggregateId(order.getId().toString()).eventType(eventType).payload(objectMapper.writeValueAsString(paidEvent)).createdAt(LocalDateTime.now()).status(com.fooddelivery.common.enums.OutboxStatus.UNPROCESSED).build();
+            log.info("Triggering event: {} for order: {}", eventType.name(), order.getId());
             outboxEventRepository.save(outboxEvent);
         } catch (Exception e) {
-            log.error("Failed to publish ORDER_PLACED_COD event", e);
-            throw new OrderProcessingException("Failed to publish ORDER_PLACED_COD event", e);
+            log.error("Failed to publish {} event", eventType.name(), e);
+            throw new OrderProcessingException("Failed to publish " + eventType.name() + " event", e);
         }
     }
 
-    public void sendNotification(String orderId, UUID customerId, String templateCode) {
+    public void sendNotification(String orderId, UUID customerId, com.fooddelivery.common.constants.NotificationTemplate templateCode) {
         try {
             com.fooddelivery.common.event.NotificationRequestEvent notificationEvent = com.fooddelivery.common.event.NotificationRequestEvent.builder().userId(customerId).channel(com.fooddelivery.common.enums.ChannelType.PUSH).eventName(templateCode).templateParams(java.util.List.of(orderId)).build();
             OutboxEventEntity outboxEvent = OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.NOTIFICATION).aggregateId(customerId.toString()).eventType(EventType.NOTIFICATION_REQUEST).payload(objectMapper.writeValueAsString(notificationEvent)).createdAt(LocalDateTime.now()).status(com.fooddelivery.common.enums.OutboxStatus.UNPROCESSED).build();
@@ -232,7 +202,54 @@ public class OrderActionService {
         }
     }
 
+    /**
+     * Completes a delivery. The single definition of what that means.
+     *
+     * <p>It lived in two states that disagreed. {@code HandedOverState} booked the order economics,
+     * collected the COD cash and moved the intent to COLLECTED; {@code ReadyForPickupState} — which
+     * is reached whenever ORDER_DELIVERED is processed while the handover event has been lost,
+     * retried into the DLT, or simply arrived out of order — booked the economics only. The
+     * restaurant and the rider were credited against cash the book said was never received, and a
+     * later refund on that order routed to NONE because the intent still said PENDING_COLLECTION.
+     */
+    public void completeDelivery(com.fooddelivery.order.service.state.OrderContext ctx) {
+        Order order = ctx.getOrder();
+        order.setDeliveryStatus(com.fooddelivery.common.enums.DeliveryStatus.DELIVERED);
+        order.setDeliveredAt(LocalDateTime.now());
 
+        if (order.getPaymentMethod() == com.fooddelivery.common.enums.PaymentMethod.COD) {
+            // What the rider says they took. Recorded on the order whether or not it matches the
+            // total, so a short collection is a fact somebody can query rather than a silent gap.
+            java.math.BigDecimal declared = readDeclaredCash(ctx);
+            order.setCashCollectedAmount(declared);
+            saveOrder(order);
+            ctx.getLedgerBookkeeper().bookDelivered(order);
+            ctx.getLedgerBookkeeper().bookCashCollected(order, declared);
+            // COLLECTED, not SUCCESS: it distinguishes cash the rider has actually taken from a
+            // gateway capture, which is what RefundService needs to decide whether a COD refund
+            // moves money at all.
+            order.setPaymentStatus(com.fooddelivery.common.constants.PaymentIntentStatus.COLLECTED);
+            updatePaymentIntentStatus(order.getId(), com.fooddelivery.common.constants.PaymentIntentStatus.COLLECTED);
+        } else {
+            saveOrder(order);
+            ctx.getLedgerBookkeeper().bookDelivered(order);
+        }
 
-    
+        sendNotification(order.getId().toString(), order.getCustomerId(), com.fooddelivery.common.constants.NotificationTemplate.ORDER_DELIVERED);
+    }
+
+    /** The rider's declared cash from the ORDER_DELIVERED payload, or null if they sent none. */
+    private java.math.BigDecimal readDeclaredCash(com.fooddelivery.order.service.state.OrderContext ctx) {
+        com.fasterxml.jackson.databind.JsonNode node = ctx.getEventPayload() == null
+                ? null : ctx.getEventPayload().get("cashCollectedAmount");
+        if (node == null || node.isNull()) {
+            return null;
+        }
+        try {
+            return new java.math.BigDecimal(node.asText());
+        } catch (NumberFormatException e) {
+            throw new IllegalStateException("Order " + ctx.getOrder().getId()
+                    + " was delivered with an unreadable cash amount: " + node.asText(), e);
+        }
+    }
 }

@@ -39,33 +39,4 @@ public class OrderCharge {
     private BigDecimal amount;
     @Column(name = "description")
     private String description;
-
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-
-
-    
 }

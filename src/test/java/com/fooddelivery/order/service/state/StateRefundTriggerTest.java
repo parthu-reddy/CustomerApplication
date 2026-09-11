@@ -37,7 +37,7 @@ public class StateRefundTriggerTest {
         order.setTotalAmount(new BigDecimal("150.00"));
         order.setStatus(OrderStatus.PENDING_ACCEPTANCE);
 
-        OrderContext ctx = new OrderContext(order, null, actionService, ledgerBookkeeper, "UNKNOWN");
+        OrderContext ctx = new OrderContext(order, null, actionService, ledgerBookkeeper, "UNKNOWN", order.getPaymentMethod());
 
         state.cancelByCustomer(ctx, "Customer requested cancellation");
 
@@ -55,14 +55,14 @@ public class StateRefundTriggerTest {
         order.setTotalAmount(new BigDecimal("200.00"));
         order.setStatus(OrderStatus.PREPARING);
 
-        OrderContext ctx = new OrderContext(order, new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode(), actionService, ledgerBookkeeper, "UNKNOWN");
+        OrderContext ctx = new OrderContext(order, new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode(), actionService, ledgerBookkeeper, "UNKNOWN", order.getPaymentMethod());
 
         state.handleOrderCancelledByRestaurant(ctx);
 
         assertEquals(OrderStatus.CANCELLED_BY_RESTAURANT, order.getStatus());
         assertTrue(ctx.isRequiresRefund());
         
-        verify(actionService).sendNotification(eq(order.getId().toString()), any(), eq("ORDER_CANCELLED_BY_RESTAURANT"));
+        verify(actionService).sendNotification(eq(order.getId().toString()), any(), eq(com.fooddelivery.common.constants.NotificationTemplate.ORDER_CANCELLED_BY_RESTAURANT));
     }
     
     @Test
@@ -73,7 +73,7 @@ public class StateRefundTriggerTest {
         order.setTotalAmount(new BigDecimal("250.00"));
         order.setStatus(OrderStatus.READY_FOR_PICKUP);
 
-        OrderContext ctx = new OrderContext(order, new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode(), actionService, ledgerBookkeeper, "UNKNOWN");
+        OrderContext ctx = new OrderContext(order, new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode(), actionService, ledgerBookkeeper, "UNKNOWN", order.getPaymentMethod());
 
         state.handleOrderCancelledByRestaurant(ctx);
 

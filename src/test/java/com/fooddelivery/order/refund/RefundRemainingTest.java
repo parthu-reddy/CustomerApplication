@@ -32,7 +32,7 @@ public class RefundRemainingTest {
         IOrderRepository orderRepo = Mockito.mock(IOrderRepository.class);
         IPaymentIntentRepository intentRepo = Mockito.mock(IPaymentIntentRepository.class);
 
-        RefundService service = new RefundService(refundRepo, orderRepo, intentRepo, null, null, null, null, null);
+        RefundService service = new RefundService(refundRepo, orderRepo, intentRepo, null, null, null, null);
 
         UUID orderId = UUID.randomUUID();
         Order order = new Order();
@@ -66,7 +66,7 @@ public class RefundRemainingTest {
         RefundRepository refundRepo = Mockito.mock(RefundRepository.class);
         IOrderRepository orderRepo = Mockito.mock(IOrderRepository.class);
         IPaymentIntentRepository intentRepo = Mockito.mock(IPaymentIntentRepository.class);
-        RefundService service = new RefundService(refundRepo, orderRepo, intentRepo, null, null, null, null, null);
+        RefundService service = new RefundService(refundRepo, orderRepo, intentRepo, null, null, null, null);
 
         UUID orderId = UUID.randomUUID();
         Order order = new Order();
@@ -98,7 +98,7 @@ public class RefundRemainingTest {
         RefundRepository refundRepo = Mockito.mock(RefundRepository.class);
         IOrderRepository orderRepo = Mockito.mock(IOrderRepository.class);
         IPaymentIntentRepository intentRepo = Mockito.mock(IPaymentIntentRepository.class);
-        RefundService service = new RefundService(refundRepo, orderRepo, intentRepo, null, null, null, null, null);
+        RefundService service = new RefundService(refundRepo, orderRepo, intentRepo, null, null, null, null);
 
         UUID orderId = UUID.randomUUID();
         Order order = new Order();

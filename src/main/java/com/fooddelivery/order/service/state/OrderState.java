@@ -81,31 +81,20 @@ public interface OrderState {
     }
 
     default void handleDeliveryFailed(OrderContext ctx) {
-        throw new IllegalStateTransitionException("Cannot process DELIVERY_FAILED. C`urrent status: " + ctx.getOrder().getStatus());
+        throw new IllegalStateTransitionException("Cannot process DELIVERY_FAILED. Current status: " + ctx.getOrder().getStatus());
     }
 
+    /**
+     * There is no generic "set the status to whatever the payload says".
+     *
+     * <p>This used to fast-forward to any status with a higher sequence, taken straight from an
+     * {@code ORDER_STATUS_UPDATED} payload -- so an event could move an order to HANDED_OVER
+     * without it ever having been accepted, prepared or made ready. Every legitimate transition has
+     * a named handler; the one case this existed for is {@code ReadyForPickupState} promoting
+     * OUT_FOR_DELIVERY to HANDED_OVER, which that class overrides.
+     */
     default void handleStatusUpdate(OrderContext ctx) {
-        String updateStatusStr = ctx.getEventPayload().path("status").asText(null);
-        if (updateStatusStr != null) {
-            try {
-                OrderStatus newStatus = OrderStatus.valueOf(updateStatusStr);
-                OrderStatus currentStatus = ctx.getOrder().getStatus();
-                
-                if (newStatus.getSequence() > currentStatus.getSequence()) {
-                    if (newStatus == OrderStatus.HANDED_OVER) {
-                        handleOrderHandedOver(ctx);
-                    } else {
-                        // For generic status updates, fallback to save
-                        Order order = ctx.getOrder();
-                        order.setStatus(newStatus);
-                        ctx.getActionService().saveOrder(order);
-                    }
-                    return; // Successfully fast-forwarded
-                }
-            } catch (IllegalArgumentException e) {
-                // Ignore invalid status mapping here
-            }
-        }
-        throw new IllegalStateTransitionException("Cannot process arbitrary status update. Current status: " + ctx.getOrder().getStatus());
+        throw new IllegalStateTransitionException(
+                "Cannot process arbitrary status update. Current status: " + ctx.getOrder().getStatus());
     }
 }

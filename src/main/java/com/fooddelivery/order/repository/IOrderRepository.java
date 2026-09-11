@@ -4,6 +4,8 @@ import com.fooddelivery.order.entity.Order;
 import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
+import org.springframework.data.repository.query.Param;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
@@ -20,7 +22,21 @@ public interface IOrderRepository extends JpaRepository<Order, UUID> {
     Page<Order> findByStatusInAndUpdatedAtBefore(List<com.fooddelivery.common.enums.OrderStatus> statuses, LocalDateTime time, Pageable pageable);
     
     @EntityGraph(attributePaths = {"orderItems"})
-    List<Order> findByStatusAndCreatedAtBefore(com.fooddelivery.common.enums.OrderStatus status, LocalDateTime time);
+    /**
+     * Orders the restaurant has stalled on: still in a restaurant-owned state, untouched since
+     * {@code time}, and with no delivery outcome already recorded.
+     *
+     * <p>The delivery-status exclusion is the point. Without it the sweeper collected orders whose
+     * dispatch or delivery had already failed and cancelled them a second time as
+     * CANCELLED_BY_RESTAURANT, billing the restaurant for a failure that was not theirs.
+     */
+    @Query("SELECT o FROM Order o WHERE o.status IN :statuses AND o.updatedAt < :time "
+            + "AND (o.deliveryStatus IS NULL OR o.deliveryStatus NOT IN :endedDelivery)")
+    Page<Order> findStuckInRestaurantStates(
+            @Param("statuses") List<com.fooddelivery.common.enums.OrderStatus> statuses,
+            @Param("endedDelivery") List<com.fooddelivery.common.enums.DeliveryStatus> endedDelivery,
+            @Param("time") LocalDateTime time,
+            Pageable pageable);
     
     @EntityGraph(attributePaths = {"orderItems"})
     List<Order> findByCustomerId(UUID customerId);
