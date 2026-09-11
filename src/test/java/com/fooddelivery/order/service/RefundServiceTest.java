@@ -21,7 +21,6 @@ import com.fooddelivery.order.repository.IOrderRepository;
 import com.fooddelivery.order.repository.IPaymentIntentRepository;
 import com.fooddelivery.common.outbox.repository.OutboxEventRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fooddelivery.common.client.WalletInternalClient;
 
 @ExtendWith(MockitoExtension.class)
 class RefundServiceTest {
@@ -33,7 +32,6 @@ class RefundServiceTest {
     @Mock private LedgerBookkeeper ledgerBookkeeper;
     // A real mapper: a mocked writeValueAsString returns null, so no payload could be asserted on.
     @org.mockito.Spy private ObjectMapper objectMapper = new ObjectMapper();
-    @Mock private WalletInternalClient walletClient;
     
     @InjectMocks
     private RefundService refundService;
