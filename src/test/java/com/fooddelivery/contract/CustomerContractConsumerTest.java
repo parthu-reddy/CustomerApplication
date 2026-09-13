@@ -15,7 +15,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.cloud.contract.stubrunner.spring.AutoConfigureStubRunner;
-import org.springframework.cloud.contract.stubrunner.spring.StubRunnerProperties;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.cloud.openfeign.EnableFeignClients;
 
@@ -38,8 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
     ids = {
         "com.fooddelivery:restaurant-application:+:stubs",
         "com.fooddelivery:bidding-engine:+:stubs"
-    },
-    stubsMode = StubRunnerProperties.StubsMode.LOCAL
+    }
 )
 public class CustomerContractConsumerTest {
 
