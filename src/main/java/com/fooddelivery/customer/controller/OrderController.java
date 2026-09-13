@@ -134,7 +134,6 @@ public class OrderController {
         java.util.UUID customerId = java.util.UUID.fromString(principal.getName());
         Order order = customerOrderService.getOrderByIdAndCustomer(orderId, customerId);
         OrderResponse response = com.fooddelivery.customer.mapper.OrderMapper.mapToResponse(order);
-        response.setRestaurantName(null); // Intentionally break schema for testing Zod strictness
         return ResponseEntity.ok(ApiResponse.success(response, "Order retrieved"));
     }
 

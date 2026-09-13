@@ -27,6 +27,23 @@ public class OrderSecurityHelper {
      * Ownership is now resolved through {@link MoneyAccessPolicy}, which delegates to
      * restaurant-service and caches the result.
      */
+    /**
+     * True only when {@code userId} is the customer who placed this order.
+     *
+     * <p>Deliberately narrower than {@link #isOrderParticipant}: that one also admits the assigned
+     * driver and the outlet owner, and the review context this guards carries the customer's own
+     * name. A driver must not be able to read it.
+     */
+    public boolean isOrderCustomer(UUID orderId, String userId) {
+        if (userId == null || orderId == null) {
+            return false;
+        }
+        return orderRepository.findById(orderId)
+                .map(order -> order.getCustomerId() != null
+                        && order.getCustomerId().toString().equals(userId))
+                .orElse(false);
+    }
+
     public boolean isOrderParticipant(UUID orderId, String userId) {
         if (userId == null || orderId == null) {
             return false;

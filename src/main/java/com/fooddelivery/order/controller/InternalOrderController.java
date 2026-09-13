@@ -75,6 +75,55 @@ public class InternalOrderController {
         return ResponseEntity.ok(unassignedOrders);
     }
 
+    /**
+     * Everything a reviewing service needs to decide whether a review of this order is allowed.
+     *
+     * <p>Answers "was this target on this customer's delivered order" in one call. The previous
+     * design asked three separate services whether each target existed, which is both the wrong
+     * question — existence is not eligibility — and unanswerable: those endpoints require
+     * {@code SERVICE}/{@code RESTAURANT}/{@code ADMIN} and the identity propagated on a review
+     * request is the customer's.
+     *
+     * <p>{@code isOrderCustomer}, not {@code isOrderParticipant}: the payload carries the customer's
+     * own name, and the driver and outlet owner must not read it.
+     */
+    @GetMapping("/{orderId}/review-context")
+    @PreAuthorize("hasAnyRole('SERVICE', 'ADMIN') or @orderSecurityHelper.isOrderCustomer(#orderId, authentication.name)")
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public ResponseEntity<com.fooddelivery.common.dto.ApiResponse<com.fooddelivery.common.dto.order.OrderReviewContextDto>> getOrderReviewContext(
+            @PathVariable UUID orderId) {
+        return orderRepository.findById(orderId)
+                .map(order -> {
+                    // orderItems is LAZY; this read has to happen inside the transaction this
+                    // method opens, not after the response is serialised.
+                    List<com.fooddelivery.common.dto.order.OrderReviewItemDto> items =
+                            order.getOrderItems().stream()
+                                    .map(item -> com.fooddelivery.common.dto.order.OrderReviewItemDto.builder()
+                                            .menuItemId(item.getMenuItemId())
+                                            .name(item.getName())
+                                            .build())
+                                    .toList();
+
+                    com.fooddelivery.common.dto.order.OrderReviewContextDto context =
+                            com.fooddelivery.common.dto.order.OrderReviewContextDto.builder()
+                                    .orderId(order.getId())
+                                    .customerId(order.getCustomerId())
+                                    .customerName(order.getCustomerName())
+                                    .restaurantId(order.getRestaurantId())
+                                    .restaurantName(order.getRestaurantName())
+                                    .deliveryExecutiveId(order.getDeliveryExecutiveId())
+                                    .deliveryStatus(order.getDeliveryStatus())
+                                    .deliveredAt(order.getDeliveredAt())
+                                    .items(items)
+                                    .build();
+
+                    return ResponseEntity.ok(
+                            com.fooddelivery.common.dto.ApiResponse.success(context, "Review context retrieved"));
+                })
+                .orElseGet(() -> ResponseEntity.status(org.springframework.http.HttpStatus.NOT_FOUND)
+                        .body(com.fooddelivery.common.dto.ApiResponse.error("Order " + orderId + " not found")));
+    }
+
     @GetMapping("/{orderId}/participants")
     @PreAuthorize("@orderSecurityHelper.isOrderParticipant(#orderId, authentication.name) or hasRole('ADMIN')")
     @org.springframework.transaction.annotation.Transactional(readOnly = true)

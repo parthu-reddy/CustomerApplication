@@ -197,4 +197,67 @@ public abstract class BaseMessagingClass {
                 com.fooddelivery.common.constants.EventType.PAYMENT_REFUND_REQUESTED, payloadMap);
     }
 
+    /**
+     * WALLET_CREDIT_REQUESTED, the store-credit refund request RefundService.enqueueWalletCredit
+     * publishes and WalletService's RefundCreditConsumer acts on.
+     *
+     * <p>Added 2026-09-12. Until then wallet-events carried contracts for PAYMENT_REFUNDED and
+     * LEDGER_TRANSACTION_REQUEST only, so audit_consumer_contract_shapes compared this consumer
+     * against events it never handles and reported a MISMATCH on the money path — four fields it
+     * called "absent" that the producer has always sent.
+     *
+     * <p>Every field here is one the consumer reads. {@code gatewayOrderId} and {@code orderId} ride
+     * along because the completion comes back as PAYMENT_REFUNDED and PaymentEventConsumer discards
+     * any payment event missing either.
+     */
+    public void fireWalletCreditRequested() throws Exception {
+        String orderId = "3f2504e0-4f89-41d3-9a0c-0305e82c3301";
+        java.util.Map<String, Object> payloadMap = new java.util.HashMap<>();
+        payloadMap.put("eventType", com.fooddelivery.common.constants.EventType.WALLET_CREDIT_REQUESTED.name());
+        payloadMap.put("refundId", "9c8b7a65-1e2d-4f30-b5a6-7c8d9e0f1a23");
+        payloadMap.put("orderId", orderId);
+        payloadMap.put("gatewayOrderId", "pay_12345");
+        payloadMap.put("customerId", "6b1d3c22-9f45-4a7e-8c11-2d4e6f8a9b02");
+        payloadMap.put("amount", new java.math.BigDecimal("15.50").toPlainString());
+        // aggregateId is the customer, matching enqueueWalletCredit: it keys the partition, so two
+        // credits for one customer stay ordered.
+        publishViaOutbox(com.fooddelivery.common.constants.AggregateType.WALLET,
+                "6b1d3c22-9f45-4a7e-8c11-2d4e6f8a9b02",
+                com.fooddelivery.common.constants.EventType.WALLET_CREDIT_REQUESTED, payloadMap);
+    }
+
+    /**
+     * ORDER_PLACED_COD, emitted by OrderActionService.emitOrderPlacedEvent for a cash order.
+     *
+     * <p>Built from a real {@link com.fooddelivery.common.event.OrderPaidEvent} rather than a
+     * hand-written map, for the reason {@code fireOrderCreated} gives: a field renamed on that class
+     * then breaks this contract instead of breaking a restaurant's kitchen screen. Restaurant
+     * -Application's {@code handleOrderPaid} reads eleven of these fields.
+     */
+    public void fireOrderPlacedCod() throws Exception {
+        String orderId = "3f2504e0-4f89-41d3-9a0c-0305e82c3301";
+        com.fooddelivery.common.event.OrderPaidEvent event =
+                com.fooddelivery.common.event.OrderPaidEvent.builder()
+                        .orderId(java.util.UUID.fromString(orderId))
+                        .restaurantId(java.util.UUID.fromString("9c8b7a65-1e2d-4f30-b5a6-7c8d9e0f1a23"))
+                        .customerId(java.util.UUID.fromString("6b1d3c22-9f45-4a7e-8c11-2d4e6f8a9b02"))
+                        .customerName("Priya Raman")
+                        .paymentMethod(com.fooddelivery.common.enums.PaymentMethod.COD)
+                        .estimatedPrepTimeMinutes(15)
+                        .deliveryLat(12.971598)
+                        .deliveryLng(77.594562)
+                        .deliveryAddress("221B Baker Street, Bangalore")
+                        .itemsJson("[{\"name\":\"Butter Chicken\",\"quantity\":1,\"price\":15.50}]")
+                        .pickupOtp("1234")
+                        .deliveryOtp("5678")
+                        .totalAmount(new java.math.BigDecimal("15.50"))
+                        .itemTotal(new java.math.BigDecimal("12.00"))
+                        .restaurantPlatformFee(new java.math.BigDecimal("1.20"))
+                        .restaurantDeliveryContribution(new java.math.BigDecimal("0.80"))
+                        .platformBonus(new java.math.BigDecimal("0.00"))
+                        .restaurantPayout(new java.math.BigDecimal("10.00"))
+                        .build();
+        publishViaOutbox(com.fooddelivery.common.constants.AggregateType.ORDER, orderId,
+                com.fooddelivery.common.constants.EventType.ORDER_PLACED_COD, event);
+    }
 }

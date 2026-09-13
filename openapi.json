@@ -1811,6 +1811,33 @@
         }
       }
     },
+    "/api/v1/internal/orders/{orderId}/review-context" : {
+      "get" : {
+        "tags" : [ "internal-order-controller" ],
+        "operationId" : "getOrderReviewContext",
+        "parameters" : [ {
+          "name" : "orderId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseOrderReviewContextDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/internal/orders/{orderId}/participants" : {
       "get" : {
         "tags" : [ "internal-order-controller" ],
@@ -3855,6 +3882,81 @@
           }
         }
       },
+      "ApiResponseOrderReviewContextDto" : {
+        "required" : [ "message", "success", "timestamp" ],
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "errorCode" : {
+            "type" : "string"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/OrderReviewContextDto"
+          },
+          "timestamp" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "OrderReviewContextDto" : {
+        "type" : "object",
+        "properties" : {
+          "orderId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "customerId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "customerName" : {
+            "type" : "string"
+          },
+          "restaurantId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "restaurantName" : {
+            "type" : "string"
+          },
+          "deliveryExecutiveId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "deliveryStatus" : {
+            "type" : "string",
+            "enum" : [ "PENDING", "SEARCHING_FOR_DRIVER", "MANUAL_INTERVENTION_REQUIRED", "ASSIGNED", "AT_RESTAURANT", "OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED", "FAILED" ]
+          },
+          "deliveredAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/OrderReviewItemDto"
+            }
+          }
+        }
+      },
+      "OrderReviewItemDto" : {
+        "type" : "object",
+        "properties" : {
+          "menuItemId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        }
+      },
       "Order" : {
         "required" : [ "createdAt", "customerId", "id", "restaurantId", "status", "totalAmount", "updatedAt" ],
         "type" : "object",
@@ -4056,18 +4158,12 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
-          },
           "numberOfElements" : {
             "type" : "integer",
             "format" : "int32"
           },
-          "first" : {
-            "type" : "boolean"
-          },
-          "last" : {
-            "type" : "boolean"
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
           },
           "number" : {
             "type" : "integer",
@@ -4083,6 +4179,12 @@
               "$ref" : "#/components/schemas/Order"
             }
           },
+          "first" : {
+            "type" : "boolean"
+          },
+          "last" : {
+            "type" : "boolean"
+          },
           "empty" : {
             "type" : "boolean"
           }
@@ -4095,6 +4197,9 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
+          "unpaged" : {
+            "type" : "boolean"
+          },
           "paged" : {
             "type" : "boolean"
           },
@@ -4105,9 +4210,6 @@
           "pageSize" : {
             "type" : "integer",
             "format" : "int32"
-          },
-          "unpaged" : {
-            "type" : "boolean"
           },
           "offset" : {
             "type" : "integer",
@@ -4164,18 +4266,12 @@
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
-          },
           "numberOfElements" : {
             "type" : "integer",
             "format" : "int32"
           },
-          "first" : {
-            "type" : "boolean"
-          },
-          "last" : {
-            "type" : "boolean"
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
           },
           "number" : {
             "type" : "integer",
@@ -4190,6 +4286,12 @@
             "items" : {
               "$ref" : "#/components/schemas/SupportTicket"
             }
+          },
+          "first" : {
+            "type" : "boolean"
+          },
+          "last" : {
+            "type" : "boolean"
           },
           "empty" : {
             "type" : "boolean"

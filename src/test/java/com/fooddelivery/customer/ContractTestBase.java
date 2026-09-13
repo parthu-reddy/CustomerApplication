@@ -13,6 +13,32 @@ import com.fooddelivery.order.refund.RefundService;
 
 public abstract class ContractTestBase {
 
+    /**
+     * The message converters standalone MockMvc will use, matching the running application's.
+     *
+     * <p>Standalone MockMvc does not pick up Spring Boot's Jackson auto-configuration, and the
+     * difference is not cosmetic: measured in this module, a {@code LocalDateTime} serialises as
+     * {@code [2026,9,11,10,15,30]} through the standalone default and as {@code "2026-09-11T10:15:30"}
+     * through the auto-configured mapper the application actually runs with. A contract recorded
+     * against the former would pin a wire format production never sends, and the stub built from it
+     * would hand consumers a shape they will never receive.
+     *
+     * <p>None of the existing contracts carried a date, so none was wrong; getOrderReviewContext is
+     * the first, and it failed loudly rather than quietly. {@code ContractHarnessJacksonTest} holds
+     * this converter to the auto-configured mapper so the two cannot drift apart again.
+     */
+    public static org.springframework.http.converter.HttpMessageConverter<?>[] contractMessageConverters() {
+        com.fasterxml.jackson.databind.ObjectMapper mapper =
+                org.springframework.http.converter.json.Jackson2ObjectMapperBuilder.json()
+                        .featuresToDisable(
+                                com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+                        .build();
+        return new org.springframework.http.converter.HttpMessageConverter<?>[] {
+            new org.springframework.http.converter.StringHttpMessageConverter(),
+            new org.springframework.http.converter.json.MappingJackson2HttpMessageConverter(mapper)
+        };
+    }
+
     @BeforeEach
     public void setup() {
         IOrderRepository orderRepository = Mockito.mock(IOrderRepository.class);
@@ -90,6 +116,31 @@ public abstract class ContractTestBase {
         Mockito.when(orderRepository.findById(Mockito.any(java.util.UUID.class)))
                .thenReturn(java.util.Optional.of(order));
 
+        // review-context needs a DELIVERED order carrying the fields eligibility turns on, none of
+        // which mkOrder sets: customerName and restaurantName are snapshotted into the review,
+        // deliveryStatus is what completion is read from, deliveredAt starts the review window, and
+        // the items are the only source of reviewable dish ids. Stubbed on its own id rather than
+        // added to mkOrder, so the ten contracts already asserting against SAMPLE_ID are untouched
+        // -- the same per-id stubbing the driver fixtures above use.
+        final java.util.UUID REVIEW_ORDER_ID = java.util.UUID.fromString("6b1d3c22-9f45-4a7e-8c11-2d4e6f8a9b02");
+        final java.util.UUID REVIEW_MENU_ITEM_ID = java.util.UUID.fromString("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+        com.fooddelivery.order.entity.Order reviewOrder =
+                mkOrder.apply(com.fooddelivery.common.enums.OrderStatus.HANDED_OVER);
+        reviewOrder.setId(REVIEW_ORDER_ID);
+        reviewOrder.setCustomerName("Priya Raghavan");
+        reviewOrder.setRestaurantName("Anand Bhavan");
+        reviewOrder.setDeliveryStatus(com.fooddelivery.common.enums.DeliveryStatus.DELIVERED);
+        reviewOrder.setDeliveredAt(java.time.LocalDateTime.of(2026, 9, 11, 10, 15, 30));
+        com.fooddelivery.order.entity.OrderItem reviewItem = new com.fooddelivery.order.entity.OrderItem();
+        reviewItem.setId(java.util.UUID.randomUUID());
+        reviewItem.setMenuItemId(REVIEW_MENU_ITEM_ID);
+        reviewItem.setName("Ghee Roast Dosa");
+        reviewItem.setQuantity(1);
+        reviewItem.setPrice(new java.math.BigDecimal("50.0"));
+        reviewOrder.setOrderItems(java.util.Set.of(reviewItem));
+        Mockito.when(orderRepository.findById(Mockito.eq(REVIEW_ORDER_ID)))
+               .thenReturn(java.util.Optional.of(reviewOrder));
+
         RateLimitingService rateLimitingService = Mockito.mock(RateLimitingService.class);
         Bucket mockBucket = Mockito.mock(Bucket.class);
         Mockito.when(mockBucket.tryConsume(Mockito.anyLong())).thenReturn(true);
@@ -149,6 +200,7 @@ public abstract class ContractTestBase {
                 org.springframework.test.web.servlet.setup.MockMvcBuilders
                         .standaloneSetup(internalOrderController, internalOrderRefundController, adminMoneyController, restaurantMoneyController, driverMoneyController)
                         .setCustomArgumentResolvers(
-                                new org.springframework.data.web.PageableHandlerMethodArgumentResolver()));
+                                new org.springframework.data.web.PageableHandlerMethodArgumentResolver())
+                        .setMessageConverters(contractMessageConverters()));
     }
 }
