@@ -92,14 +92,18 @@ public class OrderSagaOrchestrator {
     public void publishDelayApprovalEvent(Order order, boolean approved, String reason) {
         try {
             String eventType = approved ? EventType.ORDER_DELAY_APPROVED.name() : EventType.ORDER_DELAY_REJECTED.name();
-            com.fasterxml.jackson.databind.node.ObjectNode payloadNode = objectMapper.createObjectNode();
-            payloadNode.put("eventType", eventType);
-            payloadNode.put("orderId", order.getId().toString());
-            payloadNode.put("restaurantId", order.getRestaurantId().toString());
-            if (reason != null && !reason.isEmpty()) {
-                payloadNode.put("reason", reason);
+            Object event;
+            if (approved) {
+                event = com.fooddelivery.common.event.OrderDelayApprovedEvent.builder()
+                        .orderId(order.getId())
+                        .build();
+            } else {
+                event = com.fooddelivery.common.event.OrderDelayRejectedEvent.builder()
+                        .orderId(order.getId().toString())
+                        .restaurantId(order.getRestaurantId().toString())
+                        .build();
             }
-            OutboxEventEntity outboxEvent = OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER).aggregateId(order.getId().toString()).eventType(com.fooddelivery.common.constants.EventType.valueOf(eventType)).payload(objectMapper.writeValueAsString(payloadNode)).createdAt(LocalDateTime.now()).build();
+            OutboxEventEntity outboxEvent = OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER).aggregateId(order.getId().toString()).eventType(com.fooddelivery.common.constants.EventType.valueOf(eventType)).payload(objectMapper.writeValueAsString(event)).createdAt(LocalDateTime.now()).build();
             log.info("Triggering event: {} for order: {}", eventType, order.getId());
             outboxEventRepository.save(outboxEvent);
             log.info("Saved outbox event {} for Order {}", eventType, order.getId());

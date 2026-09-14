@@ -111,16 +111,17 @@ public class ChatRefundProcessorService {
                     throw new IllegalStateException("Requested refund amount exceeds the remaining refundable balance.");
                 }
 
-                Map<String, Object> responseMap = new HashMap<>();
-                responseMap.put("quoteAmount", quoteAmount);
-                responseMap.put("refundType", refundType);
+                com.fooddelivery.common.event.ChatRefundQuoteResponseEvent responseEvent = com.fooddelivery.common.event.ChatRefundQuoteResponseEvent.builder()
+                        .quoteAmount(quoteAmount)
+                        .refundType(refundType)
+                        .build();
 
                 OutboxEventEntity outboxEvent = OutboxEventEntity.builder()
                         .id(UUID.randomUUID())
                         .aggregateType(AggregateType.CHAT_SESSION)
                         .aggregateId(event.getAggregateId())
                         .eventType(EventType.valueOf("CHAT_REFUND_QUOTE_RESPONSE"))
-                        .payload(objectMapper.writeValueAsString(responseMap))
+                        .payload(objectMapper.writeValueAsString(responseEvent))
                         .createdAt(LocalDateTime.now())
                         .build();
                 outboxEventRepository.save(outboxEvent);
@@ -207,17 +208,18 @@ public class ChatRefundProcessorService {
                 // and an administrator decides, which is what the customer is told happens.
                 
                 // Publish CHAT_REFUND_DECISION to notify user
-                Map<String, Object> responseMap = new HashMap<>();
-                responseMap.put("status", "OPEN");
-                responseMap.put("ticketId", ticket.getId().toString());
-                responseMap.put("message", "Your refund request has been submitted and is currently under review by our support team.");
+                com.fooddelivery.common.event.ChatRefundDecisionEvent responseEvent = com.fooddelivery.common.event.ChatRefundDecisionEvent.builder()
+                        .status("OPEN")
+                        .ticketId(ticket.getId().toString())
+                        .message("Your refund request has been submitted and is currently under review by our support team.")
+                        .build();
 
                 OutboxEventEntity outboxEvent = OutboxEventEntity.builder()
                         .id(UUID.randomUUID())
                         .aggregateType(AggregateType.CHAT_SESSION)
                         .aggregateId(event.getAggregateId())
                         .eventType(EventType.valueOf("CHAT_REFUND_DECISION"))
-                        .payload(objectMapper.writeValueAsString(responseMap))
+                        .payload(objectMapper.writeValueAsString(responseEvent))
                         .createdAt(LocalDateTime.now())
                         .build();
                 outboxEventRepository.save(outboxEvent);
@@ -242,15 +244,16 @@ public class ChatRefundProcessorService {
     @org.springframework.transaction.annotation.Transactional
     private void publishErrorEvent(String chatSessionId, String errorMessage) {
         try {
-            Map<String, Object> errorMap = new HashMap<>();
-            errorMap.put("error", errorMessage != null ? errorMessage : "An unknown error occurred while processing the refund request.");
+            com.fooddelivery.common.event.ChatRefundErrorEvent errorEvent = com.fooddelivery.common.event.ChatRefundErrorEvent.builder()
+                    .error(errorMessage != null ? errorMessage : "An unknown error occurred while processing the refund request.")
+                    .build();
 
             OutboxEventEntity outboxEvent = OutboxEventEntity.builder()
                     .id(UUID.randomUUID())
                     .aggregateType(AggregateType.CHAT_SESSION)
                     .aggregateId(chatSessionId)
                     .eventType(EventType.valueOf("CHAT_REFUND_ERROR"))
-                    .payload(objectMapper.writeValueAsString(errorMap))
+                    .payload(objectMapper.writeValueAsString(errorEvent))
                     .createdAt(LocalDateTime.now())
                     .build();
             outboxEventRepository.save(outboxEvent);
