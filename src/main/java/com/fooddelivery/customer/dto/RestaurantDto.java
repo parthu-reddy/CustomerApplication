@@ -23,7 +23,17 @@ public class RestaurantDto {
     private Double lng;
     private String address;
     private Double rating;
-    
+    private Boolean isActive;
+    private Integer defaultPrepTimeSeconds;
+    private Boolean isOpen;
+    private String image;
+    private String logoUrl;
+    private String cuisine;
+    private Integer reviewsCount;
+    private Integer deliveryTime;
+    private Double deliveryFee;
+    private java.util.List<String> tags;
+    private String brandName;    
     // Derived/Dynamic fields added by CustomerApplication
     private Double distance;
     private Boolean isSponsored;
