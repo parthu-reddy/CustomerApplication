@@ -125,7 +125,7 @@ public class InternalOrderController {
     }
 
     @GetMapping("/{orderId}/participants")
-    @PreAuthorize("@orderSecurityHelper.isOrderParticipant(#orderId, authentication.name) or hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('SERVICE', 'ADMIN') or @orderSecurityHelper.isOrderParticipant(#orderId, authentication.name)")
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public ResponseEntity<List<String>> getOrderParticipants(@PathVariable UUID orderId) {
         log.debug("Fetching authorized participants for order {}", orderId);
@@ -138,7 +138,24 @@ public class InternalOrderController {
         }).orElse(ResponseEntity.notFound().build());
     }
 
+    /**
+     * Returns the order's OTPs and payment method for service-to-service calls.
+     *
+     * <p>Used by delivery-service when a force-assign occurs after the Redis dispatch
+     * payload has been cleaned up by TerminalStateStrategy.
+     */
+    @GetMapping("/{orderId}/dispatch-details")
+    @PreAuthorize("hasAnyRole('SERVICE', 'ADMIN')")
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public ResponseEntity<java.util.Map<String, String>> getOrderDispatchDetails(@PathVariable UUID orderId) {
+        log.info("Fetching dispatch details (OTPs) for order {}", orderId);
+        return orderRepository.findById(orderId).map(order -> {
+            java.util.Map<String, String> details = new java.util.HashMap<>();
+            details.put("pickupOtp", order.getPickupOtp());
+            details.put("deliveryOtp", order.getOtp());
+            details.put("paymentMethod", order.getPaymentMethod() != null ? order.getPaymentMethod().name() : null);
+            return ResponseEntity.ok(details);
+        }).orElse(ResponseEntity.notFound().build());
+    }
 
-
-    
 }
