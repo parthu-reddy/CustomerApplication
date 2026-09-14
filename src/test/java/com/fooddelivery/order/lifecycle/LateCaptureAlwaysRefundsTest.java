@@ -38,7 +38,7 @@ class LateCaptureAlwaysRefundsTest {
         o.setPaymentMethod(PaymentMethod.CARD);
         o.setStatus(status);
         o.setCancellationReason(reason);
-        return new OrderContext(o, objectMapper.createObjectNode(), mock(OrderActionService.class),
+        return new OrderContext(o, null /* no order event on the payment path; no state here reads it */, mock(OrderActionService.class),
                 bookkeeper, "RAZORPAY", o.getPaymentMethod());
     }
 

@@ -47,11 +47,15 @@ public class PaymentEventConsumerTest {
     @Mock
     private com.fooddelivery.order.refund.RefundService refundService;
 
+    @Mock
+    private com.fooddelivery.common.event.EventBinder eventBinder;
+
     private PaymentEventConsumer paymentEventConsumer;
 
     @BeforeEach
     void setUp() {
         paymentEventConsumer = new PaymentEventConsumer(
+                eventBinder,
                 idempotencyKeyRepository,
                 transactionTemplate,
                 objectMapper,
@@ -70,6 +74,20 @@ public class PaymentEventConsumerTest {
         }).when(transactionTemplate).executeWithoutResult(any());
 
         lenient().when(idempotencyKeyRepository.existsById(anyString())).thenReturn(false);
+        lenient().when(eventBinder.bindIf(any(), any(), any(), eq(com.fooddelivery.common.event.PaymentSucceededEvent.class)))
+            .thenAnswer(i -> {
+                String p = i.getArgument(2);
+                com.fasterxml.jackson.databind.JsonNode n = new ObjectMapper().readTree(p);
+                return Optional.of(new com.fooddelivery.common.event.PaymentSucceededEvent(
+                        n.path("orderId").asText(), n.path("gatewayOrderId").asText(), java.math.BigDecimal.TEN, "RAZORPAY", com.fooddelivery.common.enums.PaymentMethod.CARD, java.time.Instant.now()));
+            });
+        lenient().when(eventBinder.bindIf(any(), any(), any(), eq(com.fooddelivery.common.event.PaymentFailedEvent.class)))
+            .thenAnswer(i -> {
+                String p = i.getArgument(2);
+                com.fasterxml.jackson.databind.JsonNode n = new ObjectMapper().readTree(p);
+                return Optional.of(new com.fooddelivery.common.event.PaymentFailedEvent(
+                        UUID.fromString(n.path("orderId").asText()), n.path("gatewayOrderId").asText(), "RAZORPAY", "Failed"));
+            });
     }
 
     @Test
@@ -112,7 +130,7 @@ public class PaymentEventConsumerTest {
     @Test
     void consumePaymentEvent_LatePaymentRefund_LeavesRoutingToRefundService() throws Exception {
         UUID orderId = UUID.randomUUID();
-        String message = "{\"eventType\":\"PAYMENT_SUCCESS\",\"orderId\":\"" + orderId + "\"}";
+        String message = "{\"eventType\":\"PAYMENT_SUCCESS\",\"orderId\":\"" + orderId + "\",\"gatewayOrderId\":\"GATEWAY_123\"}";
 
         ObjectNode rootNode = new ObjectMapper().createObjectNode();
         rootNode.put("eventType", "PAYMENT_SUCCESS");
@@ -156,7 +174,7 @@ public class PaymentEventConsumerTest {
     @Test
     void consumePaymentEvent_RefundRoutingRefused_DoesNotPropagate() throws Exception {
         UUID orderId = UUID.randomUUID();
-        String message = "{\"eventType\":\"PAYMENT_SUCCESS\",\"orderId\":\"" + orderId + "\"}";
+        String message = "{\"eventType\":\"PAYMENT_SUCCESS\",\"orderId\":\"" + orderId + "\",\"gatewayOrderId\":\"GATEWAY_123\"}";
 
         ObjectNode rootNode = new ObjectMapper().createObjectNode();
         rootNode.put("eventType", "PAYMENT_SUCCESS");
@@ -193,7 +211,7 @@ public class PaymentEventConsumerTest {
     @Test
     void consumePaymentEvent_DuplicateEventIsIgnored() throws Exception {
         UUID orderId = UUID.randomUUID();
-        String message = "{\"eventType\":\"PAYMENT_SUCCESS\",\"orderId\":\"" + orderId + "\"}";
+        String message = "{\"eventType\":\"PAYMENT_SUCCESS\",\"orderId\":\"" + orderId + "\",\"gatewayOrderId\":\"GATEWAY_123\"}";
         when(idempotencyKeyRepository.existsById(anyString())).thenReturn(true);
 
         java.util.Map<String, Object> headers = new java.util.HashMap<>();

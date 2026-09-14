@@ -54,7 +54,7 @@ public class CodLifecycleTest {
     }
 
     private OrderContext ctx(Order order, String gateway) {
-        return new OrderContext(order, objectMapper.createObjectNode(), actionService, bookkeeper,
+        return new OrderContext(order, null /* no order event on the payment path; no state here reads it */, actionService, bookkeeper,
                 gateway, order.getPaymentMethod());
     }
 

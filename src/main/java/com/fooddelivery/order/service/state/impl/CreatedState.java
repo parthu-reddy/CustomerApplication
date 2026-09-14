@@ -113,7 +113,7 @@ public class CreatedState implements OrderState {
     public void handleOrderCancelledByAdmin(OrderContext ctx) {
         Order order = ctx.getOrder();
         order.setStatus(OrderStatus.CANCELLED);
-        order.setCancellationReason(ctx.getEventPayload().path("reason").asText("Cancelled by Admin"));
+        String reason = ((com.fooddelivery.common.event.OrderCancelledByAdminEvent) ctx.getEventPayload()).getReason(); order.setCancellationReason(reason != null ? reason : "Cancelled by Admin");
         ctx.getActionService().saveOrder(order);
         
         ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), com.fooddelivery.common.constants.NotificationTemplate.ORDER_CANCELLED_BY_ADMIN);

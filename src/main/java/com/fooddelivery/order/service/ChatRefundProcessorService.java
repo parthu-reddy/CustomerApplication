@@ -42,6 +42,24 @@ public class ChatRefundProcessorService {
     private final TransactionTemplate transactionTemplate;
     private final com.fooddelivery.order.refund.RefundService refundService;
     private final com.fooddelivery.order.repository.RefundRepository refundRepository;
+    private final com.fooddelivery.common.event.EventBinder eventBinder;
+
+    /** Both handlers built this list identically from the JSON; it is one place now. */
+    private static List<com.fooddelivery.order.refund.RefundCommand.Item> toRefundItems(
+            List<com.fooddelivery.common.event.ChatRefundRequestedEvent.Item> items) {
+        List<com.fooddelivery.order.refund.RefundCommand.Item> out = new java.util.ArrayList<>();
+        if (items == null) {
+            return out;
+        }
+        for (com.fooddelivery.common.event.ChatRefundRequestedEvent.Item item : items) {
+            com.fooddelivery.order.refund.RefundCommand.Item i =
+                    new com.fooddelivery.order.refund.RefundCommand.Item();
+            i.setOrderItemId(item.getItemId());
+            i.setQuantity(item.getQuantity());
+            out.add(i);
+        }
+        return out;
+    }
 
 
 
@@ -71,25 +89,21 @@ public class ChatRefundProcessorService {
             try {
                 if (idempotencyKeyRepository.existsById("chat_event:" + event.getId())) return;
                 
-                JsonNode payload = objectMapper.readTree(event.getPayload());
-                UUID orderId = UUID.fromString(payload.get("orderId").asText());
+                // The payload is the chat message content the client sent, so this bind is the
+                // validation boundary: a missing orderId or a malformed item id is rejected here
+                // and reported back to the customer as CHAT_REFUND_ERROR.
+                com.fooddelivery.common.event.ChatRefundRequestedEvent request =
+                        eventBinder.bind(event.getPayload(),
+                                com.fooddelivery.common.event.ChatRefundRequestedEvent.class);
+                UUID orderId = request.getOrderId();
                 Order order = orderRepository.findById(orderId).orElseThrow(() -> new IllegalArgumentException("Order not found"));
-                
-                String refundType = payload.has("refundType") ? payload.get("refundType").asText() : "FULL";
+
+                String refundType = request.getRefundType() != null ? request.getRefundType() : "FULL";
                 BigDecimal quoteAmount;
                 if ("FULL".equals(refundType)) {
                     quoteAmount = refundService.quote(orderId, List.of());
                 } else {
-                    List<com.fooddelivery.order.refund.RefundCommand.Item> reqItems = new java.util.ArrayList<>();
-                    if (payload.has("items")) {
-                        for (JsonNode itemNode : payload.get("items")) {
-                            com.fooddelivery.order.refund.RefundCommand.Item i = new com.fooddelivery.order.refund.RefundCommand.Item();
-                            i.setOrderItemId(UUID.fromString(itemNode.get("itemId").asText()));
-                            i.setQuantity(itemNode.get("quantity").asInt());
-                            reqItems.add(i);
-                        }
-                    }
-                    quoteAmount = refundService.quote(orderId, reqItems);
+                    quoteAmount = refundService.quote(orderId, toRefundItems(request.getItems()));
                 }
                 
                 BigDecimal maxRefundable = order.getTotalAmount();
@@ -111,6 +125,11 @@ public class ChatRefundProcessorService {
                         .build();
                 outboxEventRepository.save(outboxEvent);
                 log.info("Calculated quote {} for session {}", quoteAmount, event.getAggregateId());
+            } catch (jakarta.validation.ConstraintViolationException e) {
+                // A @NotNull/@Positive miss on client-supplied content is a bad request, not a
+                // poison message: report it to the customer instead of retrying into the DLT.
+                log.warn("Chat refund payload failed validation: {}", e.getMessage());
+                publishErrorEvent(event.getAggregateId(), "Invalid request format.");
             } catch (IllegalArgumentException | IllegalStateException e) {
                 log.warn("Business validation failed for quote request: {}", e.getMessage());
                 publishErrorEvent(event.getAggregateId(), e.getMessage());
@@ -126,34 +145,32 @@ public class ChatRefundProcessorService {
     private void handleRefundRequest(OutboxEvent event) {
         transactionTemplate.executeWithoutResult(status -> {
             try {
-                JsonNode payload = objectMapper.readTree(event.getPayload());
-                UUID orderId = UUID.fromString(payload.get("orderId").asText());
-                UUID customerId = UUID.fromString(payload.get("customerId").asText());
-                
+                com.fooddelivery.common.event.ChatRefundRequestedEvent request =
+                        eventBinder.bind(event.getPayload(),
+                                com.fooddelivery.common.event.ChatRefundRequestedEvent.class);
+                UUID orderId = request.getOrderId();
+                // Required here but not for a quote, so it is checked rather than annotated on the
+                // shared class -- annotating it would reject every valid quote request.
+                UUID customerId = request.getCustomerId();
+                if (customerId == null) {
+                    throw new IllegalArgumentException("customerId is required on a refund request");
+                }
+
                 if (supportTicketRepository.existsByOrderIdAndCustomerIdAndStatus(orderId, customerId, SupportTicket.TicketStatus.OPEN)) {
                     throw new IllegalStateException("An open refund request already exists for this order.");
                 }
-                
-                String reason = payload.has("reason") ? payload.get("reason").asText() : "OTHER";
-                String description = payload.has("description") ? payload.get("description").asText() : "";
-                
-                String refundType = payload.has("refundType") ? payload.get("refundType").asText() : "FULL";
+
+                String reason = request.getReason() != null ? request.getReason() : "OTHER";
+                String description = request.getDescription() != null ? request.getDescription() : "";
+
+                String refundType = request.getRefundType() != null ? request.getRefundType() : "FULL";
                 Order order = orderRepository.findById(orderId).orElseThrow(() -> new IllegalArgumentException("Order not found"));
                 
                 BigDecimal quoteAmount;
                 if ("FULL".equals(refundType)) {
                     quoteAmount = refundService.quote(orderId, List.of());
                 } else {
-                    List<com.fooddelivery.order.refund.RefundCommand.Item> reqItems = new java.util.ArrayList<>();
-                    if (payload.has("items")) {
-                        for (JsonNode itemNode : payload.get("items")) {
-                            com.fooddelivery.order.refund.RefundCommand.Item i = new com.fooddelivery.order.refund.RefundCommand.Item();
-                            i.setOrderItemId(UUID.fromString(itemNode.get("itemId").asText()));
-                            i.setQuantity(itemNode.get("quantity").asInt());
-                            reqItems.add(i);
-                        }
-                    }
-                    quoteAmount = refundService.quote(orderId, reqItems);
+                    quoteAmount = refundService.quote(orderId, toRefundItems(request.getItems()));
                 }
                 
                 // Note: Financial Computations: Never use hardcoded fallback values for financial parameters... Fail Fast
@@ -173,8 +190,8 @@ public class ChatRefundProcessorService {
                 ticket.setStatus(SupportTicket.TicketStatus.OPEN); // Wait, if we process it, maybe it's resolved? Keep OPEN for now
                 ticket.setChatSessionId(UUID.fromString(event.getAggregateId()));
                 ticket.setRefundAmount(quoteAmount);
-                if (payload.has("items")) {
-                    ticket.setRequestedRefundItems(payload.get("items").toString());
+                if (request.getItems() != null && !request.getItems().isEmpty()) {
+                    ticket.setRequestedRefundItems(objectMapper.writeValueAsString(request.getItems()));
                 }
                 supportTicketRepository.save(ticket);
 
@@ -205,6 +222,11 @@ public class ChatRefundProcessorService {
                         .build();
                 outboxEventRepository.save(outboxEvent);
                 log.info("Created SupportTicket {} for session {}", ticket.getId(), event.getAggregateId());
+            } catch (jakarta.validation.ConstraintViolationException e) {
+                // A @NotNull/@Positive miss on client-supplied content is a bad request, not a
+                // poison message: report it to the customer instead of retrying into the DLT.
+                log.warn("Chat refund payload failed validation: {}", e.getMessage());
+                publishErrorEvent(event.getAggregateId(), "Invalid request format.");
             } catch (IllegalArgumentException | IllegalStateException e) {
                 log.warn("Business validation failed for refund request: {}", e.getMessage());
                 publishErrorEvent(event.getAggregateId(), e.getMessage());

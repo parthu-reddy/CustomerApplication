@@ -51,6 +51,22 @@ class PaymentEventConsumerContractTest {
     
     @Import(PaymentEventConsumer.class)
     static class TestConfig {
+        @org.springframework.context.annotation.Bean
+        public com.fooddelivery.common.event.EventBinder eventBinder() {
+            com.fooddelivery.common.event.EventBinder mock = Mockito.mock(com.fooddelivery.common.event.EventBinder.class);
+            Mockito.lenient().when(mock.bindIf(any(), any(), any(), any())).thenReturn(
+                java.util.Optional.of(new com.fooddelivery.common.event.PaymentSucceededEvent(
+                    "b0ebc992-6d33-4f51-a960-9bc72ef8c721",
+                    "GATEWAY_123",
+                    new java.math.BigDecimal("100"),
+                    "RAZORPAY",
+                    com.fooddelivery.common.enums.PaymentMethod.CARD,
+                    java.time.Instant.now()
+                ))
+            );
+            return mock;
+        }
+
         @Bean
         public MessageVerifierSender<Message<?>> kafkaStubMessageSender(KafkaTemplate<String, String> t) {
             return new KafkaStubMessageSender(t);

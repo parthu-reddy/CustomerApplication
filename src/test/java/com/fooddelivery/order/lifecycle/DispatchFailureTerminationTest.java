@@ -49,7 +49,7 @@ class DispatchFailureTerminationTest {
     }
 
     private OrderContext ctx(Order o) {
-        return new OrderContext(o, objectMapper.createObjectNode(), mock(OrderActionService.class),
+        return new OrderContext(o, new com.fooddelivery.common.event.DispatchFailedEvent(o.getId().toString(), "Dispatch failed"), mock(OrderActionService.class),
                 mock(LedgerBookkeeper.class), null, o.getPaymentMethod());
     }
 
@@ -79,8 +79,7 @@ class DispatchFailureTerminationTest {
     @Test
     void theReasonFromTheEventIsKeptWhenThereIsOne() {
         Order o = order(OrderStatus.ACCEPTED);
-        com.fasterxml.jackson.databind.node.ObjectNode payload = objectMapper.createObjectNode();
-        payload.put("reason", "All riders busy in this zone");
+        com.fooddelivery.common.event.DispatchFailedEvent payload = new com.fooddelivery.common.event.DispatchFailedEvent(o.getId().toString(), "All riders busy in this zone");
         OrderContext ctx = new OrderContext(o, payload, mock(OrderActionService.class),
                 mock(LedgerBookkeeper.class), null, o.getPaymentMethod());
 

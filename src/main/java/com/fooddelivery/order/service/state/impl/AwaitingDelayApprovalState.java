@@ -1,6 +1,5 @@
 package com.fooddelivery.order.service.state.impl;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fooddelivery.common.constants.EventType;
 import com.fooddelivery.common.enums.OrderStatus;
 import com.fooddelivery.order.entity.Order;
@@ -14,14 +13,13 @@ public class AwaitingDelayApprovalState implements OrderState {
         Order order = ctx.getOrder();
         order.setStatus(OrderStatus.ACCEPTED);
 
-        JsonNode prepNode = ctx.getEventPayload().path("estimatedPrepTimeMinutes");
-        if (!prepNode.isMissingNode() && !prepNode.isNull()) {
-            order.setEstimatedPrepTimeMinutes(prepNode.asInt());
+        Integer prepNode = ((com.fooddelivery.common.event.OrderAcceptedEvent) ctx.getEventPayload()).getEstimatedPrepTimeMinutes();
+        Long completionNode = ((com.fooddelivery.common.event.OrderAcceptedEvent) ctx.getEventPayload()).getEstimatedCompletionTime();
+        if (prepNode != null) {
+            order.setEstimatedPrepTimeMinutes(prepNode);
         }
-        
-        JsonNode completionNode = ctx.getEventPayload().path("estimatedCompletionTime");
-        if (!completionNode.isMissingNode() && !completionNode.isNull()) {
-            order.setEstimatedCompletionTime(completionNode.asLong());
+        if (completionNode != null) {
+            order.setEstimatedCompletionTime(completionNode);
         }
         
         ctx.getActionService().saveOrder(order);
@@ -31,7 +29,7 @@ public class AwaitingDelayApprovalState implements OrderState {
     public void handleDelayRejected(OrderContext ctx) {
         Order order = ctx.getOrder();
         order.setStatus(OrderStatus.CANCELLED_BY_RESTAURANT);
-        order.setCancellationReason(ctx.getEventPayload().path("reason").asText("Customer rejected delay"));
+        order.setCancellationReason("Customer rejected delay");
         ctx.getActionService().saveOrder(order);
         
         ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), com.fooddelivery.common.constants.NotificationTemplate.ORDER_DELAY_REJECTED);
@@ -42,7 +40,7 @@ public class AwaitingDelayApprovalState implements OrderState {
     public void handleOrderCancelledByRestaurant(OrderContext ctx) {
         Order order = ctx.getOrder();
         order.setStatus(OrderStatus.CANCELLED_BY_RESTAURANT);
-        order.setCancellationReason(ctx.getEventPayload().path("reason").asText("Restaurant could not fulfill the order"));
+        String reason = null; if (ctx.getEventPayload() instanceof com.fooddelivery.common.event.OrderCancelledByRestaurantEvent) { reason = ((com.fooddelivery.common.event.OrderCancelledByRestaurantEvent) ctx.getEventPayload()).getReason(); } else if (ctx.getEventPayload() instanceof com.fooddelivery.common.event.OrderRejectedEvent) { reason = ((com.fooddelivery.common.event.OrderRejectedEvent) ctx.getEventPayload()).getReason(); } order.setCancellationReason(reason != null ? reason : "Restaurant could not fulfill the order");
         ctx.getActionService().saveOrder(order);
         
         ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), com.fooddelivery.common.constants.NotificationTemplate.ORDER_CANCELLED_BY_RESTAURANT);
@@ -65,7 +63,7 @@ public class AwaitingDelayApprovalState implements OrderState {
     public void handleOrderCancelledByAdmin(OrderContext ctx) {
         Order order = ctx.getOrder();
         order.setStatus(OrderStatus.CANCELLED);
-        order.setCancellationReason(ctx.getEventPayload().path("reason").asText("Cancelled by Admin"));
+        String reason = ((com.fooddelivery.common.event.OrderCancelledByAdminEvent) ctx.getEventPayload()).getReason(); order.setCancellationReason(reason != null ? reason : "Cancelled by Admin");
         ctx.getActionService().saveOrder(order);
         
         ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), com.fooddelivery.common.constants.NotificationTemplate.ORDER_CANCELLED_BY_ADMIN);

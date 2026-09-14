@@ -140,7 +140,14 @@ public class CustomerOrderService {
                         orderRepository.save(freshOrder);
                         // Insert compensation event into outbox so downstream consumers
                         // (restaurant, delivery) know this order is dead on arrival
-                        com.fooddelivery.common.outbox.entity.OutboxEventEntity cancelEvent = com.fooddelivery.common.outbox.entity.OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER).aggregateId(freshOrder.getId().toString()).eventType(com.fooddelivery.common.constants.EventType.ORDER_CANCELLED).payload(String.format("{\"eventType\":\"ORDER_CANCELLED\", \"orderId\":\"%s\", \"reason\":\"Payment intent generation failed\"}", freshOrder.getId())).createdAt(java.time.LocalDateTime.now()).build();
+                        com.fooddelivery.common.event.OrderCancelledEvent eventObj = com.fooddelivery.common.event.OrderCancelledEvent.builder().orderId(freshOrder.getId().toString()).reason("Payment intent generation failed").build();
+                        String payload;
+                        try {
+                            payload = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(eventObj);
+                        } catch (Exception ex) {
+                            payload = "{}";
+                        }
+                        com.fooddelivery.common.outbox.entity.OutboxEventEntity cancelEvent = com.fooddelivery.common.outbox.entity.OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER).aggregateId(freshOrder.getId().toString()).eventType(com.fooddelivery.common.constants.EventType.ORDER_CANCELLED).payload(payload).createdAt(java.time.LocalDateTime.now()).build();
                         log.info("Triggering event: {} for order: {}", com.fooddelivery.common.constants.EventType.ORDER_CANCELLED.name(), freshOrder.getId());
                         outboxEventRepository.save(cancelEvent);
                         log.info("COMPENSATION_COMPLETE: Order {} cancelled and ORDER_CANCELLED outbox event saved.", freshOrder.getId());

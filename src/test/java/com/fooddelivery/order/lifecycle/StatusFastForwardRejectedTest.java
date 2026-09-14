@@ -39,10 +39,7 @@ class StatusFastForwardRejectedTest {
         o.setTotalAmount(new BigDecimal("420.00"));
         o.setPaymentMethod(PaymentMethod.CARD);
         o.setStatus(status);
-        ObjectNode payload = objectMapper.createObjectNode();
-        if (payloadStatus != null) {
-            payload.put("status", payloadStatus);
-        }
+        com.fooddelivery.common.event.OrderStatusUpdatedEvent payload = new com.fooddelivery.common.event.OrderStatusUpdatedEvent(o.getId().toString(), payloadStatus, java.time.Instant.now().toString());
         return new OrderContext(o, payload, mock(OrderActionService.class),
                 mock(LedgerBookkeeper.class), null, o.getPaymentMethod());
     }

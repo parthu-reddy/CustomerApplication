@@ -1,6 +1,6 @@
 package com.fooddelivery.order.service.state;
 
-import com.fasterxml.jackson.databind.JsonNode;
+
 import com.fooddelivery.order.entity.Order;
 
 
@@ -11,7 +11,16 @@ import com.fooddelivery.order.entity.Order;
 @lombok.AllArgsConstructor
 public class OrderContext {
     private final Order order;
-    private final JsonNode eventPayload;
+    /**
+     * The bound event this transition is reacting to.
+     *
+     * <p>Was {@code Object}, which is the untyped read wearing a hat: a state could be handed
+     * anything, and a mismatch surfaced as an {@code instanceof} that quietly matched nothing.
+     * {@code OrderScopedEvent} makes a non-order event a compile error and gives every state
+     * {@code orderUuid()} without a cast; the casts that remain read genuinely type-specific
+     * fields (reason, driverId, status) and fail loudly if the mapping is ever wrong.
+     */
+    private final com.fooddelivery.common.event.OrderScopedEvent eventPayload;
     private final OrderActionService actionService;
     private final com.fooddelivery.order.ledger.LedgerBookkeeper ledgerBookkeeper;
 

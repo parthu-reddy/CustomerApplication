@@ -55,11 +55,15 @@ public class StateRefundTriggerTest {
         order.setTotalAmount(new BigDecimal("200.00"));
         order.setStatus(OrderStatus.PREPARING);
 
-        OrderContext ctx = new OrderContext(order, new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode(), actionService, ledgerBookkeeper, "UNKNOWN", order.getPaymentMethod());
+        OrderContext ctx = new OrderContext(order, com.fooddelivery.common.event.OrderCancelledByRestaurantEvent.builder()
+                .orderId(order.getId().toString()).reason("kitchen closed").build(), actionService, ledgerBookkeeper, "UNKNOWN", order.getPaymentMethod());
 
         state.handleOrderCancelledByRestaurant(ctx);
 
         assertEquals(OrderStatus.CANCELLED_BY_RESTAURANT, order.getStatus());
+        // The context now carries the real event, so the reason on it must reach the order
+        // rather than falling through to the generic default.
+        assertEquals("kitchen closed", order.getCancellationReason());
         assertTrue(ctx.isRequiresRefund());
         
         verify(actionService).sendNotification(eq(order.getId().toString()), any(), eq(com.fooddelivery.common.constants.NotificationTemplate.ORDER_CANCELLED_BY_RESTAURANT));
@@ -73,11 +77,15 @@ public class StateRefundTriggerTest {
         order.setTotalAmount(new BigDecimal("250.00"));
         order.setStatus(OrderStatus.READY_FOR_PICKUP);
 
-        OrderContext ctx = new OrderContext(order, new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode(), actionService, ledgerBookkeeper, "UNKNOWN", order.getPaymentMethod());
+        OrderContext ctx = new OrderContext(order, com.fooddelivery.common.event.OrderCancelledByRestaurantEvent.builder()
+                .orderId(order.getId().toString()).reason("kitchen closed").build(), actionService, ledgerBookkeeper, "UNKNOWN", order.getPaymentMethod());
 
         state.handleOrderCancelledByRestaurant(ctx);
 
         assertEquals(OrderStatus.CANCELLED_BY_RESTAURANT, order.getStatus());
+        // The context now carries the real event, so the reason on it must reach the order
+        // rather than falling through to the generic default.
+        assertEquals("kitchen closed", order.getCancellationReason());
         assertTrue(ctx.isRequiresRefund());
     }
 }

@@ -67,7 +67,7 @@ class WalletCaptureTest {
     }
 
     private OrderContext ctx(Order o, String gateway) {
-        return new OrderContext(o, objectMapper.createObjectNode(), actionService, bookkeeper,
+        return new OrderContext(o, null /* no order event on the payment path; no state here reads it */, actionService, bookkeeper,
                 gateway, o.getPaymentMethod());
     }
 

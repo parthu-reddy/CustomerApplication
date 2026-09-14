@@ -184,17 +184,17 @@ public abstract class BaseMessagingClass {
     }
 
     public void firePaymentRefundRequested() throws Exception {
-        java.util.Map<String, Object> payloadMap = new java.util.HashMap<>();
-        payloadMap.put("intentId", "3f2504e0-4f89-41d3-9a0c-0305e82c3301");
-        payloadMap.put("gatewayOrderId", "pay_12345");
-        payloadMap.put("amountInInr", 15.50);
-        payloadMap.put("gatewayName", "RAZORPAY");
-        payloadMap.put("orderId", "6b1d3c22-9f45-4a7e-8c11-2d4e6f8a9b02");
-        payloadMap.put("refundDestination", "GATEWAY");
-        payloadMap.put("refundId", "ref_123");
+        com.fooddelivery.common.event.PaymentRefundRequestedEvent event =
+                com.fooddelivery.common.event.PaymentRefundRequestedEvent.builder()
+                        .refundId("ref_123")
+                        .orderId("6b1d3c22-9f45-4a7e-8c11-2d4e6f8a9b02")
+                        .gatewayOrderId("pay_12345")
+                        .amount(new java.math.BigDecimal("15.50"))
+                        .gatewayName(com.fooddelivery.common.enums.PaymentGateway.RAZORPAY)
+                        .build();
         publishViaOutbox(com.fooddelivery.common.constants.AggregateType.PAYMENT,
                 "6b1d3c22-9f45-4a7e-8c11-2d4e6f8a9b02",
-                com.fooddelivery.common.constants.EventType.PAYMENT_REFUND_REQUESTED, payloadMap);
+                com.fooddelivery.common.constants.EventType.PAYMENT_REFUND_REQUESTED, event);
     }
 
     /**

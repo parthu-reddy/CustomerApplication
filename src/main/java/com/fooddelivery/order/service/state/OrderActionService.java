@@ -240,16 +240,20 @@ public class OrderActionService {
 
     /** The rider's declared cash from the ORDER_DELIVERED payload, or null if they sent none. */
     private java.math.BigDecimal readDeclaredCash(com.fooddelivery.order.service.state.OrderContext ctx) {
-        com.fasterxml.jackson.databind.JsonNode node = ctx.getEventPayload() == null
-                ? null : ctx.getEventPayload().get("cashCollectedAmount");
-        if (node == null || node.isNull()) {
-            return null;
+        Object payload = ctx.getEventPayload();
+        String amountStr = null;
+        if (payload instanceof com.fooddelivery.common.event.DeliveredEvent) {
+            amountStr = ((com.fooddelivery.common.event.DeliveredEvent) payload).getCashCollectedAmount();
+        }
+        
+        if (amountStr == null) {
+            throw new IllegalStateException("Order " + ctx.getOrder().getId() + " was delivered with no declared cash amount");
         }
         try {
-            return new java.math.BigDecimal(node.asText());
+            return new java.math.BigDecimal(amountStr);
         } catch (NumberFormatException e) {
             throw new IllegalStateException("Order " + ctx.getOrder().getId()
-                    + " was delivered with an unreadable cash amount: " + node.asText(), e);
+                    + " was delivered with an unreadable cash amount: " + amountStr, e);
         }
     }
 }

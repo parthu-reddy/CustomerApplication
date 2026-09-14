@@ -29,7 +29,7 @@ public class AcceptedState implements OrderState {
     @Override
     public void handleDriverAssigned(OrderContext ctx) {
         Order order = ctx.getOrder();
-        String driverIdStr = ctx.getEventPayload().path("driverId").asText(null);
+        String driverIdStr = ((com.fooddelivery.common.event.DriverAssignedEvent) ctx.getEventPayload()).getDriverId();
         try {
             UUID driverUUID = UUID.fromString(driverIdStr);
             order.setDeliveryExecutiveId(driverUUID);
@@ -52,7 +52,7 @@ public class AcceptedState implements OrderState {
     public void handleOrderCancelledByRestaurant(OrderContext ctx) {
         Order order = ctx.getOrder();
         order.setStatus(OrderStatus.CANCELLED_BY_RESTAURANT);
-        order.setCancellationReason(ctx.getEventPayload().path("reason").asText("Restaurant could not fulfill the order"));
+        String reason = null; if (ctx.getEventPayload() instanceof com.fooddelivery.common.event.OrderCancelledByRestaurantEvent) { reason = ((com.fooddelivery.common.event.OrderCancelledByRestaurantEvent) ctx.getEventPayload()).getReason(); } else if (ctx.getEventPayload() instanceof com.fooddelivery.common.event.OrderRejectedEvent) { reason = ((com.fooddelivery.common.event.OrderRejectedEvent) ctx.getEventPayload()).getReason(); } order.setCancellationReason(reason != null ? reason : "Restaurant could not fulfill the order");
         ctx.getActionService().saveOrder(order);
         ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), com.fooddelivery.common.constants.NotificationTemplate.ORDER_CANCELLED_BY_RESTAURANT);
         ctx.setRequiresRefund(true);
@@ -71,8 +71,11 @@ public class AcceptedState implements OrderState {
         Order order = ctx.getOrder();
         order.setStatus(OrderStatus.CANCELLED_BY_PLATFORM);
         order.setDeliveryStatus(com.fooddelivery.common.enums.DeliveryStatus.FAILED);
-        order.setCancellationReason(ctx.getEventPayload().path("reason")
-                .asText("No delivery partner could be assigned"));
+        String reason = null;
+        if (ctx.getEventPayload() instanceof com.fooddelivery.common.event.DispatchFailedEvent) {
+            reason = ((com.fooddelivery.common.event.DispatchFailedEvent) ctx.getEventPayload()).getReason();
+        }
+        order.setCancellationReason(reason != null ? reason : "No delivery partner could be assigned");
         ctx.getActionService().saveOrder(order);
         ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), com.fooddelivery.common.constants.NotificationTemplate.DISPATCH_FAILED);
         ctx.setRequiresRefund(true);
@@ -82,7 +85,7 @@ public class AcceptedState implements OrderState {
     public void handleOrderCancelledByAdmin(OrderContext ctx) {
         Order order = ctx.getOrder();
         order.setStatus(OrderStatus.CANCELLED);
-        order.setCancellationReason(ctx.getEventPayload().path("reason").asText("Cancelled by Admin"));
+        String reason = ((com.fooddelivery.common.event.OrderCancelledByAdminEvent) ctx.getEventPayload()).getReason(); order.setCancellationReason(reason != null ? reason : "Cancelled by Admin");
         ctx.getActionService().saveOrder(order);
         ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), com.fooddelivery.common.constants.NotificationTemplate.ORDER_CANCELLED_BY_ADMIN);
         ctx.setRequiresRefund(true);

@@ -53,7 +53,7 @@ class PaymentRoutingExhaustivenessTest {
 
             LedgerBookkeeper bookkeeper = new LedgerBookkeeper(mock(OutboxEventRepository.class),
                     objectMapper, new LedgerAccountResolver(), mock(LedgerClient.class));
-            OrderContext ctx = new OrderContext(o, objectMapper.createObjectNode(),
+            OrderContext ctx = new OrderContext(o, null /* no order event on the payment path; no state here reads it */,
                     mock(OrderActionService.class), bookkeeper, gatewayFor(method), method);
 
             assertDoesNotThrow(() -> new CreatedState().handlePaymentSuccess(ctx),

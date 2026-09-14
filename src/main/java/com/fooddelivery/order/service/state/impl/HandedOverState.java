@@ -28,7 +28,7 @@ public class HandedOverState implements OrderState {
         Order order = ctx.getOrder();
         order.setStatus(OrderStatus.DELIVERY_FAILED);
         order.setDeliveryStatus(com.fooddelivery.common.enums.DeliveryStatus.FAILED);
-        order.setCancellationReason(ctx.getEventPayload().path("reason").asText("Delivery failed"));
+        String reason = null; if (ctx.getEventPayload() instanceof com.fooddelivery.common.event.DeliveryFailedEvent) reason = ((com.fooddelivery.common.event.DeliveryFailedEvent) ctx.getEventPayload()).getReason(); else if (ctx.getEventPayload() instanceof com.fooddelivery.common.event.OrderStatusUpdatedEvent) reason = ((com.fooddelivery.common.event.OrderStatusUpdatedEvent) ctx.getEventPayload()).getReason(); order.setCancellationReason(reason != null ? reason : "Delivery failed");
         ctx.getActionService().saveOrder(order);
         ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), com.fooddelivery.common.constants.NotificationTemplate.DELIVERY_FAILED);
         ctx.setRequiresRefund(true);
@@ -38,7 +38,7 @@ public class HandedOverState implements OrderState {
     public void handleOrderCancelledByAdmin(OrderContext ctx) {
         Order order = ctx.getOrder();
         order.setStatus(OrderStatus.CANCELLED);
-        order.setCancellationReason(ctx.getEventPayload().path("reason").asText("Cancelled by Admin (Delivery abandoned or failed)"));
+        String reason = ((com.fooddelivery.common.event.OrderCancelledByAdminEvent) ctx.getEventPayload()).getReason(); order.setCancellationReason(reason != null ? reason : "Cancelled by Admin (Delivery abandoned or failed)");
         ctx.getActionService().saveOrder(order);
         ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), com.fooddelivery.common.constants.NotificationTemplate.ORDER_CANCELLED_BY_ADMIN);
         ctx.setRequiresRefund(true);

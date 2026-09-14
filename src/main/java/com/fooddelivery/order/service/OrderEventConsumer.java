@@ -38,6 +38,39 @@ public class OrderEventConsumer {
         EVENT_HANDLERS.put(EventType.ORDER_AT_RESTAURANT.name(), com.fooddelivery.order.service.state.OrderState::handleDriverAtRestaurant);
     }
 
+    
+    /**
+     * The event types this service binds, and the class each binds to.
+     *
+     * <p>Typed as {@code OrderScopedEvent} so the listener takes the order id off a bound event
+     * without reflection, and so an entry whose class is not order-scoped does not compile.
+     */
+    private static final java.util.Map<String, Class<? extends com.fooddelivery.common.event.OrderScopedEvent>>
+            EVENT_CLASSES = new java.util.HashMap<>();
+    static {
+        EVENT_CLASSES.put(EventType.ORDER_DELIVERED.name(), com.fooddelivery.common.event.DeliveredEvent.class);
+        EVENT_CLASSES.put(EventType.ORDER_CANCELLED_BY_RESTAURANT.name(), com.fooddelivery.common.event.OrderCancelledByRestaurantEvent.class);
+        EVENT_CLASSES.put(EventType.ORDER_CANCELLED_BY_ADMIN.name(), com.fooddelivery.common.event.OrderCancelledByAdminEvent.class);
+        EVENT_CLASSES.put(EventType.ORDER_REJECTED.name(), com.fooddelivery.common.event.OrderRejectedEvent.class);
+        EVENT_CLASSES.put(EventType.DRIVER_ASSIGNED.name(), com.fooddelivery.common.event.DriverAssignedEvent.class);
+        EVENT_CLASSES.put(EventType.MANUAL_INTERVENTION_REQUIRED.name(), com.fooddelivery.common.event.ManualInterventionRequiredEvent.class);
+        EVENT_CLASSES.put(EventType.DELIVERY_FAILED.name(), com.fooddelivery.common.event.DeliveryFailedEvent.class);
+        EVENT_CLASSES.put(EventType.ORDER_DELAY_APPROVAL_REQUESTED.name(), com.fooddelivery.common.event.OrderDelayApprovalRequestedEvent.class);
+        EVENT_CLASSES.put(EventType.ORDER_DELAY_REJECTED.name(), com.fooddelivery.common.event.OrderDelayRejectedEvent.class);
+        EVENT_CLASSES.put(EventType.ORDER_ACCEPTED.name(), com.fooddelivery.common.event.OrderAcceptedEvent.class);
+        EVENT_CLASSES.put(EventType.ORDER_PREPARING.name(), com.fooddelivery.common.event.OrderPreparingEvent.class);
+        EVENT_CLASSES.put(EventType.ORDER_READY.name(), com.fooddelivery.common.event.OrderReadyEvent.class);
+        EVENT_CLASSES.put(EventType.ORDER_AT_RESTAURANT.name(), com.fooddelivery.common.event.DriverAtRestaurantEvent.class);
+        EVENT_CLASSES.put(EventType.ORDER_STATUS_UPDATED.name(), com.fooddelivery.common.event.OrderStatusUpdatedEvent.class);
+        EVENT_CLASSES.put(EventType.DISPATCH_FAILED.name(), com.fooddelivery.common.event.DispatchFailedEvent.class);
+        // ORDER_DRIVER_REJECTED clears the assigned driver and emits a status sync further down,
+        // but had no entry here -- so the listener bound nothing, found no orderId, and logged
+        // "Missing orderId. Ignored." A driver rejection never reached the order. The class
+        // already existed; only the mapping was missing.
+        EVENT_CLASSES.put(EventType.ORDER_DRIVER_REJECTED.name(), com.fooddelivery.common.event.OrderDriverRejectedEvent.class);
+    }
+
+    private final com.fooddelivery.common.event.EventBinder eventBinder;
     private final IIdempotencyKeyRepository idempotencyKeyRepository;
     private final TransactionTemplate transactionTemplate;
     private final ObjectMapper objectMapper;
@@ -48,7 +81,7 @@ public class OrderEventConsumer {
 
 
 
-    @RetryableTopic(attempts = "4", backoff = @Backoff(delay = 2000, multiplier = 2.0, maxDelay = 10000))
+    @RetryableTopic(attempts = "4", backoff = @Backoff(delay = 2000, multiplier = 2.0, maxDelay = 10000), exclude = {com.fooddelivery.common.event.EventBindingException.class}, traversingCauses = "true")
     @KafkaListener(topics = KafkaConstants.TOPIC_ORDER_EVENTS, groupId = KafkaConstants.GROUP_FOOD_DELIVERY + "-ordereventconsumer")
     public void handleOrderEvents(String payload, @org.springframework.messaging.handler.annotation.Headers java.util.Map<String, Object> headers) {
         log.info("OrderEventConsumer received event: {}", payload);
@@ -76,24 +109,51 @@ public class OrderEventConsumer {
 
                 try {
                     com.fasterxml.jackson.databind.JsonNode rootNode = objectMapper.readTree(payload);
-                    com.fasterxml.jackson.databind.JsonNode payloadNode = rootNode;
                     String eventType = com.fooddelivery.common.util.KafkaHeaderUtils.extractEventType(headers, rootNode);
-                    String orderIdStr = payloadNode.path("orderId").asText(null);
-                    if (orderIdStr == null && payloadNode.has("id")) {
-                        orderIdStr = payloadNode.get("id").asText();
-                    }
-                    if (orderIdStr == null || eventType == null) {
-                        log.warn("Missing orderId or eventType. Ignored.");
+                    if (eventType == null) {
+                        log.warn("Missing eventType. Ignored.");
                         return null;
                     }
-                    UUID orderId = UUID.fromString(orderIdStr);
+                    Class<? extends com.fooddelivery.common.event.OrderScopedEvent> targetClass =
+                            EVENT_CLASSES.get(eventType);
+                    if (targetClass == null) {
+                        // order-events carries every order event on the platform; most are not this
+                        // consumer's business. Ignoring is the correct outcome, not a DLT entry.
+                        log.info("Event {} not handled by CustomerApplication. Ignoring.", eventType);
+                        return null;
+                    }
+                    final EventType eType;
+                    try {
+                        eType = EventType.valueOf(eventType);
+                    } catch (IllegalArgumentException e) {
+                        // Unreachable while EVENT_CLASSES is keyed on EventType.name(), but a
+                        // header carrying a type this enum does not know must not poison the
+                        // partition.
+                        log.info("Unknown event type {} on order-events. Ignoring.", eventType);
+                        return null;
+                    }
+                    // Empty means "different event type", which cannot happen here -- eType is
+                    // derived from eventType. A malformed body or a violated @NotNull throws out
+                    // of bindIf and feeds the retry/DLT path.
+                    com.fooddelivery.common.event.OrderScopedEvent typedEvent =
+                            eventBinder.bindIf(eType, eventType, payload, targetClass)
+                                    .orElseThrow(() -> new IllegalStateException(
+                                            "bindIf returned empty for " + eventType
+                                                    + " despite an exact event-type match"));
+
+                    UUID orderId = typedEvent.orderUuid();
+                    if (orderId == null) {
+                        log.warn("Missing orderId. Ignored.");
+                        return null;
+                    }
                     Order order = orderRepository.findById(orderId).orElse(null);
                     if (order == null) {
                         log.warn("Order {} not found, skipping event", orderId);
                         return null;
                     }
+
                     com.fooddelivery.order.service.state.OrderContext context = new com.fooddelivery.order.service.state.OrderContext(
-                            order, payloadNode, orderActionService, ledgerBookkeeper,
+                            order, typedEvent, orderActionService, ledgerBookkeeper,
                             null /* no gateway: order-lifecycle events book no capture */,
                             order.getPaymentMethod());
                     com.fooddelivery.order.service.state.OrderState state = com.fooddelivery.order.service.state.OrderStateFactory.getState(order.getStatus());
@@ -102,7 +162,7 @@ public class OrderEventConsumer {
                         if (handler != null) {
                             handler.accept(state, context);
                         } else if (EventType.ORDER_STATUS_UPDATED.name().equals(eventType)) {
-                            String updateStatus = payloadNode.path("status").asText(null);
+                            String updateStatus = ((com.fooddelivery.common.event.OrderStatusUpdatedEvent) typedEvent).getStatus();
                             if (EventType.DELIVERY_FAILED.name().equals(updateStatus)) {
                                 state.handleDeliveryFailed(context);
                             } else {

@@ -113,7 +113,11 @@ public class OrderSagaOrchestrator {
         Order orderToRefund = transactionTemplate.execute(status -> {
             Order dbOrder = orderRepository.findById(order.getId()).orElse(order);
             com.fooddelivery.order.service.state.OrderContext context = new com.fooddelivery.order.service.state.OrderContext(
-                        dbOrder, objectMapper.createObjectNode(), orderActionService, ledgerBookkeeper,
+                        // No event: this is a local cancellation, not a reaction to one. It passed
+                        // an empty ObjectNode purely because the field used to be Object; no state
+                        // reached from cancelByCustomer reads the payload (verified across every
+                        // OrderState implementation).
+                        dbOrder, null, orderActionService, ledgerBookkeeper,
                         null /* no gateway: local cancellation books no capture */,
                         dbOrder.getPaymentMethod());
             com.fooddelivery.order.service.state.OrderState state = com.fooddelivery.order.service.state.OrderStateFactory.getState(dbOrder.getStatus());

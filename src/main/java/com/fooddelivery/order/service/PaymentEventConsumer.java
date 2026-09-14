@@ -25,11 +25,11 @@ import java.util.UUID;
 @lombok.RequiredArgsConstructor
 public class PaymentEventConsumer {
 
-    private static final String FIELD_ORDER_ID = "orderId";
-    private static final String FIELD_GATEWAY_ORDER_ID = "gatewayOrderId";
-    private static final String FIELD_EVENT_TYPE = "eventType";
-    private static final String FIELD_FAILURE_REASON = "failureReason";
+
     private static final String REFUND_TX_PREFIX = "REFUND_";
+
+    
+    private final com.fooddelivery.common.event.EventBinder eventBinder;
 
     private final IIdempotencyKeyRepository idempotencyKeyRepository;
     private final TransactionTemplate transactionTemplate;
@@ -69,35 +69,63 @@ public class PaymentEventConsumer {
                 Order orderToRefund = null;
                 try {
                     com.fasterxml.jackson.databind.JsonNode rootNode = objectMapper.readTree(payload);
-                    if (!rootNode.has(FIELD_ORDER_ID) || !rootNode.has(FIELD_GATEWAY_ORDER_ID)) {
-                        log.info("Ignoring unrecognized event payload: {}", payload);
-                        return;
-                    }
-                    String gatewayOrderId = rootNode.get(FIELD_GATEWAY_ORDER_ID).asText();
-                    String internalOrderId = rootNode.get(FIELD_ORDER_ID).asText();
-                    if (rootNode.has(FIELD_EVENT_TYPE) && com.fooddelivery.common.constants.EventType.PAYMENT_REFUNDED.name().equals(rootNode.get(FIELD_EVENT_TYPE).asText())) {
-                        log.info("Processing PAYMENT_REFUNDED event for order: {}", internalOrderId);
-                        if (rootNode.has("refundId") && rootNode.has("isSuccess")) {
-                            UUID refundId = UUID.fromString(rootNode.get("refundId").asText());
-                            boolean isSuccess = rootNode.get("isSuccess").asBoolean();
-                            String gatewayRefundId = rootNode.has("gatewayRefundId") ? rootNode.get("gatewayRefundId").asText() : null;
+                    String eventTypeStr = com.fooddelivery.common.util.KafkaHeaderUtils.extractEventType(headers, rootNode);
+                    
+                    if (com.fooddelivery.common.constants.EventType.PAYMENT_REFUNDED.name().equals(eventTypeStr)) {
+                        log.info("Processing PAYMENT_REFUNDED event");
+                        com.fooddelivery.common.event.PaymentRefundedEvent refundedEvent = eventBinder.bindIf(
+                            com.fooddelivery.common.constants.EventType.PAYMENT_REFUNDED, eventTypeStr, payload, com.fooddelivery.common.event.PaymentRefundedEvent.class).orElse(null);
                             
-                            if (isSuccess) {
-                                refundService.complete(refundId, gatewayRefundId);
+                        if (refundedEvent != null && refundedEvent.getRefundId() != null && refundedEvent.getIsSuccess() != null) {
+                            UUID refundId = UUID.fromString(refundedEvent.getRefundId());
+                            if (refundedEvent.getIsSuccess()) {
+                                refundService.complete(refundId, refundedEvent.getGatewayRefundId());
                             } else {
-                                refundService.fail(refundId, rootNode.has("failureReason") ? rootNode.get("failureReason").asText() : "Unknown failure");
+                                refundService.fail(refundId, refundedEvent.getFailureReason() != null ? refundedEvent.getFailureReason() : "Unknown failure");
                             }
                         } else {
                             log.warn("PAYMENT_REFUNDED event missing refundId or isSuccess");
                         }
                         return;
                     }
-                    if (rootNode.has(FIELD_EVENT_TYPE) && com.fooddelivery.common.constants.EventType.PAYMENT_PARTIALLY_REFUNDED.name().equals(rootNode.get(FIELD_EVENT_TYPE).asText())) {
+                    
+                    if (com.fooddelivery.common.constants.EventType.PAYMENT_PARTIALLY_REFUNDED.name().equals(eventTypeStr)) {
                         log.warn("Ignoring deprecated PAYMENT_PARTIALLY_REFUNDED event");
                         return;
                     }
-                    boolean isFailure = rootNode.has(FIELD_FAILURE_REASON) || (rootNode.has(FIELD_EVENT_TYPE) && com.fooddelivery.common.constants.EventType.PAYMENT_FAILED.name().equals(rootNode.get(FIELD_EVENT_TYPE).asText()));
+                    
+                    String gatewayOrderId = null;
+                    String internalOrderId = null;
+                    boolean isFailure = false;
+                    Object typedEvent = null;
+
+                    // Fallback infer failure if eventType is null but we can parse it as PaymentFailedEvent
+                    if (com.fooddelivery.common.constants.EventType.PAYMENT_FAILED.name().equals(eventTypeStr) || (eventTypeStr == null && payload.contains("\"failureReason\""))) {
+                        isFailure = true;
+                        com.fooddelivery.common.event.PaymentFailedEvent ev = eventBinder.bindIf(
+                            com.fooddelivery.common.constants.EventType.PAYMENT_FAILED, com.fooddelivery.common.constants.EventType.PAYMENT_FAILED.name(), payload, com.fooddelivery.common.event.PaymentFailedEvent.class).orElse(null);
+                        if (ev != null) {
+                            typedEvent = ev;
+                            gatewayOrderId = ev.gatewayOrderId();
+                            internalOrderId = ev.orderId() != null ? ev.orderId().toString() : null;
+                        }
+                    } else {
+                        com.fooddelivery.common.event.PaymentSucceededEvent ev = eventBinder.bindIf(
+                            com.fooddelivery.common.constants.EventType.PAYMENT_COMPLETED, com.fooddelivery.common.constants.EventType.PAYMENT_COMPLETED.name(), payload, com.fooddelivery.common.event.PaymentSucceededEvent.class).orElse(null);
+                        if (ev != null) {
+                            typedEvent = ev;
+                            gatewayOrderId = ev.gatewayOrderId();
+                            internalOrderId = ev.orderId();
+                        }
+                    }
+
+                    if (gatewayOrderId == null || internalOrderId == null) {
+                        log.info("Ignoring unrecognized event payload (missing orderId or gatewayOrderId): {}", payload);
+                        return;
+                    }
+
                     log.info("Payment event for gateway order {}. Finding internal order {}. IsFailure: {}", gatewayOrderId, internalOrderId, isFailure);
+                    
                     com.fooddelivery.order.entity.PaymentIntent intent = paymentIntentRepository.findByGatewayOrderId(gatewayOrderId).orElse(null);
                     if (intent == null) {
                         log.warn("PaymentIntent for gateway order {} not found", gatewayOrderId);
@@ -110,7 +138,15 @@ public class PaymentEventConsumer {
                         return;
                     }
                     com.fooddelivery.order.service.state.OrderContext context = new com.fooddelivery.order.service.state.OrderContext(
-                            order, rootNode, orderActionService, ledgerBookkeeper,
+                            // null, not typedEvent: OrderContext's payload is typed to
+                            // OrderScopedEvent, and payment events are not order-scoped --
+                            // PaymentSucceededEvent's orderId can be the WALLET_<id> form, which is
+                            // not an order UUID at all. Nothing is lost: no state reached from
+                            // handlePaymentSuccess or handlePaymentFailure reads the payload
+                            // (verified across every OrderState implementation). A payment-path
+                            // state that needs the event should take it as a parameter rather than
+                            // widening this field back to Object.
+                            order, null, orderActionService, ledgerBookkeeper,
                             intent != null && intent.getGatewayName() != null ? intent.getGatewayName().name() : null,
                             intent.getPaymentMethod());
                     com.fooddelivery.order.service.state.OrderState state = com.fooddelivery.order.service.state.OrderStateFactory.getState(order.getStatus());

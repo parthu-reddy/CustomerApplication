@@ -75,9 +75,11 @@ class CashTruthTest {
     }
 
     private OrderContext ctx(Order o, String declaredCash) {
-        ObjectNode payload = objectMapper.createObjectNode();
+        com.fooddelivery.common.event.DeliveredEvent payload = new com.fooddelivery.common.event.DeliveredEvent();
+        payload.setOrderId(o.getId().toString());
+        payload.setStatus("DELIVERED");
         if (declaredCash != null) {
-            payload.put("cashCollectedAmount", declaredCash);
+            payload.setCashCollectedAmount(declaredCash);
         }
         return new OrderContext(o, payload, actionService, bookkeeper, null, o.getPaymentMethod());
     }

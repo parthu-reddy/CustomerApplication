@@ -22,6 +22,7 @@ public class MenuCacheInvalidationListener {
     private final ObjectMapper objectMapper;
     private final IIdempotencyKeyRepository idempotencyKeyRepository;
     private final TransactionTemplate transactionTemplate;
+    private final com.fooddelivery.common.event.EventBinder eventBinder;
 
 
     @KafkaListener(topics = KafkaConstants.TOPIC_MENU_EVENTS, groupId = KafkaConstants.GROUP_FOOD_DELIVERY + "-menucacheinvalidationlistener")
@@ -43,10 +44,13 @@ public class MenuCacheInvalidationListener {
                 idempotencyKeyRepository.save(new IdempotencyKey(idempotencyKeyStr));
 
                 try {
-                    JsonNode node = objectMapper.readTree(payload);
-                    if (node.has("brandId") && node.has("type") && "MENU_UPDATED".equals(node.get("type").asText())) {
-                        String brandIdStr = node.get("brandId").asText();
-                        UUID brandId = UUID.fromString(brandIdStr);
+                    // brandId is NOT @NotNull on the event: this listener deliberately tolerates
+                    // other menu-events shapes and acts only on MENU_UPDATED, so a missing brandId
+                    // means "not mine", not "reject".
+                    com.fooddelivery.common.event.MenuCacheInvalidationEvent event =
+                            eventBinder.bind(payload, com.fooddelivery.common.event.MenuCacheInvalidationEvent.class);
+                    if (event.getBrandId() != null && "MENU_UPDATED".equals(event.getType())) {
+                        UUID brandId = UUID.fromString(event.getBrandId());
                         log.info("Received MENU_UPDATED event for brandId: {}", brandId);
                         
                         org.springframework.cache.Cache brandOutletsCache = cacheManager.getCache("brandOutlets");
@@ -63,8 +67,7 @@ public class MenuCacheInvalidationListener {
                         if (menuItemsBatchCache != null) {
                             menuItemsBatchCache.clear();
                         }
-                    }
-                } catch (Exception e) {
+                    }                } catch (Exception e) {
                     throw new RuntimeException("Failed to process menu update event", e);
                 }
                 return null;
