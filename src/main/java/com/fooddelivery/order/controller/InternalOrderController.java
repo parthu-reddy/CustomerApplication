@@ -27,7 +27,7 @@ public class InternalOrderController {
     @GetMapping("/driver/{driverId}/active")
     @PreAuthorize("hasAnyRole('ADMIN', 'DELIVERY')")
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
-    public ResponseEntity<org.springframework.data.domain.Page<Order>> getActiveOrdersForDriver(
+    public ResponseEntity<org.springframework.data.domain.Page<Order>> fetchActiveOrdersForDriver(
             @PathVariable UUID driverId,
             @org.springframework.data.web.PageableDefault(size = 50) org.springframework.data.domain.Pageable pageable) {
         log.info("Fetching active orders for driver {}", driverId);
@@ -47,7 +47,7 @@ public class InternalOrderController {
     @GetMapping("/driver/{driverId}/history")
     @PreAuthorize("hasAnyRole('ADMIN', 'DELIVERY')")
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
-    public ResponseEntity<org.springframework.data.domain.Page<Order>> getOrderHistoryForDriver(
+    public ResponseEntity<org.springframework.data.domain.Page<Order>> fetchOrderHistoryForDriver(
             @PathVariable UUID driverId, 
             @RequestParam(required = false) String date,
             @org.springframework.data.web.PageableDefault(size = 50) org.springframework.data.domain.Pageable pageable) {
@@ -66,7 +66,7 @@ public class InternalOrderController {
     @GetMapping("/unassigned")
     @PreAuthorize("hasAnyRole(\'ADMIN\', \'DELIVERY\')")
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
-    public ResponseEntity<List<Order>> getUnassignedOrders() {
+    public ResponseEntity<List<Order>> fetchUnassignedOrders() {
         log.info("Fetching unassigned orders for broadcast");
         List<OrderStatus> dispatchableStatuses = Arrays.asList(OrderStatus.ACCEPTED, OrderStatus.PREPARING, OrderStatus.READY_FOR_PICKUP);
         log.info("findByStatusInAndDeliveryExecutiveIdIsNull parameters: dispatchableStatuses={}", dispatchableStatuses);
@@ -90,7 +90,7 @@ public class InternalOrderController {
     @GetMapping("/{orderId}/review-context")
     @PreAuthorize("hasAnyRole('SERVICE', 'ADMIN') or @orderSecurityHelper.isOrderCustomer(#orderId, authentication.name)")
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
-    public ResponseEntity<com.fooddelivery.common.dto.ApiResponse<com.fooddelivery.common.dto.order.OrderReviewContextDto>> getOrderReviewContext(
+    public ResponseEntity<com.fooddelivery.common.dto.ApiResponse<com.fooddelivery.common.dto.order.OrderReviewContextDto>> fetchOrderReviewContext(
             @PathVariable UUID orderId) {
         return orderRepository.findById(orderId)
                 .map(order -> {
@@ -127,7 +127,7 @@ public class InternalOrderController {
     @GetMapping("/{orderId}/participants")
     @PreAuthorize("hasAnyRole('SERVICE', 'ADMIN') or @orderSecurityHelper.isOrderParticipant(#orderId, authentication.name)")
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
-    public ResponseEntity<List<String>> getOrderParticipants(@PathVariable UUID orderId) {
+    public ResponseEntity<List<String>> fetchOrderParticipants(@PathVariable UUID orderId) {
         log.debug("Fetching authorized participants for order {}", orderId);
         return orderRepository.findById(orderId).map(order -> {
             List<String> participants = new java.util.ArrayList<>();
@@ -147,7 +147,7 @@ public class InternalOrderController {
     @GetMapping("/{orderId}/dispatch-details")
     @PreAuthorize("hasAnyRole('SERVICE', 'ADMIN')")
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
-    public ResponseEntity<java.util.Map<String, String>> getOrderDispatchDetails(@PathVariable UUID orderId) {
+    public ResponseEntity<java.util.Map<String, String>> fetchOrderDispatchDetails(@PathVariable UUID orderId) {
         log.info("Fetching dispatch details (OTPs) for order {}", orderId);
         return orderRepository.findById(orderId).map(order -> {
             java.util.Map<String, String> details = new java.util.HashMap<>();

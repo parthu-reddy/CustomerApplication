@@ -1814,7 +1814,7 @@
     "/api/v1/internal/orders/{orderId}/review-context" : {
       "get" : {
         "tags" : [ "internal-order-controller" ],
-        "operationId" : "getOrderReviewContext",
+        "operationId" : "fetchOrderReviewContext",
         "parameters" : [ {
           "name" : "orderId",
           "in" : "path",
@@ -1841,7 +1841,7 @@
     "/api/v1/internal/orders/{orderId}/participants" : {
       "get" : {
         "tags" : [ "internal-order-controller" ],
-        "operationId" : "getOrderParticipants",
+        "operationId" : "fetchOrderParticipants",
         "parameters" : [ {
           "name" : "orderId",
           "in" : "path",
@@ -1868,10 +1868,40 @@
         }
       }
     },
+    "/api/v1/internal/orders/{orderId}/dispatch-details" : {
+      "get" : {
+        "tags" : [ "internal-order-controller" ],
+        "operationId" : "fetchOrderDispatchDetails",
+        "parameters" : [ {
+          "name" : "orderId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : {
+                    "type" : "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/internal/orders/unassigned" : {
       "get" : {
         "tags" : [ "internal-order-controller" ],
-        "operationId" : "getUnassignedOrders",
+        "operationId" : "fetchUnassignedOrders",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -1892,7 +1922,7 @@
     "/api/v1/internal/orders/driver/{driverId}/history" : {
       "get" : {
         "tags" : [ "internal-order-controller" ],
-        "operationId" : "getOrderHistoryForDriver",
+        "operationId" : "fetchOrderHistoryForDriver",
         "parameters" : [ {
           "name" : "driverId",
           "in" : "path",
@@ -1933,7 +1963,7 @@
     "/api/v1/internal/orders/driver/{driverId}/active" : {
       "get" : {
         "tags" : [ "internal-order-controller" ],
-        "operationId" : "getActiveOrdersForDriver",
+        "operationId" : "fetchActiveOrdersForDriver",
         "parameters" : [ {
           "name" : "driverId",
           "in" : "path",
@@ -2137,7 +2167,7 @@
     "/api/v1/internal/admin/orders/unassigned" : {
       "get" : {
         "tags" : [ "admin-order-controller" ],
-        "operationId" : "getUnassignedOrders_1",
+        "operationId" : "getUnassignedOrders",
         "parameters" : [ {
           "name" : "page",
           "in" : "query",
@@ -3249,6 +3279,46 @@
             "type" : "number",
             "format" : "double"
           },
+          "isActive" : {
+            "type" : "boolean"
+          },
+          "defaultPrepTimeSeconds" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "isOpen" : {
+            "type" : "boolean"
+          },
+          "image" : {
+            "type" : "string"
+          },
+          "logoUrl" : {
+            "type" : "string"
+          },
+          "cuisine" : {
+            "type" : "string"
+          },
+          "reviewsCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "deliveryTime" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "deliveryFee" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "tags" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "brandName" : {
+            "type" : "string"
+          },
           "distance" : {
             "type" : "number",
             "format" : "double"
@@ -4155,20 +4225,6 @@
             "type" : "integer",
             "format" : "int32"
           },
-          "sort" : {
-            "$ref" : "#/components/schemas/SortObject"
-          },
-          "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
-          },
-          "number" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
           "size" : {
             "type" : "integer",
             "format" : "int32"
@@ -4179,11 +4235,25 @@
               "$ref" : "#/components/schemas/Order"
             }
           },
-          "first" : {
-            "type" : "boolean"
+          "number" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "sort" : {
+            "$ref" : "#/components/schemas/SortObject"
           },
           "last" : {
             "type" : "boolean"
+          },
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
+          },
+          "first" : {
+            "type" : "boolean"
+          },
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
           },
           "empty" : {
             "type" : "boolean"
@@ -4194,26 +4264,26 @@
         "required" : [ "offset", "pageNumber", "pageSize", "paged", "unpaged" ],
         "type" : "object",
         "properties" : {
+          "offset" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "paged" : {
+            "type" : "boolean"
+          },
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
           "unpaged" : {
             "type" : "boolean"
           },
-          "paged" : {
-            "type" : "boolean"
-          },
-          "pageNumber" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
           "pageSize" : {
             "type" : "integer",
             "format" : "int32"
           },
-          "offset" : {
+          "pageNumber" : {
             "type" : "integer",
-            "format" : "int64"
+            "format" : "int32"
           }
         }
       },
@@ -4263,20 +4333,6 @@
             "type" : "integer",
             "format" : "int32"
           },
-          "sort" : {
-            "$ref" : "#/components/schemas/SortObject"
-          },
-          "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
-          },
-          "number" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
           "size" : {
             "type" : "integer",
             "format" : "int32"
@@ -4287,11 +4343,25 @@
               "$ref" : "#/components/schemas/SupportTicket"
             }
           },
-          "first" : {
-            "type" : "boolean"
+          "number" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "sort" : {
+            "$ref" : "#/components/schemas/SortObject"
           },
           "last" : {
             "type" : "boolean"
+          },
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
+          },
+          "first" : {
+            "type" : "boolean"
+          },
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
           },
           "empty" : {
             "type" : "boolean"

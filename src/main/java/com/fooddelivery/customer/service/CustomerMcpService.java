@@ -196,7 +196,7 @@ public class CustomerMcpService {
     @Tool(description = "Driver: Get active orders. Provide driverId.")
     public String getActiveOrders(String driverId) {
         try {
-            return objectMapper.writeValueAsString(internalOrderController.getActiveOrdersForDriver(
+            return objectMapper.writeValueAsString(internalOrderController.fetchActiveOrdersForDriver(
                     java.util.UUID.fromString(driverId),
                     org.springframework.data.domain.PageRequest.of(0, 50)).getBody());
         } catch (Exception e) {
@@ -207,7 +207,7 @@ public class CustomerMcpService {
     @Tool(description = "Driver: Get history orders. Provide driverId and date (optional).")
     public String getHistoryOrders(String driverId, String date) {
         try {
-            return objectMapper.writeValueAsString(internalOrderController.getOrderHistoryForDriver(
+            return objectMapper.writeValueAsString(internalOrderController.fetchOrderHistoryForDriver(
                     java.util.UUID.fromString(driverId), date,
                     org.springframework.data.domain.PageRequest.of(0, 50)).getBody());
         } catch (Exception e) {
