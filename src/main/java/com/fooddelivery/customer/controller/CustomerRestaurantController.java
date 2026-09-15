@@ -42,10 +42,46 @@ public class CustomerRestaurantController {
             java.util.List<com.fooddelivery.customer.dto.SponsoredListingDTO> adResults = advertisementClient.fetchAds(adRequest);
             if (adResults != null && !adResults.isEmpty() && response.getData() != null) {
                 com.fooddelivery.customer.dto.SponsoredListingDTO topAd = adResults.get(0);
-                com.fooddelivery.customer.dto.RestaurantDto sponsoredListing = com.fooddelivery.customer.dto.RestaurantDto.builder()
-                        .isSponsored(true)
-                        .adData(topAd)
-                        .build();
+                
+                // Find matching restaurant by brandId = advertiserId
+                com.fooddelivery.customer.dto.RestaurantDto matchedRestaurant = response.getData().stream()
+                        .filter(r -> r.getBrandId() != null && r.getBrandId().toString().equals(topAd.getAdvertiserId()))
+                        .findFirst()
+                        .orElse(null);
+                        
+                com.fooddelivery.customer.dto.RestaurantDto sponsoredListing;
+                if (matchedRestaurant != null) {
+                    sponsoredListing = com.fooddelivery.customer.dto.RestaurantDto.builder()
+                            .id(matchedRestaurant.getId())
+                            .brandId(matchedRestaurant.getBrandId())
+                            .name(matchedRestaurant.getName())
+                            .description(matchedRestaurant.getDescription())
+                            .lat(matchedRestaurant.getLat())
+                            .lng(matchedRestaurant.getLng())
+                            .address(matchedRestaurant.getAddress())
+                            .rating(matchedRestaurant.getRating())
+                            .isActive(matchedRestaurant.getIsActive())
+                            .defaultPrepTimeSeconds(matchedRestaurant.getDefaultPrepTimeSeconds())
+                            .isOpen(matchedRestaurant.getIsOpen())
+                            .image(matchedRestaurant.getImage())
+                            .logoUrl(matchedRestaurant.getLogoUrl())
+                            .cuisine(matchedRestaurant.getCuisine())
+                            .reviewsCount(matchedRestaurant.getReviewsCount())
+                            .deliveryTime(matchedRestaurant.getDeliveryTime())
+                            .deliveryFee(matchedRestaurant.getDeliveryFee())
+                            .tags(matchedRestaurant.getTags())
+                            .brandName(matchedRestaurant.getBrandName())
+                            .distance(matchedRestaurant.getDistance())
+                            .isSponsored(true)
+                            .adData(topAd)
+                            .build();
+                } else {
+                    sponsoredListing = com.fooddelivery.customer.dto.RestaurantDto.builder()
+                            .isSponsored(true)
+                            .adData(topAd)
+                            .build();
+                }
+                
                 // Add to the front of the list
                 List<com.fooddelivery.customer.dto.RestaurantDto> merged = new java.util.ArrayList<>();
                 merged.add(sponsoredListing);

@@ -16,4 +16,5 @@ public class SponsoredListingDTO {
     private String clickUrl;
     private String adm;
     private String creativeFormat;
+    private String advertiserId;
 }
