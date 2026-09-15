@@ -157,6 +157,8 @@ public class OrderActionService {
                     .itemsJson(itemsJsonStr)
                     .pickupOtp(order.getPickupOtp())
                     .deliveryOtp(order.getOtp())
+                    .dispatchCityId(order.getDispatchCityId())
+                    .fleetSearchRadiusKm(order.getFleetSearchRadiusKm())
                     .totalAmount(order.getTotalAmount())
                     .itemTotal(order.getItemTotal())
                     .restaurantPlatformFee(order.getRestaurantPlatformFee())

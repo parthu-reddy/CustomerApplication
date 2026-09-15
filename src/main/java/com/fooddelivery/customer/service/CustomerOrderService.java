@@ -306,7 +306,7 @@ public class CustomerOrderService {
                             + totalAmount + " but its item total is " + quote.getItemTotal());
                     }
 
-                    Order order = Order.builder().id(UUID.randomUUID()).customerId(customerId).customerName(request.getCustomerName()).restaurantId(restaurantId).restaurantName((String) restaurantData.get("name")).deliveryAddressId(deliveryAddressId).deliveryAddress(formatAddress(address)).deliveryLat(address.getLatitude()).deliveryLng(address.getLongitude()).otp(String.format("%06d", new java.security.SecureRandom().nextInt(1000000))).status(OrderStatus.CREATED).orderItems(new HashSet<>()).estimatedPrepTimeMinutes(maxPrepTime).quoteId(quote.getId()).paymentMethod(request.getPaymentMethod()).build();
+                    Order order = Order.builder().id(UUID.randomUUID()).customerId(customerId).customerName(request.getCustomerName()).restaurantId(restaurantId).restaurantName((String) restaurantData.get("name")).deliveryAddressId(deliveryAddressId).deliveryAddress(formatAddress(address)).deliveryLat(address.getLatitude()).deliveryLng(address.getLongitude()).dispatchCityId(deliveryZoneConfig.getDefaultCity()).fleetSearchRadiusKm(deliveryZoneConfig.getFleetSearchRadiusKm()).otp(String.format("%06d", new java.security.SecureRandom().nextInt(1000000))).status(OrderStatus.CREATED).orderItems(new HashSet<>()).estimatedPrepTimeMinutes(maxPrepTime).quoteId(quote.getId()).paymentMethod(request.getPaymentMethod()).build();
                     for (OrderItem item : orderItems) {
                         item.setOrder(order);
                     }

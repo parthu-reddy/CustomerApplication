@@ -37,8 +37,8 @@ org.springframework.cloud.contract.spec.Contract.make {
             deliveryLat: 12.971598,
             deliveryLng: 77.594562,
             deliveryAddress: "221B Baker Street, Bangalore",
-            pickupOtp: $(producer(regex('[0-9]{4}'))),
-            deliveryOtp: $(producer(regex('[0-9]{4}')))
+            pickupOtp: $(producer(regex('[0-9]{6}'))),
+            deliveryOtp: $(producer(regex('[0-9]{6}')))
         ])
     }
 }

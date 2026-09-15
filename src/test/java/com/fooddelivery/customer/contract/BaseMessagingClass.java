@@ -63,8 +63,8 @@ public abstract class BaseMessagingClass {
                         .deliveryLat(12.971598)
                         .deliveryLng(77.594562)
                         .deliveryAddress("221B Baker Street, Bangalore")
-                        .pickupOtp("1234")
-                        .deliveryOtp("5678")
+                        .pickupOtp("123456")
+                        .deliveryOtp("567890")
                         .build();
 
         com.fooddelivery.common.outbox.entity.OutboxEventEntity outboxEvent =
@@ -248,8 +248,10 @@ public abstract class BaseMessagingClass {
                         .deliveryLng(77.594562)
                         .deliveryAddress("221B Baker Street, Bangalore")
                         .itemsJson("[{\"name\":\"Butter Chicken\",\"quantity\":1,\"price\":15.50}]")
-                        .pickupOtp("1234")
-                        .deliveryOtp("5678")
+                        .pickupOtp("123456")
+                        .deliveryOtp("567890")
+                        .dispatchCityId("BLR")
+                        .fleetSearchRadiusKm(5.0)
                         .totalAmount(new java.math.BigDecimal("15.50"))
                         .itemTotal(new java.math.BigDecimal("12.00"))
                         .restaurantPlatformFee(new java.math.BigDecimal("1.20"))

@@ -182,6 +182,10 @@ public class Order {
     private Double deliveryLng;
     @Column(name = "delivery_address_text")
     private String deliveryAddress;
+    @Column(name = "dispatch_city_id", nullable = false)
+    private String dispatchCityId;
+    @Column(name = "fleet_search_radius_km", nullable = false)
+    private Double fleetSearchRadiusKm;
     @Column(name = "pickup_otp")
     private String pickupOtp;
     @Column(name = "otp")

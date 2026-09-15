@@ -59,6 +59,8 @@ class OrderPaidEventCompletenessTest {
         o.setDeliveryAddress("1 Test Road");
         o.setPickupOtp("111111");
         o.setOtp("222222");
+        o.setDispatchCityId("BLR");
+        o.setFleetSearchRadiusKm(5.0);
         o.setTotalAmount(new BigDecimal("420.00"));
         o.setItemTotal(new BigDecimal("300.00"));
         o.setRestaurantPlatformFee(new BigDecimal("10.00"));

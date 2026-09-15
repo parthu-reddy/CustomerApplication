@@ -56,15 +56,15 @@ public class OrderSagaOrchestrator {
         java.security.SecureRandom secureRandom = new java.security.SecureRandom();
         String otp = String.format("%06d", secureRandom.nextInt(1000000));
         order.setPickupOtp(otp);
-        log.info("Generated pickup OTP {} for order {}", otp, order.getId());
+        log.info("Generated pickup OTP for order {}", order.getId());
         // Generate delivery OTP
         String deliveryOtp = String.format("%06d", secureRandom.nextInt(1000000));
         order.setOtp(deliveryOtp);
-        log.info("Generated delivery OTP {} for order {}", deliveryOtp, order.getId());
+        log.info("Generated delivery OTP for order {}", order.getId());
         Order savedOrder = orderRepository.save(order);
         OrderCreatedEvent event = OrderCreatedEvent.builder().orderId(savedOrder.getId()).customerId(savedOrder.getCustomerId()).restaurantId(savedOrder.getRestaurantId()).totalAmount(savedOrder.getTotalAmount()).deliveryLat(savedOrder.getDeliveryLat()).deliveryLng(savedOrder.getDeliveryLng()).deliveryAddress(savedOrder.getDeliveryAddress()).pickupOtp(savedOrder.getPickupOtp()).deliveryOtp(savedOrder.getOtp()).build();
         try {
-            log.info("Creating OutboxEvent for ORDER_CREATED with pickupOtp: {} and deliveryOtp: {}", event.getPickupOtp(), event.getDeliveryOtp());
+            log.info("Creating ORDER_CREATED outbox event with both OTPs set for order {}", savedOrder.getId());
             OutboxEventEntity outboxEvent = OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER).aggregateId(savedOrder.getId().toString()).eventType(EventType.ORDER_CREATED).payload(objectMapper.writeValueAsString(event)).createdAt(LocalDateTime.now()).build();
             log.info("Triggering event: {} for order: {}", EventType.ORDER_CREATED.name(), savedOrder.getId());
             outboxEventRepository.save(outboxEvent);
