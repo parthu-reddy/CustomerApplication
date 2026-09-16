@@ -79,8 +79,8 @@ fi
 
 # 3. Make repositories public
 echo "Making repositories public to enable GH Actions..."
-for repo in "${MODIFIED_REPOS[@]}"; do
-  gh repo edit "parthu-reddy/$repo" --visibility public --accept-visibility-change-consequences
+for repo_dir in "${MODIFIED_REPOS[@]}"; do
+  (cd "$repo_dir" && gh repo edit --visibility public --accept-visibility-change-consequences)
 done
 
 # 4. Trigger and watch workflows
@@ -101,12 +101,12 @@ run_and_wait() {
   sleep 5
   
   # Fetch the most recent run ID triggered in the last few seconds
-  RUN_IDS=$(gh run list -R "parthu-reddy/$target_repo" --created "$(date -d '1 minute ago' -u +%Y-%m-%dT%H:%M:%SZ)..$(date -u +%Y-%m-%dT%H:%M:%SZ)" --json databaseId -q '.[].databaseId')
+  (cd "$target_repo" && RUN_IDS=$(gh run list --created "$(date -d '1 minute ago' -u +%Y-%m-%dT%H:%M:%SZ)..$(date -u +%Y-%m-%dT%H:%M:%SZ)" --json databaseId -q '.[].databaseId')
   
   for run_id in $RUN_IDS; do
     echo "Watching run $run_id in $target_repo until completion..."
-    gh run watch "$run_id" -R "parthu-reddy/$target_repo"
-  done
+    gh run watch "$run_id"
+  done)
 }
 
 # Run parents first
@@ -124,8 +124,8 @@ done
 
 # 5. Make repositories private again
 echo "Reverting repositories to private..."
-for repo in "${MODIFIED_REPOS[@]}"; do
-  gh repo edit "parthu-reddy/$repo" --visibility private --accept-visibility-change-consequences
+for repo_dir in "${MODIFIED_REPOS[@]}"; do
+  (cd "$repo_dir" && gh repo edit --visibility private --accept-visibility-change-consequences)
 done
 
 # 6. Clean deploy with complete wipe on Oracle VM
