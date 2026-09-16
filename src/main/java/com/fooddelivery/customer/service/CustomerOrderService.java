@@ -119,11 +119,7 @@ public class CustomerOrderService {
         log.info("ORDER_CHECKOUT_STARTED orderQuoteId={} customerId={} restaurantId={} paymentMethod={}",
                 request.getQuoteId(), request.getCustomerId(), request.getRestaurantId(), requestedMethod);
         return createOrder(request).thenApply(order -> {
-            org.springframework.security.core.context.SecurityContext originalContext = org.springframework.security.core.context.SecurityContextHolder.getContext();
             try {
-                // Clear context so internal calls use SERVICE identity rather than CUSTOMER identity
-                org.springframework.security.core.context.SecurityContextHolder.clearContext();
-                
                 com.fooddelivery.common.enums.PaymentMethod method = requestedMethod;
                 String intent = paymentGatewayOrchestrator.generateIntent(order, method);
 
@@ -163,8 +159,6 @@ public class CustomerOrderService {
                     }
                 });
                 throw new java.util.concurrent.CompletionException(new RuntimeException("Payment intent generation failed for order " + order.getId(), e));
-            } finally {
-                org.springframework.security.core.context.SecurityContextHolder.setContext(originalContext);
             }
         });
     }
