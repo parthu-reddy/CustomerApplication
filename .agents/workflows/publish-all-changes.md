@@ -89,24 +89,29 @@ run_and_wait() {
   if [[ ! " ${MODIFIED_REPOS[*]} " =~ " ${target_repo} " ]]; then return; fi
   
   echo "Triggering workflows for $target_repo..."
-  (cd "$target_repo" && for workflow in .github/workflows/*.yml; do
+  (cd "$target_repo"
+  local count=0
+  for workflow in .github/workflows/*.yml; do
     if [ -f "$workflow" ]; then
       workflow_name=$(basename "$workflow")
       echo "  -> triggering $workflow_name"
       gh workflow run "$workflow_name"
+      count=$((count + 1))
     fi
-  done)
+  done
   
-  # Wait briefly for GH to register the run
-  sleep 5
-  
-  # Fetch the most recent run ID triggered in the last few seconds
-  (cd "$target_repo" && RUN_IDS=$(gh run list --created "$(date -d '1 minute ago' -u +%Y-%m-%dT%H:%M:%SZ)..$(date -u +%Y-%m-%dT%H:%M:%SZ)" --json databaseId -q '.[].databaseId')
-  
-  for run_id in $RUN_IDS; do
-    echo "Watching run $run_id in $target_repo until completion..."
-    gh run watch "$run_id"
-  done)
+  if [ $count -gt 0 ]; then
+    # Wait briefly for GH to register the run
+    sleep 5
+    
+    # Fetch the most recent run IDs corresponding to the workflows we just triggered
+    RUN_IDS=$(gh run list -L "$count" --json databaseId -q '.[].databaseId')
+    
+    for run_id in $RUN_IDS; do
+      echo "Watching run $run_id in $target_repo until completion..."
+      gh run watch "$run_id"
+    done
+  fi)
 }
 
 # Run parents first
