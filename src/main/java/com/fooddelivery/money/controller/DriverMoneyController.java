@@ -34,8 +34,8 @@ public class DriverMoneyController {
     @GetMapping("/{driverId}/orders/{orderId}")
     @PreAuthorize("@moneyAccessPolicy.canAccessMoney(authentication, T(com.fooddelivery.common.security.money.MoneyOwnerType).DRIVER, #driverId)")
     public ResponseEntity<DriverOrderEarnings> fetchOrderEarnings(
-            @PathVariable UUID driverId,
-            @PathVariable UUID orderId) {
+            @PathVariable("driverId") UUID driverId,
+            @PathVariable("orderId") UUID orderId) {
 
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));

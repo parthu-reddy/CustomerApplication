@@ -37,8 +37,8 @@ public class RestaurantMoneyController {
     @GetMapping("/{outletId}/orders/{orderId}")
     @PreAuthorize("@moneyAccessPolicy.canAccessMoney(authentication, T(com.fooddelivery.common.security.money.MoneyOwnerType).RESTAURANT, #outletId)")
     public ResponseEntity<RestaurantOrderEarnings> fetchOrderEarnings(
-            @PathVariable UUID outletId,
-            @PathVariable UUID orderId) {
+            @PathVariable("outletId") UUID outletId,
+            @PathVariable("orderId") UUID orderId) {
 
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));

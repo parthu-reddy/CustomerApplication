@@ -510,7 +510,7 @@ public class CustomerOrderService {
                         }
                     }
 
-                    BigDecimal quotedDistance = new BigDecimal(String.valueOf(distance));
+                    BigDecimal quotedDistance = new BigDecimal(String.valueOf(distance)).setScale(2, java.math.RoundingMode.HALF_UP);
                     // Read the live rates exactly once. They are @RefreshScope and can move between
                     // this quote and the checkout that redeems it; from here on everything -- including
                     // the replay at checkout -- works from this snapshot.
