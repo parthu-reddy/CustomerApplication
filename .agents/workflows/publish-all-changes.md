@@ -171,7 +171,7 @@ if [ "$NEEDS_REBUILD" = true ]; then
   
   echo "Deploying newly built images..."
   export REGISTRY=hyd.ocir.io/axekmbadoczl
-  (cd Deployment && ./OracleDeployment/03_clean_deploy.sh)
+  (cd Deployment && echo "WIPE" | ./OracleDeployment/03_clean_deploy.sh --wipe)
   
   echo "Running dummy-data.sh to completely wipe and reseed databases..."
   (cd Deployment && ./dummy-data.sh --yes)
