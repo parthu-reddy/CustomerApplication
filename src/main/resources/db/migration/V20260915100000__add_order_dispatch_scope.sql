@@ -1,5 +1,6 @@
 ALTER TABLE orders
-    ADD COLUMN IF NOT EXISTS dispatch_city_id VARCHAR(64),
+    ADD COLUMN IF NOT EXISTS dispatch_city_id VARCHAR(64);
+ALTER TABLE orders
     ADD COLUMN IF NOT EXISTS fleet_search_radius_km DOUBLE PRECISION;
 
 UPDATE orders

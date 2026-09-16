@@ -28,6 +28,7 @@ public class CustomerRestaurantController {
     private final com.fooddelivery.customer.config.DynamicPricingConfig dynamicPricingConfig;
     private final com.fooddelivery.customer.repository.CustomerAddressRepository customerAddressRepository;
     private final com.fooddelivery.customer.client.AdvertisementClient advertisementClient;
+    private final com.fooddelivery.customer.config.DeliveryZoneConfig deliveryZoneConfig;
 
     @GetMapping("/nearby")
     public ResponseEntity<ApiResponse<List<com.fooddelivery.customer.dto.RestaurantDto>>> getNearbyRestaurants(@RequestParam double lat, @RequestParam double lng, @RequestParam(defaultValue = "5.0") double radius) {
@@ -141,7 +142,9 @@ public class CustomerRestaurantController {
         }
         // 2. Check Driver Availability in MapsIntegration
         try {
-            com.fooddelivery.common.dto.maps.FleetAvailabilityResponseDto mapsResponse = mapsClient.checkFleetAvailability("BLR", lat, lng, com.fooddelivery.common.constants.AppConstants.MAX_DELIVERY_RADIUS_KM);
+            com.fooddelivery.common.dto.maps.FleetAvailabilityResponseDto mapsResponse = mapsClient.checkFleetAvailability(
+                    deliveryZoneConfig.getDefaultCity(), lat, lng,
+                    deliveryZoneConfig.getFleetSearchRadiusKm());
             if (mapsResponse != null) {
                 Boolean available = mapsResponse.getAvailable();
                 if (Boolean.TRUE.equals(available)) {

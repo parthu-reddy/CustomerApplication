@@ -36,6 +36,7 @@ public class OrderEventConsumer {
         EVENT_HANDLERS.put(EventType.ORDER_PREPARING.name(), com.fooddelivery.order.service.state.OrderState::handleOrderPreparing);
         EVENT_HANDLERS.put(EventType.ORDER_READY.name(), com.fooddelivery.order.service.state.OrderState::handleOrderReady);
         EVENT_HANDLERS.put(EventType.ORDER_AT_RESTAURANT.name(), com.fooddelivery.order.service.state.OrderState::handleDriverAtRestaurant);
+        EVENT_HANDLERS.put(EventType.DISPATCH_FAILED.name(), com.fooddelivery.order.service.state.OrderState::handleDispatchFailed);
     }
 
     

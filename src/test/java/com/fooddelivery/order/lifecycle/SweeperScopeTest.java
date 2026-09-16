@@ -63,6 +63,8 @@ class SweeperScopeTest {
         o.setTotalAmount(new BigDecimal("420.00"));
         o.setStatus(status);
         o.setDeliveryStatus(deliveryStatus);
+        o.setDispatchCityId("BLR");
+        o.setFleetSearchRadiusKm(5.0);
         orderRepository.saveAndFlush(o);
         return o.getId();
     }
