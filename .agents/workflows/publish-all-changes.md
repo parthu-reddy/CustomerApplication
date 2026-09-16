@@ -84,7 +84,9 @@ for repo_dir in "${MODIFIED_REPOS[@]}"; do
 done
 
 # 4. Trigger and watch workflows
-run_and_wait() {
+rm -f .run_ids.txt
+
+trigger_and_collect() {
   local target_repo=$1
   if [[ ! " ${MODIFIED_REPOS[*]} " =~ " ${target_repo} " ]]; then return; fi
   
@@ -108,24 +110,35 @@ run_and_wait() {
     RUN_IDS=$(gh run list -L "$count" --json databaseId -q '.[].databaseId')
     
     for run_id in $RUN_IDS; do
-      echo "Watching run $run_id in $target_repo until completion..."
-      gh run watch "$run_id"
+      echo "$target_repo $run_id" >> ../.run_ids.txt
     done
   fi)
+}
+
+watch_collected_runs() {
+  if [ -f .run_ids.txt ]; then
+    while read -r target_repo run_id; do
+      echo "Watching run $run_id in $target_repo until completion..."
+      (cd "$target_repo" && gh run watch "$run_id")
+    done < .run_ids.txt
+    rm -f .run_ids.txt
+  fi
 }
 
 # Run parents first
 echo "Building base dependencies first..."
 for dep in "${DEPENDENCIES[@]}"; do
-  run_and_wait "$dep"
+  trigger_and_collect "$dep"
 done
+watch_collected_runs
 
 # Run all other services
-echo "Building all downstream services..."
+echo "Building all downstream services in parallel..."
 for repo in "${MODIFIED_REPOS[@]}"; do
   if [[ " ${DEPENDENCIES[*]} " =~ " ${repo} " ]]; then continue; fi
-  run_and_wait "$repo"
+  trigger_and_collect "$repo"
 done
+watch_collected_runs
 
 # 5. Make repositories private again
 echo "Reverting repositories to private..."
