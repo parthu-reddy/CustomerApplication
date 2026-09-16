@@ -21,15 +21,20 @@ MODIFIED_REPOS=()
 echo "Checking for local changes..."
 for dir in */; do
   if [ -d "$dir/.git" ]; then
-    (cd "$dir" && changes=$(git status --porcelain)
+    repo_dir="${dir%/}"
+    cd "$repo_dir"
+    changes=$(git status --porcelain)
     if [ -n "$changes" ]; then
-      echo "Committing changes in ${dir%/}"
+      echo "Committing changes in $repo_dir"
       git add .
       git commit -m "chore: automated workflow update" || true
       git pull --rebase origin main || true
       git push origin main
-      MODIFIED_REPOS+=("${dir%/}")
-    fi)
+      cd ..
+      MODIFIED_REPOS+=("$repo_dir")
+    else
+      cd ..
+    fi
   fi
 done
 
