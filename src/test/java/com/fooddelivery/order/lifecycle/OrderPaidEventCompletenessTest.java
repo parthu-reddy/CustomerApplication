@@ -101,38 +101,6 @@ class OrderPaidEventCompletenessTest {
     }
 
     @Test
-    void theCodEventCarriesTheSameFields() throws Exception {
-        actionService.emitOrderPlacedCodEvent(fullyPopulatedOrder(PaymentMethod.COD));
-        OrderPaidEvent event = emitted(EventType.ORDER_PLACED_COD);
-
-        assertEquals(PaymentMethod.COD, event.getPaymentMethod());
-        assertNotNull(event.getCustomerId());
-        assertNotNull(event.getPickupOtp());
-        assertNotNull(event.getRestaurantPayout());
-    }
-
-    @Test
-    void theTwoEventsDifferOnlyInTypeAndMethod() throws Exception {
-        Order paid = fullyPopulatedOrder(PaymentMethod.CARD);
-        actionService.emitOrderPaidEvent(paid);
-        OrderPaidEvent a = emitted(EventType.ORDER_PAID);
-
-        setUp();
-        Order cod = fullyPopulatedOrder(PaymentMethod.COD);
-        cod.setId(paid.getId());
-        cod.setCustomerId(paid.getCustomerId());
-        cod.setRestaurantId(paid.getRestaurantId());
-        cod.setOrderItems(paid.getOrderItems());
-        actionService.emitOrderPlacedCodEvent(cod);
-        OrderPaidEvent b = emitted(EventType.ORDER_PLACED_COD);
-
-        assertEquals(a.getOrderId(), b.getOrderId());
-        assertEquals(a.getCustomerId(), b.getCustomerId());
-        assertEquals(a.getRestaurantPayout(), b.getRestaurantPayout());
-        assertNotEquals(a.getPaymentMethod(), b.getPaymentMethod());
-    }
-
-    @Test
     void theCustomerIdIsCarried() throws Exception {
         Order o = fullyPopulatedOrder(PaymentMethod.CARD);
         actionService.emitOrderPaidEvent(o);

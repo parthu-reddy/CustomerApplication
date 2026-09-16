@@ -65,9 +65,6 @@ public class Order {
     @Column(name = "payment_method")
     private PaymentMethod paymentMethod;
 
-    @Column(name = "cash_collected_amount")
-    private BigDecimal cashCollectedAmount;
-
     @Enumerated(EnumType.STRING)
     @Column(name = "delivery_status")
     private com.fooddelivery.common.enums.DeliveryStatus deliveryStatus;

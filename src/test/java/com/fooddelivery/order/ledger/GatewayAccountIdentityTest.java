@@ -130,9 +130,6 @@ public class GatewayAccountIdentityTest {
                 () -> bookkeeper.bookRefund(order, refundFor(order, new BigDecimal("10.00")), null));
     }
 
-    // walletAndCodBookNoGatewayCapture deleted: it pinned a branch inside bookPaymentCaptured that
-    // no production caller could reach. The caller passes intent.getGatewayName(), which is null for
-    // both WALLET and COD -- so those orders hit the blank-gateway throw instead and could never be
-    // paid for. Routing now happens on the payment method in CreatedState, and WalletCaptureTest
-    // covers both destinations against the real bookkeeper.
+    // Wallet capture routing happens on the payment method in CreatedState. WalletCaptureTest
+    // covers both prepaid destinations against the real bookkeeper.
 }

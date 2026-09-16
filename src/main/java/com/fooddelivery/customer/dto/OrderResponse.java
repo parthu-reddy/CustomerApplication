@@ -76,6 +76,4 @@ public class OrderResponse {
     /** Why a terminal order ended, set by the state that ended it. Null while the order is live. */
     private String cancellationReason;
 
-    /** What the rider actually collected. Only ever set for a delivered COD order. */
-    private BigDecimal cashCollectedAmount;
 }

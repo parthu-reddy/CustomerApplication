@@ -112,18 +112,21 @@ public class CustomerOrderService {
 
     @io.micrometer.observation.annotation.Observed(name = "process.order", contextualName = "order-creation")
     public java.util.concurrent.CompletableFuture<OrderWithPayment> createOrderWithPayment(com.fooddelivery.customer.dto.OrderRequest request) {
+        com.fooddelivery.common.enums.PaymentMethod requestedMethod = request.getPaymentMethod();
+        if (requestedMethod == null) {
+            throw new IllegalArgumentException("paymentMethod is required");
+        }
+        log.info("ORDER_CHECKOUT_STARTED orderQuoteId={} customerId={} restaurantId={} paymentMethod={}",
+                request.getQuoteId(), request.getCustomerId(), request.getRestaurantId(), requestedMethod);
         return createOrder(request).thenApply(order -> {
             try {
-                com.fooddelivery.common.enums.PaymentMethod method = request.getPaymentMethod();
-                if (method == null) {
-                    // Never guess. Defaulting to WALLET silently charged a wallet the customer may not
-                    // have chosen, and left every downstream branch (refund routing, COD, receipts)
-                    // reading a method the customer never picked.
-                    throw new IllegalArgumentException("paymentMethod is required");
-                }
+                com.fooddelivery.common.enums.PaymentMethod method = requestedMethod;
                 String intent = paymentGatewayOrchestrator.generateIntent(order, method);
 
-                walletCheckoutService.processWalletOrCod(order, method, intent);
+                walletCheckoutService.processWallet(order, method, intent);
+
+                log.info("ORDER_PAYMENT_INTENT_READY orderId={} customerId={} paymentMethod={} paymentIntentId={}",
+                        order.getId(), order.getCustomerId(), method, intent);
 
                 return new OrderWithPayment(order, intent);
             } catch (Exception e) {

@@ -33,7 +33,7 @@ import static org.mockito.Mockito.*;
  *
  * <p>These tests use the <strong>real</strong> {@link LedgerBookkeeper}, not a mock. Every other
  * state test mocks it, which is exactly why this shipped: the wallet intent is built with
- * {@code gatewayName(null)}, {@code CreatedState} sent every non-COD method into
+ * {@code gatewayName(null)}, and {@code CreatedState} sent wallet payments into
  * {@code bookPaymentCaptured}, and that method refuses a null gateway — so every wallet order threw,
  * rolled back and was retried into the DLT, after the wallet had already been debited.
  *
@@ -89,7 +89,6 @@ class WalletCaptureTest {
         assertEquals(PaymentIntentStatus.SUCCESS, o.getPaymentStatus());
         verify(actionService).updatePaymentIntentStatus(o.getId(), PaymentIntentStatus.SUCCESS);
         verify(actionService).emitOrderPaidEvent(o);
-        verify(actionService, never()).emitOrderPlacedCodEvent(any());
     }
 
     @Test
@@ -129,17 +128,6 @@ class WalletCaptureTest {
         IllegalStateException e = assertThrows(IllegalStateException.class,
                 () -> new CreatedState().handlePaymentSuccess(ctx(o, null)));
         assertTrue(e.getMessage().contains("without a gateway name"), e.getMessage());
-    }
-
-    @Test
-    void aCodOrderBooksNothingAndStaysPendingCollection() {
-        Order o = order(PaymentMethod.COD, OrderStatus.CREATED);
-
-        new CreatedState().handlePaymentSuccess(ctx(o, null));
-
-        assertEquals(PaymentIntentStatus.PENDING_COLLECTION, o.getPaymentStatus());
-        verify(actionService).emitOrderPlacedCodEvent(o);
-        verifyNoInteractions(outbox);
     }
 
     @Test

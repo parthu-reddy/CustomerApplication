@@ -52,25 +52,6 @@ public class LedgerBookkeeperTest {
     }
 
     @Test
-    void testBookCashCollected() {
-        Order order = new Order();
-        order.setId(UUID.randomUUID());
-        order.setDeliveryExecutiveId(UUID.randomUUID());
-        order.setTotalAmount(new BigDecimal("50.00"));
-
-        // The declared amount, not the order total. Booking the total regardless of what the rider
-        // said is the defect this argument exists to remove.
-        bookkeeper.bookCashCollected(order, new BigDecimal("50.00"));
-
-        ArgumentCaptor<OutboxEventEntity> captor = ArgumentCaptor.forClass(OutboxEventEntity.class);
-        verify(outboxRepo, times(1)).save(captor.capture());
-
-        OutboxEventEntity saved = captor.getValue();
-        assertEquals("LEDGER", saved.getAggregateType().name());
-        assertTrue(saved.getPayload().contains("CASH_COLLECTED"));
-    }
-
-    @Test
     void testBookRefund_OriginalMethod() {
         Order order = new Order();
         order.setId(UUID.randomUUID());

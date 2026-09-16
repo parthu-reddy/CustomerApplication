@@ -105,7 +105,7 @@ public class RefundRemainingTest {
         order.setId(orderId);
         PaymentIntent intent = new PaymentIntent();
         intent.setAmount(new BigDecimal("100.00"));
-        intent.setPaymentMethod(com.fooddelivery.common.enums.PaymentMethod.COD);
+        intent.setPaymentMethod(com.fooddelivery.common.enums.PaymentMethod.CARD);
         intent.setStatus(com.fooddelivery.common.constants.PaymentIntentStatus.INITIATED);
         when(orderRepo.findById(orderId)).thenReturn(Optional.of(order));
         when(intentRepo.findByInternalOrderIdForUpdate(orderId)).thenReturn(Optional.of(intent));

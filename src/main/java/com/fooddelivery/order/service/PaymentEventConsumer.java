@@ -45,12 +45,14 @@ public class PaymentEventConsumer {
 
     @KafkaListener(topics = KafkaConstants.TOPIC_PAYMENT_EVENTS, groupId = KafkaConstants.GROUP_FOOD_DELIVERY + "-paymenteventconsumer")
     public void handlePaymentEvents(String payload, @org.springframework.messaging.handler.annotation.Headers java.util.Map<String, Object> headers) {
-        log.info("Received Payment Event: {}", payload);
         String extractedEventId = com.fooddelivery.common.util.KafkaHeaderUtils.extractHeaderValue(headers, "eventId");
         if (extractedEventId == null) {
             throw new IllegalArgumentException("Missing eventId header");
         }
         final String resolvedEventId = extractedEventId;
+        String receivedEventType = com.fooddelivery.common.util.KafkaHeaderUtils.extractHeaderValue(headers, "eventType");
+        log.info("PAYMENT_EVENT_RECEIVED eventId={} eventType={} payloadBytes={}",
+                resolvedEventId, receivedEventType, payload == null ? 0 : payload.length());
         // No retry loop here. This used to read
         //     int retries = 0; boolean success = false;
         //     while (!success && retries < AppConstants.MAX_OPTIMISTIC_LOCK_RETRIES) { ... }
@@ -120,7 +122,8 @@ public class PaymentEventConsumer {
                     }
 
                     if (gatewayOrderId == null || internalOrderId == null) {
-                        log.info("Ignoring unrecognized event payload (missing orderId or gatewayOrderId): {}", payload);
+                        log.warn("PAYMENT_EVENT_INVALID eventId={} eventType={} reason=missing_order_or_gateway_id",
+                                resolvedEventId, eventTypeStr);
                         return;
                     }
 

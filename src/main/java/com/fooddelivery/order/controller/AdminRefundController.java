@@ -130,7 +130,7 @@ public class AdminRefundController {
                .faultType(request.faultType() != null ? com.fooddelivery.order.enums.FaultType.valueOf(request.faultType()) : com.fooddelivery.order.enums.FaultType.UNKNOWN)
                // No destination: RefundService routes from the payment method and intent state.
                // Hardcoding ORIGINAL_METHOD here pushed wallet-paid orders at a gateway that had
-               // never taken the money, and threw REFUND_STATE_INVALID on every COD ticket.
+               // never taken the money.
                .initiatorType(com.fooddelivery.order.enums.InitiatorType.ADMIN)
                .initiatorId(adminId)
                .ticketId(ticketId)

@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.fooddelivery.common.client.PaymentServiceClient;
 import com.fooddelivery.common.dto.payment.CreateOrderRequest;
+import com.fooddelivery.common.dto.payment.CreatePaymentResponse;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -27,23 +28,20 @@ public class PaymentGatewayOrchestrator {
     private static final String INTERNAL_INTENT_PREFIX = "INTERNAL_";
 
     public String generateIntent(Order order, com.fooddelivery.common.enums.PaymentMethod paymentMethod) {
-        log.info("Requesting Payment Intent for Order: {} using method: {} from PaymentGatewayIntegration service", order.getId(), paymentMethod);
+        log.info("PAYMENT_INTENT_REQUESTED orderId={} paymentMethod={} amount={}", order.getId(), paymentMethod, order.getTotalAmount());
         try {
-            com.fooddelivery.common.enums.PaymentMethod method = paymentMethod != null ? paymentMethod : com.fooddelivery.common.enums.PaymentMethod.WALLET;
-            if (method == com.fooddelivery.common.enums.PaymentMethod.WALLET || method == com.fooddelivery.common.enums.PaymentMethod.COD) {
-                // Bypass external gateway for wallet and COD
-                log.info("Bypassing external gateway for internal payment method: {}", method);
+            if (paymentMethod == null) {
+                throw new IllegalArgumentException("paymentMethod is required");
+            }
+            com.fooddelivery.common.enums.PaymentMethod method = paymentMethod;
+            if (method == com.fooddelivery.common.enums.PaymentMethod.WALLET) {
+                log.info("PAYMENT_GATEWAY_BYPASSED orderId={} paymentMethod=WALLET", order.getId());
                 PaymentIntent intent = PaymentIntent.builder()
                     .id(UUID.randomUUID())
                     .internalOrderId(order.getId())
                     .gatewayOrderId(INTERNAL_INTENT_PREFIX + UUID.randomUUID().toString())
                     .amount(order.getTotalAmount())
-                    // COD is not paid at checkout: it is pending collection until the rider hands
-                    // the cash over. Marking it INITIATED/SUCCESS told the refund router that money had
-                    // been taken, so cancelling an uncollected order issued real store credit.
-                    .status(method == com.fooddelivery.common.enums.PaymentMethod.COD
-                            ? com.fooddelivery.common.constants.PaymentIntentStatus.PENDING_COLLECTION
-                            : com.fooddelivery.common.constants.PaymentIntentStatus.INITIATED)
+                    .status(com.fooddelivery.common.constants.PaymentIntentStatus.INITIATED)
                     .paymentMethod(method)
                     .createdAt(java.time.OffsetDateTime.now())
                     .gatewayName(null)
@@ -52,22 +50,22 @@ public class PaymentGatewayOrchestrator {
                 return intent.getGatewayOrderId();
             }
 
-            // Map UI payment methods to Gateway enum values
-            com.fooddelivery.common.enums.PaymentGateway targetGateway = com.fooddelivery.common.enums.PaymentGateway.RAZORPAY; // default for card/upi
-            
-            // Call PaymentGatewayIntegration service
-            CreateOrderRequest request = new CreateOrderRequest(order.getId().toString(), order.getTotalAmount());
-            String returnedGatewayOrderId = paymentClient.createOrder(targetGateway.name(), request);
-            if (returnedGatewayOrderId != null && !returnedGatewayOrderId.isEmpty()) {
-                PaymentIntent intent = PaymentIntent.builder().id(UUID.randomUUID()).internalOrderId(order.getId()).gatewayOrderId(returnedGatewayOrderId).amount(order.getTotalAmount()).status(com.fooddelivery.common.constants.PaymentIntentStatus.INITIATED).paymentMethod(method).gatewayName(targetGateway).createdAt(java.time.OffsetDateTime.now()).build();
+            CreateOrderRequest request = new CreateOrderRequest(order.getId().toString(), order.getTotalAmount())
+                    .paymentMethod(method);
+            CreatePaymentResponse response = paymentClient.createOrder(request);
+            if (response != null) {
+                PaymentIntent intent = PaymentIntent.builder().id(UUID.randomUUID()).internalOrderId(order.getId()).gatewayOrderId(response.gatewayOrderId()).amount(order.getTotalAmount()).status(com.fooddelivery.common.constants.PaymentIntentStatus.INITIATED).paymentMethod(method).gatewayName(response.gateway()).createdAt(java.time.OffsetDateTime.now()).build();
                 paymentIntentRepository.save(intent);
-                return returnedGatewayOrderId;
+                log.info("PAYMENT_INTENT_CREATED orderId={} gateway={} gatewayOrderId={} paymentMethod={}",
+                        order.getId(), response.gateway(), response.gatewayOrderId(), method);
+                return response.gatewayOrderId();
             } else {
-                log.error("Failed to generate payment intent.");
+                log.error("PAYMENT_INTENT_EMPTY_RESPONSE orderId={} paymentMethod={}", order.getId(), method);
                 throw new RuntimeException("Failed to generate payment intent.");
             }
         } catch (Exception e) {
-            log.error("Error communicating with PaymentGatewayIntegration service", e);
+            log.error("PAYMENT_INTENT_FAILED orderId={} paymentMethod={} errorType={} error={}",
+                    order.getId(), paymentMethod, e.getClass().getSimpleName(), e.getMessage(), e);
             throw new RuntimeException("Error communicating with PaymentGatewayIntegration service", e);
         }
     }

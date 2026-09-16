@@ -187,9 +187,9 @@ public class RefundService {
      *
      * <p>Callers used to pass a destination of their own -- six system paths hardcoded
      * {@code ORIGINAL_METHOD} and the chat path hardcoded {@code STORE_CREDIT} -- which bypassed the
-     * matrix entirely: a wallet-paid order was pushed at a gateway that had never taken the money
-     * (so the customer was never repaid), a COD order threw mid-consumer, and a card-paid customer
-     * was handed store credit. Automatic callers must pass no destination and take the routing below.
+     * matrix entirely: a wallet-paid order was pushed at a gateway that had never taken the money,
+     * while a card-paid customer was handed store credit. Automatic callers must pass no
+     * destination and take the routing below.
      *
      * <p>The single permitted override is an administrator granting store credit as goodwill. It is
      * recorded against that administrator via {@code initiatedById}.
@@ -229,15 +229,6 @@ public class RefundService {
             case WALLET:
                 if (intent.getStatus() == PaymentIntentStatus.SUCCESS
                         || intent.getStatus() == PaymentIntentStatus.PARTIALLY_REFUNDED) {
-                    return RefundDestination.STORE_CREDIT;
-                }
-                throw new IllegalStateException("REFUND_STATE_INVALID");
-            case COD:
-                if (intent.getStatus() == PaymentIntentStatus.PENDING_COLLECTION) {
-                    // Nothing was ever collected, so there is nothing to give back.
-                    return RefundDestination.NONE;
-                }
-                if (intent.getStatus() == PaymentIntentStatus.COLLECTED) {
                     return RefundDestination.STORE_CREDIT;
                 }
                 throw new IllegalStateException("REFUND_STATE_INVALID");

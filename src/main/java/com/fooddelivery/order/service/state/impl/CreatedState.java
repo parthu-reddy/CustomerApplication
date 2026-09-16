@@ -16,11 +16,8 @@ public class CreatedState implements OrderState {
     /**
      * Routes on how the customer paid, and nothing else.
      *
-     * <p>This used to branch on COD and send everything else to {@code bookPaymentCaptured}, which
-     * requires a gateway name. A wallet intent has none, so every wallet order threw here, rolled
-     * back, and was retried into the DLT -- after the wallet had already been debited. The
-     * {@code switch} is exhaustive so that a fifth payment method fails to compile rather than
-     * falling into a branch that takes no money.
+     * <p>The switch is exhaustive so that a new payment method fails to compile rather than falling
+     * into a branch that takes no money.
      */
     @Override
     public void handlePaymentSuccess(OrderContext ctx) {
@@ -39,9 +36,6 @@ public class CreatedState implements OrderState {
         Runnable capture = switch (method) {
             case CARD, UPI -> () -> captureViaGateway(ctx, order);
             case WALLET -> () -> captureFromWallet(ctx, order);
-            // Cash orders are not payments. Their own handler exists so that nothing here can
-            // accidentally treat one as collected money.
-            case COD -> () -> handleCodPlaced(ctx);
         };
         capture.run();
     }
@@ -70,21 +64,6 @@ public class CreatedState implements OrderState {
         ctx.getActionService().emitOrderPaidEvent(order);
         ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), com.fooddelivery.common.constants.NotificationTemplate.ORDER_PAID);
         ctx.getActionService().updatePaymentIntentStatus(order.getId(), PaymentIntentStatus.SUCCESS);
-    }
-
-    @Override
-    public void handleCodPlaced(OrderContext ctx) {
-        Order order = ctx.getOrder();
-        order.setStatus(OrderStatus.PENDING_ACCEPTANCE);
-        // The rider collects on delivery; until then nothing has been received.
-        order.setPaymentStatus(PaymentIntentStatus.PENDING_COLLECTION);
-        ctx.getActionService().saveOrder(order);
-
-        ctx.getActionService().emitOrderPlacedCodEvent(order);
-        // ORDER_PLACED, not ORDER_PAID: nothing has been paid. The customer owes cash to the rider,
-        // and the copy has to say so or they will not have it ready.
-        ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), com.fooddelivery.common.constants.NotificationTemplate.ORDER_PLACED);
-        ctx.getActionService().updatePaymentIntentStatus(order.getId(), PaymentIntentStatus.PENDING_COLLECTION);
     }
 
     @Override

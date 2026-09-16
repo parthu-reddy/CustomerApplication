@@ -44,20 +44,6 @@ public class DriverSummaryService {
         summary.setGross(gross);
         summary.setTaxes(taxes);
         summary.setNet(net);
-        // Cash and payout figures used to be hardcoded zeros behind a discarded call to the
-        // admin-only pending queue, so a rider carrying cash was always shown nothing in hand.
-        try {
-            var cash = ledgerClient.getCashSummary(driverId);
-            summary.setCashCollected(cash.getCashCollected());
-            summary.setCashRemitted(cash.getCashRemitted());
-            summary.setCashInHand(cash.getCashInHand());
-        } catch (Exception e) {
-            log.warn("Cash summary unavailable for driver {}: {}", driverId, e.getMessage());
-            summary.setCashCollected(null);
-            summary.setCashRemitted(null);
-            summary.setCashInHand(null);
-        }
-
         try {
             var payeeSummary = ledgerClient.getPayeeSummary("DRIVER", driverId);
             summary.setPendingBalance(payeeSummary.getUnsettledAmount() == null

@@ -126,21 +126,6 @@ public class RefundDestinationMatrixTest {
         assertEquals(RefundDestination.STORE_CREDIT, route(PaymentMethod.WALLET, PaymentIntentStatus.SUCCESS));
     }
 
-    /** Nothing was collected, so there is nothing to give back. */
-    @Test
-    void uncollectedCodRefundsNothing() {
-        assertEquals(RefundDestination.NONE, route(PaymentMethod.COD, PaymentIntentStatus.PENDING_COLLECTION));
-        // The credit is now a hand-off through the outbox rather than a direct call, so the
-        // observable changed -- but the assertion is the same one: uncollected cash issues nothing.
-        verify(outboxRepo, never()).save(argThat(e ->
-                e.getEventType() == com.fooddelivery.common.constants.EventType.WALLET_CREDIT_REQUESTED));
-    }
-
-    @Test
-    void collectedCodRefundsToStoreCredit() {
-        assertEquals(RefundDestination.STORE_CREDIT, route(PaymentMethod.COD, PaymentIntentStatus.COLLECTED));
-    }
-
     /** A gateway that reported failure took no money, so there is none to give back. */
     @Test
     void aFailedPaymentRefundsNothing() {
@@ -156,11 +141,6 @@ public class RefundDestinationMatrixTest {
     void cardInAnyOtherStateIsRefused() {
         assertEquals("REFUND_STATE_INVALID", refuse(PaymentMethod.CARD, PaymentIntentStatus.INITIATED).getMessage());
         assertEquals("REFUND_STATE_INVALID", refuse(PaymentMethod.CARD, PaymentIntentStatus.REFUNDED).getMessage());
-    }
-
-    @Test
-    void codInAnyOtherStateIsRefused() {
-        assertEquals("REFUND_STATE_INVALID", refuse(PaymentMethod.COD, PaymentIntentStatus.INITIATED).getMessage());
     }
 
     /**

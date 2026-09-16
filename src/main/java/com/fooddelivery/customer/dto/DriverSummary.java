@@ -9,9 +9,6 @@ public class DriverSummary {
     private BigDecimal gross;
     private BigDecimal taxes;
     private BigDecimal net;
-    private BigDecimal cashCollected;
-    private BigDecimal cashRemitted;
-    private BigDecimal cashInHand;
     private BigDecimal pendingBalance;
     private PayoutSummaryDto lastPayout;
 }

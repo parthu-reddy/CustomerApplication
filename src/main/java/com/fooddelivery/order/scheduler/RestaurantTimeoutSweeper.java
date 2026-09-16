@@ -124,8 +124,7 @@ public class RestaurantTimeoutSweeper {
                         .orderId(order.getId())
                         .amount(order.getTotalAmount())
                         .faultType(com.fooddelivery.order.enums.FaultType.RESTAURANT_FAULT)
-                        // No destination: RefundService routes it. An auto-cancelled COD order that
-                        // was never collected must refund nothing, not be pushed at a gateway.
+                        // No destination: RefundService routes from the persisted payment facts.
                         .initiatorType(com.fooddelivery.order.enums.InitiatorType.SYSTEM)
                         .reasonCode("AUTO_CANCEL_STALE")
                         .idempotencyKey("sweep_stale_" + order.getId())
@@ -157,8 +156,7 @@ public class RestaurantTimeoutSweeper {
                         .orderId(order.getId())
                         .amount(order.getTotalAmount())
                         .faultType(com.fooddelivery.order.enums.FaultType.RESTAURANT_FAULT)
-                        // No destination: RefundService routes it. An auto-cancelled COD order that
-                        // was never collected must refund nothing, not be pushed at a gateway.
+                        // No destination: RefundService routes from the persisted payment facts.
                         .initiatorType(com.fooddelivery.order.enums.InitiatorType.SYSTEM)
                         .reasonCode("AUTO_CANCEL_STUCK")
                         .idempotencyKey("sweep_stuck_" + order.getId())

@@ -32,11 +32,11 @@ class PaymentRoutingExhaustivenessTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private String gatewayFor(PaymentMethod method) {
-        // What PaymentGatewayOrchestrator actually records: CARD and UPI go to a gateway, the other
-        // two are settled internally and have no gateway name at all.
+        // What PaymentGatewayOrchestrator actually records: CARD and UPI use a gateway; wallet is
+        // settled internally and has no gateway name.
         return switch (method) {
             case CARD, UPI -> "RAZORPAY";
-            case WALLET, COD -> null;
+            case WALLET -> null;
         };
     }
 

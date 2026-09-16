@@ -8,36 +8,50 @@ This workflow automates the process of committing local changes across all micro
 
 ```bash
 # 1. Identify all repositories with uncommitted changes
+MODIFIED_REPOS=()
 for dir in */; do
   if [ -d "$dir/.git" ]; then
     (cd "$dir" && changes=$(git status --porcelain)
     if [ -n "$changes" ]; then
       echo "Committing changes in $dir..."
-      git add -u
+      git add .
       git commit -m "chore: automated workflow update"
       git pull --rebase origin main
       git push
+      MODIFIED_REPOS+=("${dir%/}")
     fi)
   fi
 done
 
-# 2. Make modified repositories public (Requires Accept Consequences Flag)
-# Example for CommunicationService
-gh repo edit parthu-reddy/CommunicationService --visibility public --accept-visibility-change-consequences
+# 2. Make modified repositories public, trigger workflows, and revert
+for repo in "${MODIFIED_REPOS[@]}"; do
+  echo "Processing $repo..."
+  
+  # Make public
+  gh repo edit "parthu-reddy/$repo" --visibility public --accept-visibility-change-consequences
+  
+  # Trigger all workflows
+  (cd "$repo" && for workflow in .github/workflows/*.yml; do
+    if [ -f "$workflow" ]; then
+      workflow_name=$(basename "$workflow")
+      echo "Triggering $workflow_name in $repo..."
+      gh workflow run "$workflow_name"
+    fi
+  done)
+  
+  # Note: To block and wait for completion, you can use:
+  # gh run watch $(gh run list -R "parthu-reddy/$repo" -L 1 --json databaseId -q '.[0].databaseId')
+  
+  # Make private again
+  # In a fully automated script, you might want to wait for workflows to finish first before making private
+  gh repo edit "parthu-reddy/$repo" --visibility private --accept-visibility-change-consequences
+done
 
-# 3. Trigger Workflows in Dependency Order
-# E.g., Contract tests before builds
-(cd CommunicationService && gh workflow run contract-tests.yml && gh workflow run build-and-push.yml)
-
-# 4. Monitor Workflows
-# Use `gh run watch` to block until success or failure
-gh run watch <RUN_ID>
-
-# 5. Fix Issues
-# If monitoring reveals failures, investigate logs, patch codebase, and repeat steps 1-4.
-
-# 6. Make Repositories Private Again
-gh repo edit parthu-reddy/CommunicationService --visibility private --accept-visibility-change-consequences
+# 3. Test Contracts Repository (Always run at the end)
+echo "Testing FoodDeliveryContracts..."
+gh repo edit parthu-reddy/FoodDeliveryContracts --visibility public --accept-visibility-change-consequences
+(cd FoodDeliveryContracts && gh workflow run contract-verification.yml)
+gh repo edit parthu-reddy/FoodDeliveryContracts --visibility private --accept-visibility-change-consequences
 ```
 
 ## What to know

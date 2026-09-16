@@ -1641,43 +1641,6 @@
         }
       }
     },
-    "/api/v1/money/driver/cash" : {
-      "get" : {
-        "tags" : [ "driver-money-controller" ],
-        "operationId" : "fetchCash",
-        "parameters" : [ {
-          "name" : "page",
-          "in" : "query",
-          "required" : false,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int32",
-            "default" : 0
-          }
-        }, {
-          "name" : "size",
-          "in" : "query",
-          "required" : false,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int32",
-            "default" : 20
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/PageResponseDtoCashRemittanceDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/money/customer/wallet" : {
       "get" : {
         "tags" : [ "customer-money-controller" ],
@@ -2480,7 +2443,7 @@
         }
       },
       "OrderRequest" : {
-        "required" : [ "customerId", "deliveryAddressId", "items", "quoteId", "restaurantId" ],
+        "required" : [ "customerId", "deliveryAddressId", "items", "paymentMethod", "quoteId", "restaurantId" ],
         "type" : "object",
         "properties" : {
           "quoteId" : {
@@ -2504,7 +2467,8 @@
           },
           "paymentMethod" : {
             "type" : "string",
-            "enum" : [ "CARD", "UPI", "WALLET", "COD" ]
+            "description" : "Prepaid payment method for a new order.",
+            "enum" : [ "CARD", "UPI", "WALLET", "CARD", "UPI", "WALLET" ]
           },
           "items" : {
             "type" : "array",
@@ -2666,13 +2630,10 @@
           },
           "paymentMethod" : {
             "type" : "string",
-            "enum" : [ "CARD", "UPI", "WALLET", "COD" ]
+            "enum" : [ "CARD", "UPI", "WALLET" ]
           },
           "cancellationReason" : {
             "type" : "string"
-          },
-          "cashCollectedAmount" : {
-            "type" : "number"
           },
           "expiresAt" : {
             "type" : "integer",
@@ -3024,7 +2985,7 @@
           },
           "method" : {
             "type" : "string",
-            "enum" : [ "CARD", "UPI", "WALLET", "COD" ]
+            "enum" : [ "CARD", "UPI", "WALLET" ]
           },
           "reasonCode" : {
             "type" : "string"
@@ -3351,6 +3312,9 @@
           },
           "creativeFormat" : {
             "type" : "string"
+          },
+          "advertiserId" : {
+            "type" : "string"
           }
         }
       },
@@ -3617,11 +3581,11 @@
           },
           "ownerType" : {
             "type" : "string",
-            "enum" : [ "GATEWAY_RECEIVABLE", "CASH_RECEIVABLE", "BANK", "PLATFORM_CLEARING", "PLATFORM_REVENUE", "TAX_PAYABLE", "PAYOUT_IN_TRANSIT", "RESTAURANT_PAYABLE", "DRIVER_PAYABLE", "CUSTOMER_CREDIT", "ADVERTISER_PREPAID" ]
+            "enum" : [ "GATEWAY_RECEIVABLE", "BANK", "PLATFORM_CLEARING", "PLATFORM_REVENUE", "TAX_PAYABLE", "PAYOUT_IN_TRANSIT", "RESTAURANT_PAYABLE", "DRIVER_PAYABLE", "CUSTOMER_CREDIT", "ADVERTISER_PREPAID" ]
           },
           "category" : {
             "type" : "string",
-            "enum" : [ "DELIVERY_FEE", "PLATFORM_FIXED_FEE", "PLATFORM_BONUS", "FOOD_COST", "SGST", "CGST", "REFUND", "ORDER_TOTAL", "AD_IMPRESSION", "AD_CLICK", "AD_CONVERSION", "AD_WALLET_TOPUP", "CLAWBACK", "PAYOUT_TRANSFER", "CASH_COLLECTED", "CASH_SHORTFALL", "CASH_REMITTED", "STORE_CREDIT" ]
+            "enum" : [ "DELIVERY_FEE", "PLATFORM_FIXED_FEE", "PLATFORM_BONUS", "FOOD_COST", "SGST", "CGST", "REFUND", "ORDER_TOTAL", "AD_IMPRESSION", "AD_CLICK", "AD_CONVERSION", "AD_WALLET_TOPUP", "CLAWBACK", "PAYOUT_TRANSFER", "STORE_CREDIT" ]
           },
           "amount" : {
             "type" : "number"
@@ -3731,92 +3695,11 @@
           "net" : {
             "type" : "number"
           },
-          "cashCollected" : {
-            "type" : "number"
-          },
-          "cashRemitted" : {
-            "type" : "number"
-          },
-          "cashInHand" : {
-            "type" : "number"
-          },
           "pendingBalance" : {
             "type" : "number"
           },
           "lastPayout" : {
             "$ref" : "#/components/schemas/PayoutSummaryDto"
-          }
-        }
-      },
-      "CashRemittanceDto" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "string",
-            "format" : "uuid"
-          },
-          "driverId" : {
-            "type" : "string",
-            "format" : "uuid"
-          },
-          "amount" : {
-            "type" : "number"
-          },
-          "reference" : {
-            "type" : "string"
-          },
-          "recordedBy" : {
-            "type" : "string",
-            "format" : "uuid"
-          },
-          "ledgerTransactionId" : {
-            "type" : "string",
-            "format" : "uuid"
-          },
-          "createdAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          }
-        }
-      },
-      "PageResponseDtoCashRemittanceDto" : {
-        "required" : [ "content", "empty", "first", "last", "number", "numberOfElements", "size", "totalElements", "totalPages" ],
-        "type" : "object",
-        "properties" : {
-          "content" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/CashRemittanceDto"
-            }
-          },
-          "totalElements" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "totalPages" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "last" : {
-            "type" : "boolean"
-          },
-          "size" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "number" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "first" : {
-            "type" : "boolean"
-          },
-          "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "empty" : {
-            "type" : "boolean"
           }
         }
       },
@@ -4055,10 +3938,7 @@
           },
           "paymentMethod" : {
             "type" : "string",
-            "enum" : [ "CARD", "UPI", "WALLET", "COD" ]
-          },
-          "cashCollectedAmount" : {
-            "type" : "number"
+            "enum" : [ "CARD", "UPI", "WALLET" ]
           },
           "deliveryStatus" : {
             "type" : "string",
@@ -4066,7 +3946,7 @@
           },
           "paymentStatus" : {
             "type" : "string",
-            "enum" : [ "INITIATED", "SUCCESS", "FAILED", "PENDING_COLLECTION", "COLLECTED", "PARTIALLY_REFUNDED", "REFUNDED", "REFUND_PENDING", "REFUND_FAILED" ]
+            "enum" : [ "INITIATED", "SUCCESS", "FAILED", "PARTIALLY_REFUNDED", "REFUNDED", "REFUND_PENDING", "REFUND_FAILED" ]
           },
           "totalAmount" : {
             "type" : "number"
@@ -4160,6 +4040,13 @@
           "deliveryAddress" : {
             "type" : "string"
           },
+          "dispatchCityId" : {
+            "type" : "string"
+          },
+          "fleetSearchRadiusKm" : {
+            "type" : "number",
+            "format" : "double"
+          },
           "pickupOtp" : {
             "type" : "string"
           },
@@ -4225,6 +4112,12 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "sort" : {
+            "$ref" : "#/components/schemas/SortObject"
+          },
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
+          },
           "size" : {
             "type" : "integer",
             "format" : "int32"
@@ -4239,16 +4132,10 @@
             "type" : "integer",
             "format" : "int32"
           },
-          "sort" : {
-            "$ref" : "#/components/schemas/SortObject"
-          },
-          "last" : {
+          "first" : {
             "type" : "boolean"
           },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
-          },
-          "first" : {
+          "last" : {
             "type" : "boolean"
           },
           "numberOfElements" : {
@@ -4264,26 +4151,26 @@
         "required" : [ "offset", "pageNumber", "pageSize", "paged", "unpaged" ],
         "type" : "object",
         "properties" : {
-          "offset" : {
-            "type" : "integer",
-            "format" : "int64"
+          "sort" : {
+            "$ref" : "#/components/schemas/SortObject"
           },
           "paged" : {
             "type" : "boolean"
           },
-          "sort" : {
-            "$ref" : "#/components/schemas/SortObject"
-          },
-          "unpaged" : {
-            "type" : "boolean"
+          "pageNumber" : {
+            "type" : "integer",
+            "format" : "int32"
           },
           "pageSize" : {
             "type" : "integer",
             "format" : "int32"
           },
-          "pageNumber" : {
+          "unpaged" : {
+            "type" : "boolean"
+          },
+          "offset" : {
             "type" : "integer",
-            "format" : "int32"
+            "format" : "int64"
           }
         }
       },
@@ -4333,6 +4220,12 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "sort" : {
+            "$ref" : "#/components/schemas/SortObject"
+          },
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
+          },
           "size" : {
             "type" : "integer",
             "format" : "int32"
@@ -4347,16 +4240,10 @@
             "type" : "integer",
             "format" : "int32"
           },
-          "sort" : {
-            "$ref" : "#/components/schemas/SortObject"
-          },
-          "last" : {
+          "first" : {
             "type" : "boolean"
           },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
-          },
-          "first" : {
+          "last" : {
             "type" : "boolean"
           },
           "numberOfElements" : {
@@ -4416,11 +4303,11 @@
           },
           "paymentMethod" : {
             "type" : "string",
-            "enum" : [ "CARD", "UPI", "WALLET", "COD" ]
+            "enum" : [ "CARD", "UPI", "WALLET" ]
           },
           "paymentStatus" : {
             "type" : "string",
-            "enum" : [ "INITIATED", "SUCCESS", "FAILED", "PENDING_COLLECTION", "COLLECTED", "PARTIALLY_REFUNDED", "REFUNDED", "REFUND_PENDING", "REFUND_FAILED" ]
+            "enum" : [ "INITIATED", "SUCCESS", "FAILED", "PARTIALLY_REFUNDED", "REFUNDED", "REFUND_PENDING", "REFUND_FAILED" ]
           },
           "gatewayName" : {
             "type" : "string",

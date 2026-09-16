@@ -117,8 +117,7 @@ public class ReadyForPickupState implements OrderState {
      *
      * <p>The handover event was lost, retried into the DLT, or arrived after this one. Promote the
      * status first so the order does not end up READY_FOR_PICKUP with a delivery that says
-     * DELIVERED, then complete it exactly as HandedOverState does -- this used to be a second,
-     * quietly different implementation that skipped the COD cash entirely.
+     * DELIVERED, then complete it exactly as HandedOverState does.
      */
     @Override
     public void handleOrderDelivered(OrderContext ctx) {

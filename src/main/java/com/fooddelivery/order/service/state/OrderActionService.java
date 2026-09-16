@@ -121,14 +121,7 @@ public class OrderActionService {
         emitOrderPlacedEvent(order, EventType.ORDER_PAID);
     }
 
-    public void emitOrderPlacedCodEvent(Order order) {
-        emitOrderPlacedEvent(order, EventType.ORDER_PLACED_COD);
-    }
-
-    /**
-     * The one builder for both. They were byte-identical apart from the event type, which is how
-     * {@code customerId} came to be missing from an event the restaurant service reads it from.
-     */
+    /** Builds the canonical paid-order integration event. */
     private void emitOrderPlacedEvent(Order order, EventType eventType) {
         try {
             String itemsJsonStr = "[]";
@@ -203,58 +196,18 @@ public class OrderActionService {
         }
     }
 
-    /**
-     * Completes a delivery. The single definition of what that means.
-     *
-     * <p>It lived in two states that disagreed. {@code HandedOverState} booked the order economics,
-     * collected the COD cash and moved the intent to COLLECTED; {@code ReadyForPickupState} — which
-     * is reached whenever ORDER_DELIVERED is processed while the handover event has been lost,
-     * retried into the DLT, or simply arrived out of order — booked the economics only. The
-     * restaurant and the rider were credited against cash the book said was never received, and a
-     * later refund on that order routed to NONE because the intent still said PENDING_COLLECTION.
-     */
+    /** Completes a prepaid delivery and settles its order economics exactly once. */
     public void completeDelivery(com.fooddelivery.order.service.state.OrderContext ctx) {
         Order order = ctx.getOrder();
         order.setDeliveryStatus(com.fooddelivery.common.enums.DeliveryStatus.DELIVERED);
         order.setDeliveredAt(LocalDateTime.now());
 
-        if (order.getPaymentMethod() == com.fooddelivery.common.enums.PaymentMethod.COD) {
-            // What the rider says they took. Recorded on the order whether or not it matches the
-            // total, so a short collection is a fact somebody can query rather than a silent gap.
-            java.math.BigDecimal declared = readDeclaredCash(ctx);
-            order.setCashCollectedAmount(declared);
-            saveOrder(order);
-            ctx.getLedgerBookkeeper().bookDelivered(order);
-            ctx.getLedgerBookkeeper().bookCashCollected(order, declared);
-            // COLLECTED, not SUCCESS: it distinguishes cash the rider has actually taken from a
-            // gateway capture, which is what RefundService needs to decide whether a COD refund
-            // moves money at all.
-            order.setPaymentStatus(com.fooddelivery.common.constants.PaymentIntentStatus.COLLECTED);
-            updatePaymentIntentStatus(order.getId(), com.fooddelivery.common.constants.PaymentIntentStatus.COLLECTED);
-        } else {
-            saveOrder(order);
-            ctx.getLedgerBookkeeper().bookDelivered(order);
-        }
+        saveOrder(order);
+        ctx.getLedgerBookkeeper().bookDelivered(order);
+        log.info("ORDER_DELIVERY_COMPLETED orderId={} customerId={} restaurantId={} driverId={} paymentMethod={}",
+                order.getId(), order.getCustomerId(), order.getRestaurantId(),
+                order.getDeliveryExecutiveId(), order.getPaymentMethod());
 
         sendNotification(order.getId().toString(), order.getCustomerId(), com.fooddelivery.common.constants.NotificationTemplate.ORDER_DELIVERED);
-    }
-
-    /** The rider's declared cash from the ORDER_DELIVERED payload, or null if they sent none. */
-    private java.math.BigDecimal readDeclaredCash(com.fooddelivery.order.service.state.OrderContext ctx) {
-        Object payload = ctx.getEventPayload();
-        String amountStr = null;
-        if (payload instanceof com.fooddelivery.common.event.DeliveredEvent) {
-            amountStr = ((com.fooddelivery.common.event.DeliveredEvent) payload).getCashCollectedAmount();
-        }
-        
-        if (amountStr == null) {
-            throw new IllegalStateException("Order " + ctx.getOrder().getId() + " was delivered with no declared cash amount");
-        }
-        try {
-            return new java.math.BigDecimal(amountStr);
-        } catch (NumberFormatException e) {
-            throw new IllegalStateException("Order " + ctx.getOrder().getId()
-                    + " was delivered with an unreadable cash amount: " + amountStr, e);
-        }
     }
 }

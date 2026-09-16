@@ -49,7 +49,7 @@ public class CustomerOrderServiceWalletCheckoutTest {
         
         String intent = "INTERNAL_" + UUID.randomUUID().toString();
 
-        checkoutService.processWalletOrCod(order, PaymentMethod.WALLET, intent);
+        checkoutService.processWallet(order, PaymentMethod.WALLET, intent);
 
         ArgumentCaptor<TransactionRequest> txCaptor = ArgumentCaptor.forClass(TransactionRequest.class);
         verify(walletClient, times(1)).debit(eq("CUSTOMER"), eq(order.getCustomerId()), txCaptor.capture(), anyString());
@@ -67,24 +67,6 @@ public class CustomerOrderServiceWalletCheckoutTest {
         assertTrue(saved.getPayload().contains(intent));
     }
 
-    /**
-     * COD takes no money at checkout. Debiting a wallet here would charge a customer who chose to
-     * pay the rider in cash.
-     */
-    @Test
-    void testCodCheckout_TakesNoMoneyButStillSignalsTheOrder() {
-        Order order = new Order();
-        order.setId(UUID.randomUUID());
-        order.setCustomerId(UUID.randomUUID());
-        order.setTotalAmount(new BigDecimal("150.00"));
-
-        checkoutService.processWalletOrCod(order, PaymentMethod.COD, "INTERNAL_" + UUID.randomUUID());
-
-        verify(walletClient, never()).debit(any(), any(), any(), any());
-        // The order still has to move on: CreatedState routes COD to handleCodPlaced from here.
-        verify(outboxRepo, times(1)).save(any(OutboxEventEntity.class));
-    }
-
     /** A card or UPI order is settled by the gateway; this path must not touch it. */
     @Test
     void testCardCheckout_IsNotHandledHere() {
@@ -93,7 +75,7 @@ public class CustomerOrderServiceWalletCheckoutTest {
         order.setCustomerId(UUID.randomUUID());
         order.setTotalAmount(new BigDecimal("150.00"));
 
-        checkoutService.processWalletOrCod(order, PaymentMethod.CARD, "gw_order_1");
+        checkoutService.processWallet(order, PaymentMethod.CARD, "gw_order_1");
 
         verify(walletClient, never()).debit(any(), any(), any(), any());
         verify(outboxRepo, never()).save(any());
@@ -108,7 +90,7 @@ public class CustomerOrderServiceWalletCheckoutTest {
         order.setTotalAmount(new BigDecimal("150.00"));
 
         UUID intentUuid = UUID.randomUUID();
-        checkoutService.processWalletOrCod(order, PaymentMethod.WALLET, "INTERNAL_" + intentUuid);
+        checkoutService.processWallet(order, PaymentMethod.WALLET, "INTERNAL_" + intentUuid);
 
         ArgumentCaptor<TransactionRequest> tx = ArgumentCaptor.forClass(TransactionRequest.class);
         verify(walletClient).debit(eq("CUSTOMER"), eq(order.getCustomerId()), tx.capture(), anyString());
@@ -137,7 +119,7 @@ public class CustomerOrderServiceWalletCheckoutTest {
 
         String intent = UUID.randomUUID().toString();
         org.junit.jupiter.api.Assertions.assertThrows(RuntimeException.class,
-                () -> checkoutService.processWalletOrCod(order, PaymentMethod.WALLET, intent));
+                () -> checkoutService.processWallet(order, PaymentMethod.WALLET, intent));
 
         verify(outboxRepo, never()).save(any());
     }

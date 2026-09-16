@@ -66,7 +66,6 @@ public class OrderMapper {
             .deliveryExecutiveId(order.getDeliveryExecutiveId())
             .paymentMethod(order.getPaymentMethod())
             .cancellationReason(order.getCancellationReason())
-            .cashCollectedAmount(order.getCashCollectedAmount())
             .build();
     }
 }

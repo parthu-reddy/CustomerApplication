@@ -20,21 +20,22 @@ public class WalletCheckoutService {
     private final TransactionTemplate transactionTemplate;
     private final OutboxEventRepository outboxEventRepository;
 
-    public void processWalletOrCod(Order order, PaymentMethod method, String intent) {
-        if (method == PaymentMethod.WALLET || method == PaymentMethod.COD) {
+    public void processWallet(Order order, PaymentMethod method, String intent) {
+        if (method == PaymentMethod.WALLET) {
             transactionTemplate.executeWithoutResult(status -> {
-                if (method == PaymentMethod.WALLET) {
-                    com.fooddelivery.common.dto.wallet.TransactionRequest txReq = new com.fooddelivery.common.dto.wallet.TransactionRequest();
-                    txReq.setAmount(order.getTotalAmount());
-                    txReq.setReferenceId(intent.startsWith("INTERNAL_") ? UUID.fromString(intent.replace("INTERNAL_", "")) : UUID.fromString(intent));
-                    txReq.setCategory(com.fooddelivery.common.enums.ChargeCategory.ORDER_TOTAL);
-                    txReq.setDescription("Order " + order.getId());
-                    walletServiceClient.debit(com.fooddelivery.common.enums.WalletEntityType.CUSTOMER.name(), order.getCustomerId(), txReq, SERVICE_NAME);
-                }
+                com.fooddelivery.common.dto.wallet.TransactionRequest txReq = new com.fooddelivery.common.dto.wallet.TransactionRequest();
+                txReq.setAmount(order.getTotalAmount());
+                txReq.setReferenceId(intent.startsWith("INTERNAL_") ? UUID.fromString(intent.replace("INTERNAL_", "")) : UUID.fromString(intent));
+                txReq.setCategory(com.fooddelivery.common.enums.ChargeCategory.ORDER_TOTAL);
+                txReq.setDescription("Order " + order.getId());
+                log.info("WALLET_DEBIT_REQUESTED orderId={} customerId={} paymentIntentId={} amount={}",
+                        order.getId(), order.getCustomerId(), intent, order.getTotalAmount());
+                walletServiceClient.debit(com.fooddelivery.common.enums.WalletEntityType.CUSTOMER.name(), order.getCustomerId(), txReq, SERVICE_NAME);
                 String payload = String.format("{\"eventType\":\"PAYMENT_COMPLETED\", \"orderId\":\"%s\", \"gatewayOrderId\":\"%s\"}", order.getId(), intent);
                 com.fooddelivery.common.outbox.entity.OutboxEventEntity evt = com.fooddelivery.common.outbox.entity.OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.PAYMENT).aggregateId(intent).eventType(com.fooddelivery.common.constants.EventType.PAYMENT_COMPLETED).payload(payload).createdAt(java.time.LocalDateTime.now()).build();
                 outboxEventRepository.save(evt);
-                log.info("Saved PAYMENT_COMPLETED event for order: {}", order.getId());
+                log.info("WALLET_PAYMENT_COMPLETED_ENQUEUED orderId={} paymentIntentId={} eventId={}",
+                        order.getId(), intent, evt.getId());
             });
         }
     }

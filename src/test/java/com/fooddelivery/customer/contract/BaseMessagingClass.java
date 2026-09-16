@@ -226,40 +226,4 @@ public abstract class BaseMessagingClass {
                 com.fooddelivery.common.constants.EventType.WALLET_CREDIT_REQUESTED, payloadMap);
     }
 
-    /**
-     * ORDER_PLACED_COD, emitted by OrderActionService.emitOrderPlacedEvent for a cash order.
-     *
-     * <p>Built from a real {@link com.fooddelivery.common.event.OrderPaidEvent} rather than a
-     * hand-written map, for the reason {@code fireOrderCreated} gives: a field renamed on that class
-     * then breaks this contract instead of breaking a restaurant's kitchen screen. Restaurant
-     * -Application's {@code handleOrderPaid} reads eleven of these fields.
-     */
-    public void fireOrderPlacedCod() throws Exception {
-        String orderId = "3f2504e0-4f89-41d3-9a0c-0305e82c3301";
-        com.fooddelivery.common.event.OrderPaidEvent event =
-                com.fooddelivery.common.event.OrderPaidEvent.builder()
-                        .orderId(java.util.UUID.fromString(orderId))
-                        .restaurantId(java.util.UUID.fromString("9c8b7a65-1e2d-4f30-b5a6-7c8d9e0f1a23"))
-                        .customerId(java.util.UUID.fromString("6b1d3c22-9f45-4a7e-8c11-2d4e6f8a9b02"))
-                        .customerName("Priya Raman")
-                        .paymentMethod(com.fooddelivery.common.enums.PaymentMethod.COD)
-                        .estimatedPrepTimeMinutes(15)
-                        .deliveryLat(12.971598)
-                        .deliveryLng(77.594562)
-                        .deliveryAddress("221B Baker Street, Bangalore")
-                        .itemsJson("[{\"name\":\"Butter Chicken\",\"quantity\":1,\"price\":15.50}]")
-                        .pickupOtp("123456")
-                        .deliveryOtp("567890")
-                        .dispatchCityId("BLR")
-                        .fleetSearchRadiusKm(5.0)
-                        .totalAmount(new java.math.BigDecimal("15.50"))
-                        .itemTotal(new java.math.BigDecimal("12.00"))
-                        .restaurantPlatformFee(new java.math.BigDecimal("1.20"))
-                        .restaurantDeliveryContribution(new java.math.BigDecimal("0.80"))
-                        .platformBonus(new java.math.BigDecimal("0.00"))
-                        .restaurantPayout(new java.math.BigDecimal("10.00"))
-                        .build();
-        publishViaOutbox(com.fooddelivery.common.constants.AggregateType.ORDER, orderId,
-                com.fooddelivery.common.constants.EventType.ORDER_PLACED_COD, event);
-    }
 }

@@ -18,13 +18,12 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 /**
  * {@code payment_method} existed as a column and as an entity field, and nothing ever wrote it. With
  * it null, {@code RefundService} routed every refund to store credit, the unpaid-order sweeper never
- * recovered a wallet debit, and COD never booked its cash. These tests pin the write.
+ * recovered a wallet debit. These tests pin the write.
  */
 public class PaymentMethodPersistenceTest {
 
@@ -63,18 +62,9 @@ public class PaymentMethodPersistenceTest {
     }
 
     @Test
-    void codIntentIsPendingCollection() {
-        orchestrator.generateIntent(order(), PaymentMethod.COD);
-
-        PaymentIntent intent = savedIntent();
-        assertEquals(PaymentMethod.COD, intent.getPaymentMethod());
-        assertEquals(PaymentIntentStatus.PENDING_COLLECTION, intent.getStatus(),
-                "cash has not been collected at checkout; marking it otherwise lets a cancellation pay out");
-    }
-
-    @Test
     void gatewayIntentRecordsBothTheMethodAndTheGateway() {
-        when(paymentClient.createOrder(anyString(), any())).thenReturn("order_rzp_123");
+        when(paymentClient.createOrder(any())).thenReturn(
+                new com.fooddelivery.common.dto.payment.CreatePaymentResponse("order_rzp_123", PaymentGateway.RAZORPAY));
 
         orchestrator.generateIntent(order(), PaymentMethod.CARD);
 
@@ -87,7 +77,7 @@ public class PaymentMethodPersistenceTest {
 
     @Test
     void everyMethodIsRecorded() {
-        for (PaymentMethod method : new PaymentMethod[]{PaymentMethod.WALLET, PaymentMethod.COD}) {
+        for (PaymentMethod method : new PaymentMethod[]{PaymentMethod.WALLET}) {
             reset(intentRepository);
             orchestrator.generateIntent(order(), method);
             assertEquals(method, savedIntent().getPaymentMethod(), "method not recorded for " + method);

@@ -41,11 +41,8 @@ public class LedgerBookkeeper {
     /**
      * A capture taken by an external gateway. Only CARD and UPI reach here.
      *
-     * <p>There is deliberately no "COD or WALLET, do nothing" branch. One existed, and no
-     * production caller could reach it: the caller passes {@code intent.getGatewayName()}, which is
-     * null for both, so wallet orders hit the blank-gateway throw below and could never be paid for.
-     * Routing now happens on the payment method in {@code CreatedState}, and this method is only
-     * called when a gateway is genuinely involved.
+     * <p>Wallet routing happens on the payment method in {@code CreatedState}; this method is only
+     * called when an external gateway is genuinely involved.
      */
     public void bookPaymentCaptured(Order order, String gateway) {
         if (gateway == null || gateway.isBlank()) {
@@ -100,72 +97,6 @@ public class LedgerBookkeeper {
         saveOutboxEvent(txId, cmd);
     }
 
-
-    /**
-     * Books the cash the rider says they took, and the gap if it is short.
-     *
-     * <p>The amount is the rider's declaration, not {@code order.getTotalAmount()}. It used to be
-     * the total: the rider posted a {@code cashCollectedAmount}, it travelled in the
-     * ORDER_DELIVERED payload, and no handler read it, so a rider who declared 300 against a 420
-     * order was booked as having remitted 420 and nothing anywhere recorded the difference.
-     *
-     * <p>Both legs share one transaction id, so the shortfall cannot commit without the collection
-     * or the book goes out by the difference.
-     */
-    public void bookCashCollected(Order order, java.math.BigDecimal declared) {
-        if (order.getDeliveryExecutiveId() == null) {
-            throw new IllegalStateException(
-                    "Cannot book cash for order " + order.getId() + " without a rider to owe it");
-        }
-        if (declared == null) {
-            // Guessing here is what the old behaviour did. A COD delivery with no declared amount
-            // is a data defect at the delivery service, which now refuses to accept one.
-            throw new IllegalStateException(
-                    "COD order " + order.getId() + " was delivered with no declared cash amount");
-        }
-        java.math.BigDecimal total = order.getTotalAmount();
-        if (declared.compareTo(java.math.BigDecimal.ZERO) < 0) {
-            throw new IllegalStateException(
-                    "Rider declared a negative amount for order " + order.getId() + ": " + declared);
-        }
-        if (declared.compareTo(total) > 0) {
-            // A rider cannot remit more than the order was worth. Booking it would create money.
-            throw new IllegalStateException("Rider declared " + declared + " for order " + order.getId()
-                    + " but it was only worth " + total);
-        }
-
-        List<LedgerLeg> legs = new ArrayList<>();
-
-        // Cash the rider physically holds is a receivable owed to the platform, not a deduction
-        // from the rider's earnings. DRIVER_PAYABLE is a PAYABLE account, so debiting it here also
-        // tripped the ledger's insufficient-funds rule on almost every COD delivery.
-        LedgerLeg collected = new LedgerLeg();
-        collected.setFromType(LedgerAccountType.CASH_RECEIVABLE);
-        collected.setFromId(order.getDeliveryExecutiveId());
-        collected.setToType(LedgerAccountType.PLATFORM_CLEARING);
-        collected.setToId(LedgerAccounts.PLATFORM_CLEARING);
-        collected.setAmount(declared);
-        collected.setCategory(ChargeCategory.CASH_COLLECTED);
-        legs.add(collected);
-
-        java.math.BigDecimal shortfall = total.subtract(declared);
-        if (shortfall.compareTo(java.math.BigDecimal.ZERO) > 0) {
-            LedgerLeg gap = new LedgerLeg();
-            gap.setFromType(LedgerAccountType.DRIVER_PAYABLE);
-            gap.setFromId(order.getDeliveryExecutiveId());
-            gap.setToType(LedgerAccountType.PLATFORM_CLEARING);
-            gap.setToId(LedgerAccounts.PLATFORM_CLEARING);
-            gap.setAmount(shortfall);
-            gap.setCategory(ChargeCategory.CASH_SHORTFALL);
-            gap.setDescription("Short collection on order " + order.getId()
-                    + ": declared " + declared + " of " + total);
-            legs.add(gap);
-        }
-
-        UUID txId = DeterministicIdUtils.ledgerId("customer-application", order.getId(), "CASH_COLLECTED");
-        LedgerTransactionCommand cmd = new LedgerTransactionCommand(txId, order.getId(), "customer-application", "CASH_COLLECTED", legs);
-        saveOutboxEvent(txId, cmd);
-    }
 
     public void bookDelivered(Order order) {
         List<LedgerLeg> legs = new ArrayList<>();

@@ -54,10 +54,6 @@ public class TerminalState implements OrderState {
         Runnable book = switch (method) {
             case CARD, UPI -> () -> ctx.getLedgerBookkeeper().bookPaymentCaptured(order, ctx.getGateway());
             case WALLET -> () -> ctx.getLedgerBookkeeper().bookWalletCaptured(order);
-            // Cash cannot arrive late through a payment event -- it is booked when the rider
-            // delivers, by HandedOverState.
-            case COD -> () -> log.info("Ignoring a payment event for COD order {}: cash is booked on delivery",
-                    order.getId());
         };
         book.run();
     }

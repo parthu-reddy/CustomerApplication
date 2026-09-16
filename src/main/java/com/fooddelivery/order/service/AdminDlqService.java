@@ -27,7 +27,8 @@ public class AdminDlqService {
         ObjectMapper mapper = new ObjectMapper();
         String jsonPayload = mapper.writeValueAsString(payload);
         String targetTopic = topic != null && !topic.isEmpty() ? topic : KafkaConstants.TOPIC_ORDER_EVENTS;
-        log.info("Admin manually retrying DLQ event to topic {}: {}", targetTopic, jsonPayload);
+        log.info("ADMIN_DLT_RETRY_REQUESTED topic={} payloadBytes={}", targetTopic,
+                jsonPayload.getBytes(java.nio.charset.StandardCharsets.UTF_8).length);
         
         String partitionKey = null;
         if (payload.containsKey("aggregateId") && payload.get("aggregateId") != null) {

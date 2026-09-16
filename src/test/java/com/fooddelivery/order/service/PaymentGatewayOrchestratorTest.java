@@ -52,12 +52,15 @@ public class PaymentGatewayOrchestratorTest {
         order.setId(UUID.randomUUID());
         order.setTotalAmount(new BigDecimal("200.00"));
 
-        when(client.createOrder(anyString(), any(CreateOrderRequest.class))).thenReturn("ext_gateway_id_123");
+        when(client.createOrder(any(CreateOrderRequest.class))).thenReturn(
+                new com.fooddelivery.common.dto.payment.CreatePaymentResponse(
+                        "ext_gateway_id_123", com.fooddelivery.common.enums.PaymentGateway.CASHFREE));
 
         String result = orchestrator.generateIntent(order, PaymentMethod.UPI);
 
         assertEquals("ext_gateway_id_123", result);
         verify(intentRepo, times(1)).save(any(PaymentIntent.class));
-        verify(client, times(1)).createOrder(anyString(), any(CreateOrderRequest.class));
+        verify(client, times(1)).createOrder(argThat(request -> request.getPaymentMethod() == PaymentMethod.UPI));
     }
+
 }

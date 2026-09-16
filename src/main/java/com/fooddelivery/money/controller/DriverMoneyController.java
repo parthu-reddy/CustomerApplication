@@ -159,14 +159,4 @@ public class DriverMoneyController {
         return ResponseEntity.ok(ledgerClient.getStatement("DRIVER_PAYABLE", driverId, page, size));
     }
 
-    @GetMapping("/cash")
-    @PreAuthorize("@moneyAccessPolicy.canAccessMoney(authentication, T(com.fooddelivery.common.security.money.MoneyOwnerType).DRIVER, T(java.util.UUID).fromString(authentication.name))")
-    public ResponseEntity<com.fooddelivery.common.dto.PageResponseDto<com.fooddelivery.common.dto.ledger.CashRemittanceDto>> fetchCash(
-            @RequestParam(value = "page", defaultValue = "0") int page,
-            @RequestParam(value = "size", defaultValue = "20") int size,
-            Authentication authentication) {
-        
-        UUID driverId = UUID.fromString(authentication.getName());
-        return ResponseEntity.ok(ledgerClient.getCashByDriver(driverId, page, size));
-    }
 }

@@ -63,8 +63,10 @@ public class PaymentContractConsumerTest {
         req.setAmountInInr(new BigDecimal("50.00"));
         req.setPaymentMethod(com.fooddelivery.common.enums.PaymentMethod.CARD);
 
-        String response = paymentServiceClient.createOrder("RAZORPAY", req);
+        com.fooddelivery.common.dto.payment.CreatePaymentResponse response = paymentServiceClient.createOrder(req);
         assertNotNull(response);
+        org.junit.jupiter.api.Assertions.assertEquals("PAYMENT_LINK_URL", response.gatewayOrderId());
+        org.junit.jupiter.api.Assertions.assertEquals(com.fooddelivery.common.enums.PaymentGateway.RAZORPAY, response.gateway());
     }
 
 }

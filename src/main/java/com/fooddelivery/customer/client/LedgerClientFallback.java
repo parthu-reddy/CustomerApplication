@@ -1,8 +1,6 @@
 package com.fooddelivery.customer.client;
 
 import com.fooddelivery.common.dto.PageResponseDto;
-import com.fooddelivery.common.dto.ledger.CashRemittanceDto;
-import com.fooddelivery.common.dto.ledger.CashSummaryDto;
 import com.fooddelivery.common.dto.ledger.LedgerStatementLineDto;
 import com.fooddelivery.common.dto.ledger.PayeeMoneySummaryDto;
 import com.fooddelivery.common.dto.ledger.PayoutDto;
@@ -26,16 +24,6 @@ public class LedgerClientFallback implements LedgerClient {
 
     @Override
     public PageResponseDto<PayoutDto> getPayouts(String payeeType, UUID payeeId, int page, int size) {
-        throw new IllegalStateException("Ledger service is unavailable");
-    }
-
-    @Override
-    public CashSummaryDto getCashSummary(UUID driverId) {
-        throw new IllegalStateException("Ledger service is unavailable");
-    }
-
-    @Override
-    public PageResponseDto<CashRemittanceDto> getCashByDriver(UUID driverId, int page, int size) {
         throw new IllegalStateException("Ledger service is unavailable");
     }
 

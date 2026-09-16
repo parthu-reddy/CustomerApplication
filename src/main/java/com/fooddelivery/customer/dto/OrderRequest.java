@@ -25,7 +25,12 @@ public class OrderRequest {
     private UUID restaurantId;
     @NotNull
     private UUID deliveryAddressId;
+    @NotNull(message = "paymentMethod is required")
+    @io.swagger.v3.oas.annotations.media.Schema(
+            allowableValues = {"CARD", "UPI", "WALLET"},
+            description = "Prepaid payment method for a new order.")
     private PaymentMethod paymentMethod;
+
     @NotEmpty
     @Valid
     private List<OrderItemRequest> items;

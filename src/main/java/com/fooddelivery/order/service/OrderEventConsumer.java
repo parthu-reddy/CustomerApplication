@@ -84,12 +84,14 @@ public class OrderEventConsumer {
     @RetryableTopic(attempts = "4", backoff = @Backoff(delay = 2000, multiplier = 2.0, maxDelay = 10000), exclude = {com.fooddelivery.common.event.EventBindingException.class}, traversingCauses = "true")
     @KafkaListener(topics = KafkaConstants.TOPIC_ORDER_EVENTS, groupId = KafkaConstants.GROUP_FOOD_DELIVERY + "-ordereventconsumer")
     public void handleOrderEvents(String payload, @org.springframework.messaging.handler.annotation.Headers java.util.Map<String, Object> headers) {
-        log.info("OrderEventConsumer received event: {}", payload);
         String extractedEventId = com.fooddelivery.common.util.KafkaHeaderUtils.extractHeaderValue(headers, "eventId");
         if (extractedEventId == null) {
             throw new IllegalArgumentException("Missing eventId header");
         }
         final String resolvedEventId = extractedEventId;
+        String receivedEventType = com.fooddelivery.common.util.KafkaHeaderUtils.extractHeaderValue(headers, "eventType");
+        log.info("ORDER_EVENT_RECEIVED eventId={} eventType={} payloadBytes={}",
+                resolvedEventId, receivedEventType, payload == null ? 0 : payload.length());
 
         String idempotencyKeyStr = "processed_event:" + resolvedEventId;
 
@@ -102,7 +104,7 @@ public class OrderEventConsumer {
         try {
             transactionTemplate.execute(status -> {
                 if (idempotencyKeyRepository.existsById(idempotencyKeyStr)) {
-                    log.info("Duplicate event ignored: {}", idempotencyKeyStr);
+                    log.info("ORDER_EVENT_DUPLICATE eventId={} eventType={}", resolvedEventId, receivedEventType);
                     return null;
                 }
                 idempotencyKeyRepository.save(new IdempotencyKey(idempotencyKeyStr));
@@ -185,9 +187,7 @@ public class OrderEventConsumer {
                                 .orderId(order.getId())
                                 .amount(order.getTotalAmount())
                                 .faultType(faultTypeFor(eventType))
-                                // No destination: RefundService routes it. Forcing ORIGINAL_METHOD
-                                // made a COD order throw inside this consumer, rolling back the
-                                // state change and poisoning the partition on every retry.
+                                // No destination: RefundService is the single routing authority.
                                 .initiatorType(com.fooddelivery.order.enums.InitiatorType.SYSTEM)
                                 .reasonCode(eventType)
                                 .idempotencyKey("event_" + order.getId() + "_" + eventType)
@@ -212,7 +212,12 @@ public class OrderEventConsumer {
 
     @org.springframework.kafka.annotation.DltHandler
     public void handleDlt(String message, @org.springframework.messaging.handler.annotation.Headers java.util.Map<String, Object> headers) {
-        log.error("DLT processing: Message exhausted all retries in CustomerApplication. Message: {}, Headers: {}", message, headers);
+        log.error("ORDER_EVENT_DLT eventId={} eventType={} payloadBytes={} exception={}",
+                com.fooddelivery.common.util.KafkaHeaderUtils.extractHeaderValue(headers, "eventId"),
+                com.fooddelivery.common.util.KafkaHeaderUtils.extractHeaderValue(headers, "eventType"),
+                message == null ? 0 : message.length(),
+                com.fooddelivery.common.util.KafkaHeaderUtils.extractHeaderValue(headers,
+                        org.springframework.kafka.support.KafkaHeaders.EXCEPTION_MESSAGE));
     }
 
     /**

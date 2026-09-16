@@ -1,8 +1,6 @@
 package com.fooddelivery.customer.client;
 
 import com.fooddelivery.common.dto.PageResponseDto;
-import com.fooddelivery.common.dto.ledger.CashRemittanceDto;
-import com.fooddelivery.common.dto.ledger.CashSummaryDto;
 import com.fooddelivery.common.dto.ledger.LedgerStatementLineDto;
 import com.fooddelivery.common.dto.ledger.PayeeMoneySummaryDto;
 import org.springframework.cloud.openfeign.FeignClient;
@@ -42,15 +40,6 @@ public interface LedgerClient {
     PageResponseDto<com.fooddelivery.common.dto.ledger.PayoutDto> getPayouts(
             @RequestParam("payeeType") String payeeType,
             @RequestParam("payeeId") UUID payeeId,
-            @RequestParam(value = "page", defaultValue = "0") int page, 
-            @RequestParam(value = "size", defaultValue = "20") int size);
-
-    @GetMapping("/api/v1/internal/ledger/cash/drivers/{driverId}/summary")
-    CashSummaryDto getCashSummary(@PathVariable("driverId") UUID driverId);
-
-    @GetMapping("/api/v1/internal/ledger/cash/drivers/{driverId}")
-    PageResponseDto<CashRemittanceDto> getCashByDriver(
-            @PathVariable("driverId") UUID driverId,
             @RequestParam(value = "page", defaultValue = "0") int page, 
             @RequestParam(value = "size", defaultValue = "20") int size);
 

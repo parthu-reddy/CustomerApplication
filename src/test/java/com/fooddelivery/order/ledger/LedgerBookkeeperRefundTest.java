@@ -139,7 +139,7 @@ public class LedgerBookkeeperRefundTest {
     public void aNoneDestinationOnAnUndeliveredOrderBooksNothing() {
         Order order = new Order();
         order.setId(UUID.randomUUID());
-        order.setPaymentMethod(PaymentMethod.COD);
+        order.setPaymentMethod(PaymentMethod.CARD);
         order.setTotalAmount(new BigDecimal("100.00"));
 
         Refund refund = new Refund();

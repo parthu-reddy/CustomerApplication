@@ -1,6 +1,5 @@
 package com.fooddelivery.customer.service;
 
-import com.fooddelivery.common.dto.ledger.CashSummaryDto;
 import com.fooddelivery.common.dto.ledger.PayeeMoneySummaryDto;
 import com.fooddelivery.common.dto.ledger.PayoutDto;
 import com.fooddelivery.customer.client.LedgerClient;
@@ -59,9 +58,6 @@ public class DriverSummaryServiceTest {
 
         when(orderRepository.findHistoryOrdersForDriver(eq(driverId), any(), any(), any(), any(), any()))
                 .thenReturn(new PageImpl<>(List.of(order)));
-        when(ledgerClient.getCashSummary(driverId)).thenReturn(CashSummaryDto.builder()
-                .driverId(driverId).cashCollected(BigDecimal.ZERO).cashRemitted(BigDecimal.ZERO)
-                .cashInHand(BigDecimal.ZERO).build());
         when(ledgerClient.getPayeeSummary("DRIVER", driverId)).thenReturn(PayeeMoneySummaryDto.builder()
                 .unsettledAmount(BigDecimal.ZERO).build());
 
@@ -73,35 +69,10 @@ public class DriverSummaryServiceTest {
         assertEquals(new BigDecimal("140.00"), summary.getNet());
     }
 
-    /**
-     * Cash in hand comes from the ledger. It used to be hardcoded to zero behind a discarded call to
-     * an admin-only endpoint, so a rider carrying money was always shown nothing.
-     */
-    @Test
-    void cashFiguresComeFromTheLedgerNotFromZero() {
-        noOrders();
-        when(ledgerClient.getCashSummary(driverId)).thenReturn(CashSummaryDto.builder()
-                .driverId(driverId)
-                .cashCollected(new BigDecimal("900.00"))
-                .cashRemitted(new BigDecimal("550.00"))
-                .cashInHand(new BigDecimal("350.00"))
-                .build());
-        when(ledgerClient.getPayeeSummary("DRIVER", driverId)).thenReturn(PayeeMoneySummaryDto.builder()
-                .unsettledAmount(BigDecimal.ZERO).build());
-
-        DriverSummary summary = driverSummaryService.getSummary(driverId, "month");
-
-        assertEquals(new BigDecimal("900.00"), summary.getCashCollected());
-        assertEquals(new BigDecimal("550.00"), summary.getCashRemitted());
-        assertEquals(new BigDecimal("350.00"), summary.getCashInHand());
-    }
-
     @Test
     void pendingBalanceAndLastPayoutComeFromTheLedger() {
         noOrders();
         UUID payoutId = UUID.randomUUID();
-        when(ledgerClient.getCashSummary(driverId)).thenReturn(CashSummaryDto.builder()
-                .cashCollected(BigDecimal.ZERO).cashRemitted(BigDecimal.ZERO).cashInHand(BigDecimal.ZERO).build());
         when(ledgerClient.getPayeeSummary("DRIVER", driverId)).thenReturn(PayeeMoneySummaryDto.builder()
                 .unsettledAmount(new BigDecimal("1240.50"))
                 .lastPayout(PayoutDto.builder()
@@ -125,14 +96,12 @@ public class DriverSummaryServiceTest {
     @Test
     void testGetSummaryLedgerClientFails() {
         noOrders();
-        when(ledgerClient.getCashSummary(driverId)).thenThrow(new RuntimeException("API error"));
         when(ledgerClient.getPayeeSummary("DRIVER", driverId)).thenThrow(new RuntimeException("API error"));
 
         DriverSummary summary = driverSummaryService.getSummary(driverId, "month");
 
         assertEquals(0, summary.getDeliveries());
         assertNull(summary.getPendingBalance());
-        assertNull(summary.getCashInHand());
         assertNull(summary.getLastPayout());
     }
 }
