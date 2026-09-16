@@ -53,20 +53,6 @@ public class RestaurantMoneyController {
         return ResponseEntity.ok(buildRestaurantEarnings(order));
     }
 
-    /**
-     * SERVICE-scoped twin: used by RestaurantApplication via Feign.
-     * No ownership check needed since SERVICE role is privileged.
-     */
-    @GetMapping("/orders/{orderId}/earnings")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('SERVICE')")
-    public ResponseEntity<RestaurantOrderEarnings> fetchOrderEarningsInternal(
-            @PathVariable UUID orderId) {
-
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
-
-        return ResponseEntity.ok(buildRestaurantEarnings(order));
-    }
 
     /**
      * Refunds still in flight for this outlet.

@@ -43,7 +43,7 @@ public interface LedgerClient {
             @RequestParam(value = "page", defaultValue = "0") int page, 
             @RequestParam(value = "size", defaultValue = "20") int size);
 
-    @GetMapping("/api/v1/ledger/statements/references/{referenceId}")
+    @GetMapping("/api/v1/internal/ledger/statements/references/{referenceId}")
     List<LedgerStatementLineDto> getStatementByReference(
             @PathVariable("referenceId") UUID referenceId);
 }

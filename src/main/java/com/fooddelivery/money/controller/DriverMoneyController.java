@@ -55,24 +55,6 @@ public class DriverMoneyController {
         return ResponseEntity.ok(buildDriverEarnings(order));
     }
 
-    /**
-     * SERVICE-scoped twin: used by DeliveryExecutiveApplication via Feign.
-     */
-    @GetMapping("/orders/{orderId}/earnings")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('SERVICE')")
-    public ResponseEntity<DriverOrderEarnings> fetchOrderEarningsInternal(
-            @PathVariable UUID orderId) {
-
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
-
-        if (order.getDeliveryExecutiveId() == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Order has no assigned driver");
-        }
-
-        return ResponseEntity.ok(buildDriverEarnings(order));
-    }
-
     private DriverOrderEarnings buildDriverEarnings(Order order) {
         DriverOrderEarnings earnings = new DriverOrderEarnings();
         earnings.setOrderId(order.getId());
@@ -93,26 +75,6 @@ public class DriverMoneyController {
             throw new IllegalStateException("Missing financial value for: " + field);
         }
         return value;
-    }
-
-    @PostMapping("/{driverId}/orders:batch")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('SERVICE')")
-    public ResponseEntity<java.util.List<DriverOrderEarnings>> fetchDriverOrderMoneyBatch(
-            @PathVariable("driverId") UUID driverId,
-            @RequestBody java.util.List<String> orderIds) {
-        java.util.List<DriverOrderEarnings> batch = new java.util.ArrayList<>();
-        for (String idStr : orderIds) {
-            try {
-                UUID orderId = UUID.fromString(idStr);
-                Order order = orderRepository.findById(orderId).orElse(null);
-                if (order != null && driverId.equals(order.getDeliveryExecutiveId())) {
-                    batch.add(buildDriverEarnings(order));
-                }
-            } catch (IllegalArgumentException e) {
-                // ignore invalid format
-            }
-        }
-        return ResponseEntity.ok(batch);
     }
 
     @GetMapping("/summary")
