@@ -77,7 +77,15 @@ if [ "$NEEDS_REBUILD" = true ]; then
   echo "Full rebuild list: ${MODIFIED_REPOS[*]}"
 fi
 
-# 3. Make repositories public
+# 3. Make repositories public and configure trap for safe cleanup
+cleanup() {
+  echo "Reverting repositories to private..."
+  for repo_dir in "${MODIFIED_REPOS[@]}"; do
+    (cd "$repo_dir" && gh repo edit --visibility private --accept-visibility-change-consequences) || true
+  done
+}
+trap cleanup EXIT
+
 echo "Making repositories public to enable GH Actions..."
 for repo_dir in "${MODIFIED_REPOS[@]}"; do
   (cd "$repo_dir" && gh repo edit --visibility public --accept-visibility-change-consequences)
@@ -116,12 +124,24 @@ trigger_and_collect() {
 }
 
 watch_collected_runs() {
+  local has_failures=false
+  mkdir -p Deployment/.action_logs
+  
   if [ -f .run_ids.txt ]; then
     while read -r target_repo run_id; do
       echo "Watching run $run_id in $target_repo until completion..."
-      (cd "$target_repo" && gh run watch "$run_id")
+      if ! (cd "$target_repo" && gh run watch "$run_id"); then
+        echo "❌ Build FAILED for $target_repo. Fetching error logs..."
+        (cd "$target_repo" && gh run view "$run_id" --log-failed > "../Deployment/.action_logs/${target_repo}_error.log")
+        has_failures=true
+      fi
     done < .run_ids.txt
     rm -f .run_ids.txt
+  fi
+  
+  if [ "$has_failures" = true ]; then
+    echo "❌ One or more workflows failed! Check Deployment/.action_logs/ for details."
+    exit 1
   fi
 }
 
@@ -140,13 +160,7 @@ for repo in "${MODIFIED_REPOS[@]}"; do
 done
 watch_collected_runs
 
-# 5. Make repositories private again
-echo "Reverting repositories to private..."
-for repo_dir in "${MODIFIED_REPOS[@]}"; do
-  (cd "$repo_dir" && gh repo edit --visibility private --accept-visibility-change-consequences)
-done
-
-# 6. Clean deploy with complete wipe on Oracle VM
+# 5. Clean deploy with complete wipe on Oracle VM
 if [ "$NEEDS_REBUILD" = true ]; then
   echo "Executing clean deploy and complete wipe on Oracle VM..."
   
@@ -156,10 +170,11 @@ if [ "$NEEDS_REBUILD" = true ]; then
   (cd Deployment && git pull --rebase origin main)
   
   echo "Deploying newly built images..."
-  (cd Deployment && ./deploy.sh --all)
+  export REGISTRY=hyd.ocir.io/axekmbadoczl
+  (cd Deployment && ./OracleDeployment/03_clean_deploy.sh)
   
   echo "Running dummy-data.sh to completely wipe and reseed databases..."
-  (cd Deployment && ./dummy-data.sh --all --yes)
+  (cd Deployment && ./dummy-data.sh --yes)
   
   echo "Clean deploy finished successfully!"
 fi
