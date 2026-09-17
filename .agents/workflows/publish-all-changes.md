@@ -1,205 +1,100 @@
 ---
-description: Automate committing, publishing to public repos, running workflows, and reverting to private.
+description: Commit, push and verify changes across all repos via GitHub Actions. Three steps, run in order, each independently re-runnable.
 ---
 
-# Automated Commit, Publish, and Clean Deploy Workflow
+# Publish all changes
 
-This script automates committing local changes, triggering GitHub Actions, and managing a clean deploy. It intelligently detects if a core dependency has changed and forces a rebuild of all dependent microservices.
+Three steps, all through GitHub Actions. Run them in order, check each before the next. They are
+separate on purpose: when something fails you re-run one step, not a 200-line script from the top.
 
-### Instructions:
-1. Save the following script as `publish-and-deploy.sh` in the root of your workspace.
-2. Run it with `bash publish-and-deploy.sh`
+Nothing here builds or tests locally. Verification happens in CI: `build-and-push` runs the unit
+tests, `publish-stubs` now runs each service's producer contract tests before publishing its stubs,
+and `contract-tests` runs the consumer side. `build_verify.sh` exists for local debugging and is
+deliberately NOT part of this workflow.
+
+The scripts live in `FoodDeliveryContracts/ci/`, next to `repo-map.tsv` and `build_verify.sh`.
+All of them take `--dry-run`.
+
+## 1. Commit and push
 
 ```bash
-#!/bin/bash
-set -e
-
-echo "Starting automated publish and deploy workflow..."
-
-# 1. Identify all repositories with uncommitted changes
-MODIFIED_REPOS=()
-echo "Checking for local changes..."
-for dir in */; do
-  if [ -d "$dir/.git" ]; then
-    repo_dir="${dir%/}"
-    cd "$repo_dir"
-    changes=$(git status --porcelain)
-    if [ -n "$changes" ]; then
-      echo "Committing changes in $repo_dir"
-      git add .
-      git commit -m "chore: automated workflow update" || true
-      git pull --rebase origin main || true
-      git push origin main
-      cd ..
-      MODIFIED_REPOS+=("$repo_dir")
-    else
-      cd ..
-    fi
-  fi
-done
-
-if [ ${#MODIFIED_REPOS[@]} -eq 0 ]; then
-  echo "No local changes found in any repository. Exiting."
-  exit 0
-fi
-
-echo "Modified repositories: ${MODIFIED_REPOS[*]}"
-
-# 2. Dependency expansion
-DEPENDENCIES=("FoodDeliveryParentPOM" "IdentitySigning" "CommonLibrary" "FoodDeliveryContracts")
-NEEDS_REBUILD=false
-
-for repo in "${MODIFIED_REPOS[@]}"; do
-  for dep in "${DEPENDENCIES[@]}"; do
-    if [ "$repo" == "$dep" ]; then
-      NEEDS_REBUILD=true
-      break 2
-    fi
-  done
-done
-
-if [ "$NEEDS_REBUILD" = true ]; then
-  echo "Base dependency changed. Expanding to rebuild ALL dependent microservices."
-  ALL_SERVICES=(
-    "ApiGateway" "BiddingEngine" "BudgetLimitingService" "CampaignService"
-    "CommunicationIntegration" "CommunicationService" "ConfigService"
-    "CustomerApplication" "DeliveryExecutiveApplication" "EurekaServer"
-    "FoodDeliveryAppUI" "GovernmentIDValidationService" "IdentityService"
-    "LedgerService" "MapsIntegration" "ONDCIntegrationService"
-    "PaymentGatewayIntegration" "RestaurantApplication" "ReviewsService"
-    "UserTrackingService" "WalletService"
-  )
-  for svc in "${ALL_SERVICES[@]}"; do
-    if [[ ! " ${MODIFIED_REPOS[*]} " =~ " ${svc} " ]]; then
-      MODIFIED_REPOS+=("$svc")
-    fi
-  done
-  echo "Full rebuild list: ${MODIFIED_REPOS[*]}"
-fi
-
-# 3. Make repositories public and configure trap for safe cleanup
-cleanup() {
-  echo "Reverting repositories to private..."
-  for repo_dir in "${MODIFIED_REPOS[@]}"; do
-    (cd "$repo_dir" && gh repo edit --visibility private --accept-visibility-change-consequences) || true
-  done
-}
-trap cleanup EXIT
-
-echo "Making repositories public to enable GH Actions..."
-for repo_dir in "${MODIFIED_REPOS[@]}"; do
-  (cd "$repo_dir" && gh repo edit --visibility public --accept-visibility-change-consequences)
-done
-
-# 4. Trigger and watch workflows
-rm -f .run_ids.txt
-
-trigger_and_collect() {
-  local target_repo=$1
-  if [[ ! " ${MODIFIED_REPOS[*]} " =~ " ${target_repo} " ]]; then return; fi
-  
-  echo "Triggering workflows for $target_repo..."
-  (cd "$target_repo"
-  local count=0
-  for workflow in .github/workflows/*.yml; do
-    if [ -f "$workflow" ]; then
-      workflow_name=$(basename "$workflow")
-      if [[ "$workflow_name" == "publish-stubs.yml" ]] || [[ "$workflow_name" == *"contract"*.yml ]]; then
-        continue # Handled separately by orchestrate_contracts.sh
-      fi
-      echo "  -> triggering $workflow_name"
-      gh workflow run "$workflow_name"
-      count=$((count + 1))
-    fi
-  done
-  
-  if [ $count -gt 0 ]; then
-    # Wait briefly for GH to register the run
-    sleep 5
-    
-    # Fetch the most recent run IDs corresponding to the workflows we just triggered
-    RUN_IDS=$(gh run list -L "$count" --json databaseId -q '.[].databaseId')
-    
-    for run_id in $RUN_IDS; do
-      echo "$target_repo $run_id" >> ../.run_ids.txt
-    done
-  fi)
-}
-
-watch_collected_runs() {
-  local has_failures=false
-  mkdir -p Deployment/.action_logs
-  
-  if [ -f .run_ids.txt ]; then
-    while read -r target_repo run_id; do
-      echo "Watching run $run_id in $target_repo until completion..."
-      if ! (cd "$target_repo" && gh run watch "$run_id"); then
-        echo "❌ Build FAILED for $target_repo. Fetching error logs..."
-        (cd "$target_repo" && gh run view "$run_id" --log-failed > "../Deployment/.action_logs/${target_repo}_error.log")
-        has_failures=true
-      fi
-    done < .run_ids.txt
-    rm -f .run_ids.txt
-  fi
-  
-  if [ "$has_failures" = true ]; then
-    echo "❌ One or more workflows failed! Check Deployment/.action_logs/ for details."
-    exit 1
-  fi
-}
-
-# Run parents first
-echo "Building base dependencies first..."
-for dep in "${DEPENDENCIES[@]}"; do
-  trigger_and_collect "$dep"
-done
-watch_collected_runs
-
-# --- NEW: Run Contract Phases ---
-echo "Running Contract Tests Phase 1 (Publish Stubs)..."
-if ! bash FoodDeliveryContracts/ci/orchestrate_contracts.sh --phase 1; then
-  echo "❌ Contract Phase 1 Failed! Exiting."
-  exit 1
-fi
-
-echo "Running Contract Tests Phase 2 (Consumer Tests)..."
-if ! bash FoodDeliveryContracts/ci/orchestrate_contracts.sh --phase 2; then
-  echo "❌ Contract Phase 2 Failed! Exiting."
-  exit 1
-fi
-# --------------------------------
-
-# Run all other services
-echo "Building all downstream services in parallel..."
-for repo in "${MODIFIED_REPOS[@]}"; do
-  if [[ " ${DEPENDENCIES[*]} " =~ " ${repo} " ]]; then continue; fi
-  trigger_and_collect "$repo"
-done
-watch_collected_runs
-
-# 5. Clean deploy with complete wipe on Oracle VM
-if [ "$NEEDS_REBUILD" = true ]; then
-  echo "Executing clean deploy and complete wipe on Oracle VM..."
-  
-  # GH actions updated .versions on the remote branch of Deployment. 
-  # We must pull it locally so deploy.sh sees the new image tags.
-  echo "Pulling latest .versions from Deployment repo..."
-  (cd Deployment && git pull --rebase origin main)
-  
-  echo "Deploying newly built images..."
-  export REGISTRY=hyd.ocir.io/axekmbadoczl
-  (cd Deployment && echo "WIPE" | ./OracleDeployment/03_clean_deploy.sh --wipe)
-  
-  echo "Running dummy-data.sh to completely wipe and reseed databases..."
-  (cd Deployment && ./dummy-data.sh --yes)
-  
-  echo "Clean deploy finished successfully!"
-fi
-
-echo "Workflow complete."
+bash FoodDeliveryContracts/ci/commit_and_push.sh -m "what actually changed" --dry-run
+bash FoodDeliveryContracts/ci/commit_and_push.sh -m "what actually changed"
 ```
 
-## What to know
-- **Visibility changes** expose the source code to the internet temporarily. Only do this if strictly necessary (e.g., to preserve private GitHub Action minutes).
-- **Dependency Order:** Always trigger upstream contracts and shared libraries before dependent downstream services.
-- **Continuous Monitoring:** Do not assume the pipeline succeeds; actively watch the output so you can fix any broken tests before finalizing the deployment.
+Shows every file it will commit, per repo, and asks once. A failed rebase is fatal for that repo and
+nothing is pushed there. `-m` is required: the history is already a wall of
+"chore: automated workflow update" because the previous version used one fixed message everywhere.
+
+## 2. Build (GitHub Actions)
+
+```bash
+bash FoodDeliveryContracts/ci/build_services.sh --dry-run
+bash FoodDeliveryContracts/ci/build_services.sh
+```
+
+Base dependencies first and one at a time — `FoodDeliveryParent`, `IdentitySigning`, `CommonLibrary`
+each publish to GitHub Packages what the next resolves — then every service together. Waits for each
+group and stops on the first failure.
+
+## 3. Contracts (GitHub Actions)
+
+```bash
+bash FoodDeliveryContracts/ci/orchestrate_contracts.sh --phase 1
+# stop and diagnose if anything failed
+bash FoodDeliveryContracts/ci/orchestrate_contracts.sh --phase 2
+```
+
+Two phases, not an order: five producer/consumer pairs are mutual, so no sequence exists where every
+consumer reads current stubs. See `ci/CONTRACT_CI_RUNBOOK.md`.
+
+## Deploy — manual, separate, not part of this workflow
+
+**Not automated, and not chained to the steps above.**
+
+```bash
+cd Deployment && ./OracleDeployment/03_clean_deploy.sh --wipe
+cd Deployment && ./dummy-data.sh
+```
+
+Answer their prompts yourself. `--wipe` destroys every container and every volume on the VM;
+`dummy-data.sh` drops the public schema of twelve databases. Both scripts ask before doing it.
+
+The previous version of this workflow ran them unattended as
+`echo "WIPE" | ./03_clean_deploy.sh --wipe` and `./dummy-data.sh --yes`, piping past both
+confirmations. Those prompts were written by someone who meant them. Do not automate past them.
+
+Note deployment is parked as of 2026-09-13 — nothing is in production — so most of the time this
+step should simply not run.
+
+## What the rewrite removed, and why
+
+- **Repository visibility flipping.** The old script made every modified repo public to run Actions,
+  then a `trap cleanup EXIT` forced them all private — unconditionally, including on failure, and
+  without recording what they were. Visibility is currently MIXED (`CustomerApplication` public,
+  `CommonLibrary` private), so that trap would have silently privatised repos it did not own. Public
+  exposure is not theoretical here: that is how the committed JWT private key was exposed on
+  2026-09-13. If saving Actions minutes matters, make that a deliberate decision, not a side effect
+  of a deploy script.
+- **`git add .` with a fixed message in every repo.** Commits whatever happens to be lying around.
+- **`git pull --rebase origin main || true` followed by `git push`.** A conflicted rebase was
+  swallowed and the push went out from a half-rebased tree.
+- **`gh run list -L N` to find the runs it just started.** Unfiltered — the N most recent runs in the
+  repo. Any unrelated run in flight and it watched the wrong one. Both replacements filter by
+  workflow name and start time.
+- **A hardcoded service list** that had already drifted from `repo-map.tsv`, and a `DEPENDENCIES`
+  entry of `FoodDeliveryParentPOM` — the repo name, where the directory is `FoodDeliveryParent`, so
+  `cd` failed and the parent POM never built at all.
+
+## For agents running this
+
+- Run one step, read its output, then decide. Do not chain them unattended.
+- Everything runs in GitHub Actions. Do NOT start `build_verify.sh` as part of this workflow — it is
+  a 15-25 minute local build, it runs offline against a warm `~/.m2`, and a green result is not
+  evidence that CI will pass. Use it only when separately debugging a local failure.
+- These scripts block while they wait. If you background one, you are not watching it — say so
+  rather than claiming you will monitor and notify.
+- `mvn test -Dtest=X` without `clean` exits 1 with "No tests matching pattern" for generated contract
+  tests. That means "ran nothing", not "found a bug".
+- Local maven defaults to offline against a warm `~/.m2`. Local green is not evidence for a CI change.
+- Never commit or push unless asked in the moment.
