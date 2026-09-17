@@ -104,6 +104,9 @@ trigger_and_collect() {
   for workflow in .github/workflows/*.yml; do
     if [ -f "$workflow" ]; then
       workflow_name=$(basename "$workflow")
+      if [[ "$workflow_name" == "publish-stubs.yml" ]] || [[ "$workflow_name" == *"contract"*.yml ]]; then
+        continue # Handled separately by orchestrate_contracts.sh
+      fi
       echo "  -> triggering $workflow_name"
       gh workflow run "$workflow_name"
       count=$((count + 1))
@@ -151,6 +154,20 @@ for dep in "${DEPENDENCIES[@]}"; do
   trigger_and_collect "$dep"
 done
 watch_collected_runs
+
+# --- NEW: Run Contract Phases ---
+echo "Running Contract Tests Phase 1 (Publish Stubs)..."
+if ! bash FoodDeliveryContracts/ci/orchestrate_contracts.sh --phase 1; then
+  echo "❌ Contract Phase 1 Failed! Exiting."
+  exit 1
+fi
+
+echo "Running Contract Tests Phase 2 (Consumer Tests)..."
+if ! bash FoodDeliveryContracts/ci/orchestrate_contracts.sh --phase 2; then
+  echo "❌ Contract Phase 2 Failed! Exiting."
+  exit 1
+fi
+# --------------------------------
 
 # Run all other services
 echo "Building all downstream services in parallel..."
