@@ -22,7 +22,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/api/v1/internal/admin/refunds")
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN', 'SERVICE')")
 @lombok.RequiredArgsConstructor
 public class AdminRefundController {
 

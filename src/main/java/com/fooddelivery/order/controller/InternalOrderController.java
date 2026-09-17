@@ -25,7 +25,7 @@ public class InternalOrderController {
     private final com.fooddelivery.order.refund.RefundService refundService;
 
     @GetMapping("/driver/{driverId}/active")
-    @PreAuthorize("hasAnyRole('ADMIN', 'DELIVERY')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DELIVERY', 'SERVICE')")
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public ResponseEntity<org.springframework.data.domain.Page<Order>> fetchActiveOrdersForDriver(
             @PathVariable UUID driverId,
@@ -45,7 +45,7 @@ public class InternalOrderController {
     }
 
     @GetMapping("/driver/{driverId}/history")
-    @PreAuthorize("hasAnyRole('ADMIN', 'DELIVERY')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DELIVERY', 'SERVICE')")
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public ResponseEntity<org.springframework.data.domain.Page<Order>> fetchOrderHistoryForDriver(
             @PathVariable UUID driverId, 
@@ -64,7 +64,7 @@ public class InternalOrderController {
     }
 
     @GetMapping("/unassigned")
-    @PreAuthorize("hasAnyRole(\'ADMIN\', \'DELIVERY\')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'DELIVERY', 'SERVICE')")
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public ResponseEntity<List<Order>> fetchUnassignedOrders() {
         log.info("Fetching unassigned orders for broadcast");
