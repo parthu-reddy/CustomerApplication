@@ -189,6 +189,12 @@ public abstract class ContractTestBase {
                 new com.fooddelivery.money.controller.DriverMoneyController(orderRepository, moneyAccessPolicy, Mockito.mock(com.fooddelivery.customer.service.money.DriverSummaryService.class), Mockito.mock(com.fooddelivery.customer.client.LedgerClient.class));
         com.fooddelivery.customer.controller.InternalOrderRefundController internalOrderRefundController = 
                 new com.fooddelivery.customer.controller.InternalOrderRefundController(refundService);
+        // The /api/v1/internal/money surface, which is what DeliveryExecutive's and Restaurant's
+        // Feign clients actually call. It was missing here, so getDriverOrderMoney and
+        // getRestaurantOrderMoney both 404'd: the registered money controllers serve
+        // /api/v1/money/{driver,restaurant} and have no /orders/{id}/earnings mapping at all.
+        com.fooddelivery.customer.controller.InternalMoneyController internalMoneyController =
+                new com.fooddelivery.customer.controller.InternalMoneyController(orderRepository);
 
         com.fooddelivery.order.refund.RefundView mockRefund = new com.fooddelivery.order.refund.RefundView();
         mockRefund.setId(java.util.UUID.randomUUID());
@@ -198,7 +204,7 @@ public abstract class ContractTestBase {
 
         RestAssuredMockMvc.standaloneSetup(
                 org.springframework.test.web.servlet.setup.MockMvcBuilders
-                        .standaloneSetup(internalOrderController, internalOrderRefundController, adminMoneyController, restaurantMoneyController, driverMoneyController)
+                        .standaloneSetup(internalOrderController, internalOrderRefundController, adminMoneyController, restaurantMoneyController, driverMoneyController, internalMoneyController)
                         .setCustomArgumentResolvers(
                                 new org.springframework.data.web.PageableHandlerMethodArgumentResolver())
                         .setMessageConverters(contractMessageConverters()));

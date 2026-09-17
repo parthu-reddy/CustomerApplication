@@ -166,9 +166,46 @@
         }
       }
     },
-    "/api/v1/money/driver/{driverId}/orders:batch" : {
+    "/api/v1/internal/orders/{orderId}/partial-refund" : {
       "post" : {
-        "tags" : [ "driver-money-controller" ],
+        "tags" : [ "internal-order-refund-controller" ],
+        "operationId" : "initiatePartialRefund",
+        "parameters" : [ {
+          "name" : "orderId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RefundCommand"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseString"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/internal/money/driver/{driverId}/orders:batch" : {
+      "post" : {
+        "tags" : [ "internal-money-controller" ],
         "operationId" : "fetchDriverOrderMoneyBatch",
         "parameters" : [ {
           "name" : "driverId",
@@ -202,43 +239,6 @@
                   "items" : {
                     "$ref" : "#/components/schemas/DriverOrderEarnings"
                   }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/internal/orders/{orderId}/partial-refund" : {
-      "post" : {
-        "tags" : [ "internal-order-refund-controller" ],
-        "operationId" : "initiatePartialRefund",
-        "parameters" : [ {
-          "name" : "orderId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string",
-            "format" : "uuid"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/RefundCommand"
-              }
-            }
-          },
-          "required" : true
-        },
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseString"
                 }
               }
             }
@@ -1459,33 +1459,6 @@
         }
       }
     },
-    "/api/v1/money/restaurant/orders/{orderId}/earnings" : {
-      "get" : {
-        "tags" : [ "restaurant-money-controller" ],
-        "operationId" : "fetchOrderEarningsInternal",
-        "parameters" : [ {
-          "name" : "orderId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string",
-            "format" : "uuid"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/RestaurantOrderEarnings"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/money/driver/{driverId}/orders/{orderId}" : {
       "get" : {
         "tags" : [ "driver-money-controller" ],
@@ -1607,33 +1580,6 @@
                   "items" : {
                     "$ref" : "#/components/schemas/DriverOrderEarnings"
                   }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/money/driver/orders/{orderId}/earnings" : {
-      "get" : {
-        "tags" : [ "driver-money-controller" ],
-        "operationId" : "fetchOrderEarningsInternal_1",
-        "parameters" : [ {
-          "name" : "orderId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string",
-            "format" : "uuid"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/DriverOrderEarnings"
                 }
               }
             }
@@ -1950,6 +1896,60 @@
               "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/PageOrder"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/internal/money/restaurant/orders/{orderId}/earnings" : {
+      "get" : {
+        "tags" : [ "internal-money-controller" ],
+        "operationId" : "fetchRestaurantOrderEarningsInternal",
+        "parameters" : [ {
+          "name" : "orderId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RestaurantOrderEarnings"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/internal/money/driver/orders/{orderId}/earnings" : {
+      "get" : {
+        "tags" : [ "internal-money-controller" ],
+        "operationId" : "fetchDriverOrderEarningsInternal",
+        "parameters" : [ {
+          "name" : "orderId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DriverOrderEarnings"
                 }
               }
             }
@@ -2758,37 +2758,6 @@
           }
         }
       },
-      "DriverOrderEarnings" : {
-        "type" : "object",
-        "properties" : {
-          "orderId" : {
-            "type" : "string",
-            "format" : "uuid"
-          },
-          "driverId" : {
-            "type" : "string",
-            "format" : "uuid"
-          },
-          "grossPayout" : {
-            "type" : "number"
-          },
-          "taxes" : {
-            "type" : "number"
-          },
-          "netPayout" : {
-            "type" : "number"
-          },
-          "customerContribution" : {
-            "type" : "number"
-          },
-          "restaurantContribution" : {
-            "type" : "number"
-          },
-          "platformBonus" : {
-            "type" : "number"
-          }
-        }
-      },
       "Item" : {
         "type" : "object",
         "properties" : {
@@ -2872,6 +2841,37 @@
           "timestamp" : {
             "type" : "string",
             "format" : "date-time"
+          }
+        }
+      },
+      "DriverOrderEarnings" : {
+        "type" : "object",
+        "properties" : {
+          "orderId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "driverId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "grossPayout" : {
+            "type" : "number"
+          },
+          "taxes" : {
+            "type" : "number"
+          },
+          "netPayout" : {
+            "type" : "number"
+          },
+          "customerContribution" : {
+            "type" : "number"
+          },
+          "restaurantContribution" : {
+            "type" : "number"
+          },
+          "platformBonus" : {
+            "type" : "number"
           }
         }
       },

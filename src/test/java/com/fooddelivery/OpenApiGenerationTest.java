@@ -171,10 +171,15 @@ public class OpenApiGenerationTest {
     private com.fooddelivery.order.service.AdminDlqService adminDlqService;
 
     @org.springframework.context.annotation.Configuration
+    // DeliveryZoneConfig rides along for the same reason: the scan below covers only the
+    // three controller packages, and CustomerRestaurantController takes it as a constructor
+    // argument -- so the context failed to start with "No qualifying bean of type
+    // DeliveryZoneConfig" and no spec could be written at all. That is why the committed
+    // openapi.json went stale and SPEC-DRIFT went red.
     // Relabels structured responses from */* to application/json. Without it every
     // generated Zod response validator degrades to z.void(); the scoped scan below
     // does not reach com.fooddelivery.common.config.
-    @org.springframework.context.annotation.Import({com.fooddelivery.common.config.OpenApiJsonMediaTypeCustomizer.class, com.fooddelivery.common.config.OpenApiPaginationRequiredCustomizer.class})
+    @org.springframework.context.annotation.Import({com.fooddelivery.common.config.OpenApiJsonMediaTypeCustomizer.class, com.fooddelivery.common.config.OpenApiPaginationRequiredCustomizer.class, com.fooddelivery.customer.config.DeliveryZoneConfig.class})
     @org.springframework.context.annotation.ComponentScan(basePackages = {"com.fooddelivery.order.controller", "com.fooddelivery.customer.controller", "com.fooddelivery.money.controller"})
     @org.springframework.boot.autoconfigure.EnableAutoConfiguration(excludeName = {"org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration", "org.springframework.boot.actuate.autoconfigure.security.servlet.ManagementWebSecurityAutoConfiguration", "org.springframework.boot.autoconfigure.security.reactive.ReactiveSecurityAutoConfiguration", "org.springframework.boot.actuate.autoconfigure.security.reactive.ManagementReactiveSecurityAutoConfiguration", "org.springframework.boot.autoconfigure.security.oauth2.resource.servlet.OAuth2ResourceServerAutoConfiguration"})
     static class TestApp {
