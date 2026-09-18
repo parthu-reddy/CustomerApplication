@@ -19,7 +19,7 @@ import org.springframework.context.annotation.Bean;
 @org.springframework.test.annotation.DirtiesContext(classMode = org.springframework.test.annotation.DirtiesContext.ClassMode.BEFORE_CLASS)
 @org.springframework.test.context.ActiveProfiles("contract-test")
 @AutoConfigureMessageVerifier
-@EmbeddedKafka(partitions = 1, topics = {"order-events", "payment-events", "chat-events", "wallet-events", "ledger-events", "platform.notifications.dispatch"})
+@EmbeddedKafka(adminTimeout = 60, partitions = 1, topics = {"order-events", "payment-events", "chat-events", "wallet-events", "ledger-events", "platform.notifications.dispatch"})
 public abstract class BaseMessagingClass {
 
     @org.springframework.boot.SpringBootConfiguration

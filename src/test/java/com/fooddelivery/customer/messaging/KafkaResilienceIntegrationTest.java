@@ -29,7 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
     "spring.kafka.consumer.auto-offset-reset=earliest"
 })
 @DirtiesContext(classMode = DirtiesContext.ClassMode.BEFORE_CLASS)
-@EmbeddedKafka(partitions = 1, topics = {"customer-events", "customer-events.DLT"})
+@EmbeddedKafka(adminTimeout = 60, partitions = 1, topics = {"customer-events", "customer-events.DLT"})
 @Import({KafkaResilienceIntegrationTest.TestConsumer.class, com.fooddelivery.common.config.KafkaConfig.class})
 public class KafkaResilienceIntegrationTest {
 
