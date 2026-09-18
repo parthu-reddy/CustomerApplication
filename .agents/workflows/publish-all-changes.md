@@ -26,6 +26,14 @@ Shows every file it will commit, per repo, and asks once. A failed rebase is fat
 nothing is pushed there. `-m` is required: the history is already a wall of
 "chore: automated workflow update" because the previous version used one fixed message everywhere.
 
+## 1.5. Enable Actions (Visibility)
+
+```bash
+bash FoodDeliveryContracts/ci/flip_visibility.sh --public
+```
+
+Because of billing limits, repositories must temporarily be made public to run GitHub Actions, except for unsafe repos (which will be skipped).
+
 ## 2. Build (GitHub Actions)
 
 ```bash
@@ -47,6 +55,14 @@ bash FoodDeliveryContracts/ci/orchestrate_contracts.sh --phase 2
 
 Two phases, not an order: five producer/consumer pairs are mutual, so no sequence exists where every
 consumer reads current stubs. See `ci/CONTRACT_CI_RUNBOOK.md`.
+
+## 3.5. Revert Visibility
+
+```bash
+bash FoodDeliveryContracts/ci/flip_visibility.sh --revert
+```
+
+Run this to restore repositories back to private. It remembers their original state and only reverts the ones it made public.
 
 ## Deploy — manual, separate, not part of this workflow
 
