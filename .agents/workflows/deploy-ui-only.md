@@ -1,30 +1,39 @@
 ---
-description: deploy ui only
+description: Deploy UI only using the image built by CI
 ---
+# Deploy UI Only
+
+Deploys the UI container to the Oracle VM using the Docker image that was previously built by GitHub Actions (via `/publish-ui-only` or `/publish-all-changes`). 
+This allows you to easily deploy the UI without needing to run a full `/clean-deploy` or relying on a local build.
+
+## 1. Update the image tag
+
+The deployment script (`Deployment/deploy.sh`) relies on the tags pinned in `Deployment/.versions`.
+Update `FOOD_DELIVERY_APP_UI_TAG` in `Deployment/.versions` to match the latest git commit SHA from the `FoodDeliveryAppUI` repository. 
+
+You can find the latest commit SHA by running:
+```bash
+(cd FoodDeliveryAppUI && git rev-parse HEAD)
+```
+
+*(Note: Don't forget to commit and push the updated `.versions` file later to keep your deployment history in sync!)*
+
+## 2. Deploy to VM
+
+Once `.versions` is updated, deploy just the UI container:
 
 ```bash
 export REGISTRY=hyd.ocir.io/axekmbadoczl
-Deployment/ship.sh food-delivery-app-ui
+cd Deployment
+./deploy.sh food-delivery-app-ui
 ```
 
-Same command as any backend service. `ship.sh` runs `npm ci && npm run build`, publishes the image
-to OCIR, deploys it, and verifies the container ended up on the intended image. Nothing is rsynced
-and nothing is built on the VM.
+`deploy.sh` will:
+- Read the new tag from `.versions`.
+- Connect to the VM and pull the updated image from OCIR.
+- Recreate the `food-delivery-app-ui` container.
+- Verify that it successfully started with the correct image.
 
-Then **hard-refresh the browser** (`Cmd+Shift+R`). The SPA caches `index.html`, so a correct deploy
-looks like nothing happened until you do.
+## 3. Hard Refresh
 
-## Two things specific to this service
-
-- Its Docker build context is its **own** directory, not the workspace root, because its Dockerfile
-  does `COPY nginx.conf`. Recorded in `Deployment/service-map.tsv`.
-- `~/.npm/_cacache` on this Mac contains root-owned files left by an old `sudo npm` run, which makes
-  `npm ci` delete `node_modules` and then fail. `ship.sh` detects this and falls back to a private
-  cache. The permanent fix, which needs your password:
-
-  ```bash
-  sudo chown -R $(whoami) ~/.npm
-  ```
-
-`--no-cache` is no longer needed: images are identified by a git-sha tag, so a stale `COPY dist`
-layer cannot be silently reused.
+Then **hard-refresh the browser** (`Cmd+Shift+R`). The SPA caches `index.html`, so a correct deploy looks like nothing happened until you force a refresh.
