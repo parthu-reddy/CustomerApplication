@@ -23,7 +23,7 @@ container's own environment.
   the table never appears.
 - The wait is on sentinel tables (`DummyData/schema_sentinels.tsv`), bounded by a timeout, not a
   fixed sleep.
-- **Redis is flushed**, so no driver shows online until `remote_rider_simulator.py` is running.
+- **Redis is flushed**, so no driver shows online until you manually toggle them online.
 - `reviews_db` and `ondc_db` are skipped — those services are parked and would never re-migrate.
 
 ## After it finishes
