@@ -17,7 +17,7 @@ import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/v1/customers/{customerId}/addresses")
-@PreAuthorize("hasRole(\'CUSTOMER\') and #customerId.toString() == authentication.principal")
+@PreAuthorize("hasRole('CUSTOMER') and #customerId.toString() == authentication.name")
 @lombok.extern.slf4j.Slf4j
 @lombok.RequiredArgsConstructor
 public class CustomerAddressController {
