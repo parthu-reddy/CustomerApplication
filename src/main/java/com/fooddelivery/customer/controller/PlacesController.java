@@ -13,7 +13,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/api/v1/places")
-@PreAuthorize("hasRole(\'CUSTOMER\')")
+@PreAuthorize("hasRole('CUSTOMER')")
 @lombok.extern.slf4j.Slf4j
 @lombok.RequiredArgsConstructor
 public class PlacesController {

@@ -77,7 +77,7 @@ public class AdminOrderController {
     }
 
     @PostMapping("/{orderId}/reconcile")
-    @PreAuthorize("hasRole(\'ADMIN\')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, String>> reconcileOrderState(@PathVariable UUID orderId) {
         Order order = orderRepository.findById(orderId).orElse(null);
         if (order == null) {

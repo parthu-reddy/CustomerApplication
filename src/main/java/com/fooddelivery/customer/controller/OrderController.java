@@ -21,7 +21,7 @@ import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/v1/orders")
-@PreAuthorize("hasRole(\'CUSTOMER\')")
+@PreAuthorize("hasRole('CUSTOMER')")
 @lombok.extern.slf4j.Slf4j
 @lombok.RequiredArgsConstructor
 public class OrderController {

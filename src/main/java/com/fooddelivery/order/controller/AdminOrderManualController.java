@@ -44,7 +44,7 @@ public class AdminOrderManualController {
     }
 
     @PostMapping("/{orderId}/assign-driver")
-    @PreAuthorize("hasRole(\'ADMIN\')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<String>> assignDriver(@PathVariable UUID orderId, @RequestBody Map<String, String> payload) {
         String driverIdStr = payload.get("deliveryExecutiveId");
         if (driverIdStr == null || driverIdStr.trim().isEmpty()) {
@@ -89,7 +89,7 @@ public class AdminOrderManualController {
     }
 
     @PostMapping("/{orderId}/cancel")
-    @PreAuthorize("hasRole(\'ADMIN\')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<String>> cancelOrder(@PathVariable UUID orderId, @RequestBody Map<String, String> payload) {
         String reason = payload.getOrDefault("reason", "Cancelled by Admin due to dispatch failure");
         try {
