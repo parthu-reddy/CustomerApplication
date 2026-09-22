@@ -13,8 +13,8 @@ gh workflow run build-and-publish.yml -f services="all" -R parthu-reddy/FoodDeli
 RUN_ID=$(gh run list -R parthu-reddy/FoodDeliveryContracts -L 1 --json databaseId -q '.[0].databaseId')
 gh run watch "$RUN_ID" -R parthu-reddy/FoodDeliveryContracts
 
-# 4. Download the new .versions and deploy
-(cd Deployment && rm -f .versions && gh run download -R parthu-reddy/FoodDeliveryContracts -n versions)
+# 4. Deploy the updated env file
+(cd Deployment && git pull)
 export REGISTRY=hyd.ocir.io/axekmbadoczl
 bash Deployment/OracleDeployment/03_clean_deploy.sh
 ```
@@ -37,7 +37,7 @@ that repo too — the CI checks out every repo at HEAD.
 
 - **All commands run from the workspace root** (`Food Delivery.nosync/`), not from inside repos.
 - **The profile is already `dev`** on the VM (`SPRING_PROFILES_ACTIVE=dev` in `.env`). Do not set it.
-- **`.versions` is a workflow artifact**, not a git commit. The CI uploads it via `actions/upload-artifact`.
+- **The env file is committed** directly to the repository by the CI.
   You must download it with `gh run download` before deploying.
 - **Hard-refresh the browser** (`Cmd+Shift+R`) after deploying — the SPA caches `index.html`.
 

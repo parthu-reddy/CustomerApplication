@@ -12,7 +12,7 @@ Run these steps in order, wait for each to complete, and check the output before
 ```bash
 bash FoodDeliveryContracts/ci/commit_and_push.sh -m "your message here" --only FoodDeliveryAppUI
 ```
-(If changes to Deployment/.versions are needed, you can use `--only FoodDeliveryAppUI,Deployment`)
+(If changes to Deployment/env_deployments/dev/*.env are needed, you can use `--only FoodDeliveryAppUI,Deployment`)
 
 ## 1.5. Enable Actions (Visibility)
 

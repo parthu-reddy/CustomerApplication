@@ -10,7 +10,7 @@ There are two ways to publish a single service: the **Local Fast Path** (using y
 
 ## Option A: Local Fast Path (Recommended for Agents)
 
-Use this method to quickly build the jar/bundle, package it into a container image, push it to OCIR, and record the new tag locally in `Deployment/.versions`.
+Use this method to quickly build the jar/bundle, package it into a container image, push it to OCIR, and record the new tag locally in `Deployment/env_deployments/dev/<service>.env`.
 
 ```bash
 export REGISTRY=hyd.ocir.io/axekmbadoczl
@@ -19,7 +19,7 @@ Deployment/publish.sh <service>
 
 - This script **does not run Maven**. You must build the JAR first using `bash FoodDeliveryContracts/ci/build_verify.sh` or `mvn compile`.
 - This script builds the docker image natively and pushes it to OCIR.
-- **IMPORTANT**: The script modifies `Deployment/.versions` to track the new tag. You must commit and push this file, as its git history acts as the deployment history for rollbacks!
+- **IMPORTANT**: The script modifies `Deployment/env_deployments/dev/<service>.env` to track the new tag. You must commit and push this file, as its git history acts as the deployment history for rollbacks!
 
 ## Option B: CI Path (GitHub Actions)
 

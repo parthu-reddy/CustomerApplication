@@ -7,7 +7,7 @@ export REGISTRY=hyd.ocir.io/axekmbadoczl
 Deployment/deploy.sh <service>
 ```
 
-Deploys a single service to the Oracle VM. **This script does not build or publish.** It reads the tag recorded in `Deployment/.versions`, pulls that specific image onto the VM, restarts the container, and waits for it to become healthy.
+Deploys a single service to the Oracle VM. **This script does not build or publish.** It reads the tag recorded in `Deployment/env_deployments/dev/<service>.env`, pulls that specific image onto the VM, restarts the container, and waits for it to become healthy.
 
 If you need to build and publish a new image first, see `publish-one-service.md`.
 

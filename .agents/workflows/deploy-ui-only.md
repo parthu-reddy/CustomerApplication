@@ -8,8 +8,8 @@ This allows you to easily deploy the UI without needing to run a full `/clean-de
 
 ## 1. Update the image tag
 
-The deployment script (`Deployment/deploy.sh`) relies on the tags pinned in `Deployment/.versions`.
-Update `FOOD_DELIVERY_APP_UI_TAG` in `Deployment/.versions` to match the latest git commit SHA from the `FoodDeliveryAppUI` repository. 
+The deployment script (`Deployment/deploy.sh`) relies on the tags pinned in `Deployment/env_deployments/dev/food-delivery-app-ui.env`.
+Update `FOOD_DELIVERY_APP_UI_TAG` in `Deployment/env_deployments/dev/food-delivery-app-ui.env` to match the latest git commit SHA from the `FoodDeliveryAppUI` repository. 
 
 You can find the latest commit SHA by running:
 ```bash
