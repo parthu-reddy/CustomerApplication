@@ -15,6 +15,9 @@ import java.util.UUID;
  */
 @lombok.Data
 @lombok.Builder
+// Absent, not null: the UI's generated schema is .partial() (undefined allowed, null not), and
+// an unconfigured operator or a supplier without an FSSAI number is simply not on the invoice.
+@com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
 public class CustomerInvoice {
     private String invoiceNumber;
     private LocalDateTime issuedAt;
