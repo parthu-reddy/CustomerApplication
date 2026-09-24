@@ -76,4 +76,11 @@ public class OrderResponse {
     /** Why a terminal order ended, set by the state that ended it. Null while the order is live. */
     private String cancellationReason;
 
+    /**
+     * The restaurant's delay request: the minutes it asked to add and its reason. Set when the
+     * order enters AWAITING_DELAY_APPROVAL, so the customer approves a stated figure.
+     */
+    private Integer requestedDelayMinutes;
+    private String delayReason;
+
 }

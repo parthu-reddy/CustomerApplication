@@ -30,6 +30,14 @@ public class PendingAcceptanceState implements OrderState {
     public void handleDelayApprovalRequested(OrderContext ctx) {
         Order order = ctx.getOrder();
         order.setStatus(OrderStatus.AWAITING_DELAY_APPROVAL);
+        // The event has always carried how long and why; the order used to drop both, so the
+        // customer approved a delay without being told its length.
+        if (ctx.getEventPayload() instanceof com.fooddelivery.common.event.OrderDelayApprovalRequestedEvent request) {
+            order.setRequestedDelayMinutes(request.getAdditionalPrepTimeMinutes());
+            String reason = request.getDelayReason();
+            order.setDelayReason(reason == null || reason.isBlank() ? null
+                    : reason.length() > 500 ? reason.substring(0, 500) : reason);
+        }
         ctx.getActionService().saveOrder(order);
         ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), com.fooddelivery.common.constants.NotificationTemplate.DELAY_APPROVAL_REQUESTED);
     }

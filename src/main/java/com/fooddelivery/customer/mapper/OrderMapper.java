@@ -66,6 +66,8 @@ public class OrderMapper {
             .deliveryExecutiveId(order.getDeliveryExecutiveId())
             .paymentMethod(order.getPaymentMethod())
             .cancellationReason(order.getCancellationReason())
+            .requestedDelayMinutes(order.getRequestedDelayMinutes())
+            .delayReason(order.getDelayReason())
             .build();
     }
 }
