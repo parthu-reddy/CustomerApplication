@@ -34,4 +34,13 @@ public class OrderRequest {
     @NotEmpty
     @Valid
     private List<OrderItemRequest> items;
+
+    /**
+     * Tip for the rider, whole rupees, 0 to 500. Optional (absent is no tip). Added on top of the
+     * quoted total: the quote prices the food and delivery, the tip is the customer's own choice.
+     */
+    @jakarta.validation.constraints.PositiveOrZero
+    @jakarta.validation.constraints.Max(500)
+    @jakarta.validation.constraints.Digits(integer = 3, fraction = 0, message = "tipAmount must be whole rupees")
+    private java.math.BigDecimal tipAmount;
 }

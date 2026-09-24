@@ -345,8 +345,11 @@ public class CustomerOrderService {
                             + quote.getQuotedCustomerTotal());
                     }
 
-                    totalAmount = pricing.getCustomerTotal();
+                    // The rider's tip rides on top of the quoted total and goes to the rider whole.
+                    BigDecimal tip = RiderTip.of(request.getTipAmount());
+                    totalAmount = pricing.getCustomerTotal().add(tip);
                     order.setTotalAmount(totalAmount);
+                    order.setTipAmount(tip);
                     order.setItemTotal(pricing.getItemTotal());
                     order.setCustomerPlatformFee(pricing.getCustomerPlatformFee());
                     order.setRestaurantPlatformFee(pricing.getRestaurantPlatformFee());
@@ -364,7 +367,13 @@ public class CustomerOrderService {
                     for (com.fooddelivery.order.entity.OrderCharge charge : pricing.getCharges()) {
                         charge.setOrder(order);
                     }
-                    order.setCharges(pricing.getCharges());
+                    java.util.Set<com.fooddelivery.order.entity.OrderCharge> charges = new java.util.HashSet<>(pricing.getCharges());
+                    com.fooddelivery.order.entity.OrderCharge tipCharge = RiderTip.charge(tip);
+                    if (tipCharge != null) {
+                        tipCharge.setOrder(order);
+                        charges.add(tipCharge);
+                    }
+                    order.setCharges(charges);
 
                     // Claim the quote for this order. The unconsumed-and-unexpired test lives in the
                     // UPDATE, so two concurrent checkouts cannot both redeem it. If the saga fails

@@ -190,7 +190,10 @@ public class LedgerBookkeeper {
                 }
                 
                 java.math.BigDecimal alreadyClawedBack = getAlreadyClawedBack(order.getId(), order.getDeliveryExecutiveId(), LedgerAccountType.DRIVER_PAYABLE);
-                java.math.BigDecimal riderPayout = order.getDriverNetPayout();
+                // The tip reached the rider too (a DELIVERY_FEE leg at delivery), so a refund for the
+                // rider's fault claws it back in the same proportion as the fee.
+                java.math.BigDecimal riderPayout = order.getDriverNetPayout()
+                        .add(order.getTipAmount() != null ? order.getTipAmount() : java.math.BigDecimal.ZERO);
                 
                 java.math.BigDecimal clawback = riderPayout.multiply(refundRatio).setScale(2, java.math.RoundingMode.HALF_UP);
                 if (clawback.compareTo(refund.getAmount()) > 0) clawback = refund.getAmount();

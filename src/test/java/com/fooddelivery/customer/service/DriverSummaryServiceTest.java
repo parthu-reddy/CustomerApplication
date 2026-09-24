@@ -70,6 +70,26 @@ public class DriverSummaryServiceTest {
     }
 
     @Test
+    void tipsAreTheirOwnLine_andAddToGrossAndNetUntaxed() {
+        Order order = new Order();
+        order.setDriverGrossPayout(new BigDecimal("150.00"));
+        order.setDriverTaxes(new BigDecimal("10.00"));
+        order.setDriverNetPayout(new BigDecimal("140.00"));
+        order.setTipAmount(new BigDecimal("20.00"));
+        when(orderRepository.findHistoryOrdersForDriver(eq(driverId), any(), any(), any(), any(), any()))
+                .thenReturn(new PageImpl<>(List.of(order)));
+        when(ledgerClient.getPayeeSummary("DRIVER", driverId)).thenReturn(PayeeMoneySummaryDto.builder()
+                .unsettledAmount(BigDecimal.ZERO).build());
+
+        DriverSummary summary = driverSummaryService.getSummary(driverId, "month");
+
+        assertEquals(new BigDecimal("20.00"), summary.getTips());
+        assertEquals(new BigDecimal("170.00"), summary.getGross());
+        assertEquals(new BigDecimal("10.00"), summary.getTaxes());
+        assertEquals(new BigDecimal("160.00"), summary.getNet());
+    }
+
+    @Test
     void pendingBalanceAndLastPayoutComeFromTheLedger() {
         noOrders();
         UUID payoutId = UUID.randomUUID();

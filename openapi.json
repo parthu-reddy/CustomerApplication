@@ -2502,6 +2502,10 @@
             "items" : {
               "$ref" : "#/components/schemas/OrderItemRequest"
             }
+          },
+          "tipAmount" : {
+            "maximum" : 500,
+            "type" : "number"
           }
         }
       },
@@ -2672,6 +2676,9 @@
           "estimatedArrivalTime" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "tipAmount" : {
+            "type" : "number"
           },
           "expiresAt" : {
             "type" : "integer",
@@ -3733,6 +3740,9 @@
           "net" : {
             "type" : "number"
           },
+          "tips" : {
+            "type" : "number"
+          },
           "pendingBalance" : {
             "type" : "number"
           },
@@ -4235,6 +4245,9 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "tipAmount" : {
+            "type" : "number"
+          },
           "handedOverAt" : {
             "type" : "integer",
             "format" : "int64"
@@ -4274,14 +4287,14 @@
           "pageable" : {
             "$ref" : "#/components/schemas/PageableObject"
           },
-          "sort" : {
-            "$ref" : "#/components/schemas/SortObject"
-          },
           "first" : {
             "type" : "boolean"
           },
           "last" : {
             "type" : "boolean"
+          },
+          "sort" : {
+            "$ref" : "#/components/schemas/SortObject"
           },
           "size" : {
             "type" : "integer",
@@ -4382,14 +4395,14 @@
           "pageable" : {
             "$ref" : "#/components/schemas/PageableObject"
           },
-          "sort" : {
-            "$ref" : "#/components/schemas/SortObject"
-          },
           "first" : {
             "type" : "boolean"
           },
           "last" : {
             "type" : "boolean"
+          },
+          "sort" : {
+            "$ref" : "#/components/schemas/SortObject"
           },
           "size" : {
             "type" : "integer",

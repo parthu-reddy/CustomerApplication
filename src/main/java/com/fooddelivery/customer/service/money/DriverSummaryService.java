@@ -34,12 +34,18 @@ public class DriverSummaryService {
         BigDecimal gross = BigDecimal.ZERO;
         BigDecimal taxes = BigDecimal.ZERO;
         BigDecimal net = BigDecimal.ZERO;
+        BigDecimal tips = BigDecimal.ZERO;
         
         for (Order o : orders) {
             if (o.getDriverGrossPayout() != null) gross = gross.add(o.getDriverGrossPayout());
             if (o.getDriverTaxes() != null) taxes = taxes.add(o.getDriverTaxes());
             if (o.getDriverNetPayout() != null) net = net.add(o.getDriverNetPayout());
+            // The tip is paid to the rider in full (RiderTip), untaxed: it adds to gross and net alike.
+            if (o.getTipAmount() != null) tips = tips.add(o.getTipAmount());
         }
+        gross = gross.add(tips);
+        net = net.add(tips);
+        summary.setTips(tips);
         
         summary.setGross(gross);
         summary.setTaxes(taxes);
