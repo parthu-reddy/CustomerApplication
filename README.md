@@ -13,3 +13,5 @@ The CustomerApplication is the backend service handling all consumer-facing oper
 - **Order Lifecycle**: Create orders and integrate with the PaymentService.
 - **Real-time Tracking**: Provides WebSocket endpoints for live order tracking.
 
+
+<!-- dummy data -->
