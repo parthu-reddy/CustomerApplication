@@ -17,6 +17,26 @@ import java.util.stream.Collectors;
 @lombok.RequiredArgsConstructor
 public class CustomerMoneyController {
 
+    /*
+     * A note on the @PreAuthorize expressions below.
+     *
+     * These used `principal.name`. In a Spring Security SpEL expression `principal` is
+     * `authentication.getPrincipal()`, NOT the `Principal` method parameter these handlers
+     * declare -- and the principal object has no `name` property, so every expression threw
+     * before the handler ran:
+     *
+     *   400 "Failed to evaluate expression '@moneyAccessPolicy.canAccessMoney(authentication,
+     *        ...CUSTOMER, T(java.util.UUID).fromString(principal.name))'"
+     *
+     * All five customer money endpoints were dead because of it -- wallet, wallet transactions,
+     * refunds, order refunds and receipt. Observed live on 2026-09-19 while paying by Wallet:
+     * the order was created and then auto-cancelled.
+     *
+     * `authentication.name` is the correct form and is what the other 27 money expressions in
+     * this workspace use, including DriverMoneyController, whose endpoints work.
+     * MoneyAccessPolicyTest confirms getName() carries the owner UUID.
+     */
+
     private final RefundRepository refundRepository;
     private final com.fooddelivery.order.repository.IOrderRepository orderRepository;
     private final com.fooddelivery.customer.service.money.CustomerReceiptService customerReceiptService;
@@ -35,7 +55,7 @@ public class CustomerMoneyController {
      * stale generated client, showing a zero balance whatever the wallet held.
      */
     @GetMapping("/wallet")
-    @PreAuthorize("@moneyAccessPolicy.canAccessMoney(authentication, T(com.fooddelivery.common.security.money.MoneyOwnerType).CUSTOMER, T(java.util.UUID).fromString(principal.name))")
+    @PreAuthorize("@moneyAccessPolicy.canAccessMoney(authentication, T(com.fooddelivery.common.security.money.MoneyOwnerType).CUSTOMER, T(java.util.UUID).fromString(authentication.name))")
     public ResponseEntity<com.fooddelivery.common.dto.wallet.WalletDto> getMyWallet(Principal principal) {
         return ResponseEntity.ok(walletServiceClient.getWallet(
                 com.fooddelivery.common.enums.WalletEntityType.CUSTOMER.name(),
@@ -43,7 +63,7 @@ public class CustomerMoneyController {
     }
 
     @GetMapping("/wallet/transactions")
-    @PreAuthorize("@moneyAccessPolicy.canAccessMoney(authentication, T(com.fooddelivery.common.security.money.MoneyOwnerType).CUSTOMER, T(java.util.UUID).fromString(principal.name))")
+    @PreAuthorize("@moneyAccessPolicy.canAccessMoney(authentication, T(com.fooddelivery.common.security.money.MoneyOwnerType).CUSTOMER, T(java.util.UUID).fromString(authentication.name))")
     public ResponseEntity<com.fooddelivery.common.dto.PageResponseDto<java.util.Map<String, Object>>> getMyWalletTransactions(
             Principal principal,
             @RequestParam(defaultValue = "0") int page,
@@ -54,7 +74,7 @@ public class CustomerMoneyController {
     }
 
     @GetMapping("/refunds")
-    @PreAuthorize("@moneyAccessPolicy.canAccessMoney(authentication, T(com.fooddelivery.common.security.money.MoneyOwnerType).CUSTOMER, T(java.util.UUID).fromString(principal.name))")
+    @PreAuthorize("@moneyAccessPolicy.canAccessMoney(authentication, T(com.fooddelivery.common.security.money.MoneyOwnerType).CUSTOMER, T(java.util.UUID).fromString(authentication.name))")
     public ResponseEntity<List<RefundView>> getMyRefunds(Principal principal) {
         UUID customerId = UUID.fromString(principal.getName());
         
@@ -73,7 +93,7 @@ public class CustomerMoneyController {
     }
 
     @GetMapping("/orders/{orderId}/refunds")
-    @PreAuthorize("@moneyAccessPolicy.canAccessMoney(authentication, T(com.fooddelivery.common.security.money.MoneyOwnerType).CUSTOMER, T(java.util.UUID).fromString(principal.name))")
+    @PreAuthorize("@moneyAccessPolicy.canAccessMoney(authentication, T(com.fooddelivery.common.security.money.MoneyOwnerType).CUSTOMER, T(java.util.UUID).fromString(authentication.name))")
     public ResponseEntity<List<RefundView>> getOrderRefunds(@PathVariable UUID orderId, Principal principal) {
         UUID customerId = UUID.fromString(principal.getName());
         
@@ -93,7 +113,7 @@ public class CustomerMoneyController {
     }
     
     @GetMapping("/orders/{orderId}/receipt")
-    @PreAuthorize("@moneyAccessPolicy.canAccessMoney(authentication, T(com.fooddelivery.common.security.money.MoneyOwnerType).CUSTOMER, T(java.util.UUID).fromString(principal.name))")
+    @PreAuthorize("@moneyAccessPolicy.canAccessMoney(authentication, T(com.fooddelivery.common.security.money.MoneyOwnerType).CUSTOMER, T(java.util.UUID).fromString(authentication.name))")
     public ResponseEntity<com.fooddelivery.customer.dto.CustomerReceipt> getReceipt(@PathVariable UUID orderId, Principal principal) {
         UUID customerId = UUID.fromString(principal.getName());
         return ResponseEntity.ok(customerReceiptService.getReceipt(orderId, customerId));
