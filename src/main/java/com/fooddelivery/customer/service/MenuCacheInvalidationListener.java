@@ -53,17 +53,22 @@ public class MenuCacheInvalidationListener {
                         UUID brandId = UUID.fromString(event.getBrandId());
                         log.info("Received MENU_UPDATED event for brandId: {}", brandId);
                         
-                        org.springframework.cache.Cache brandOutletsCache = cacheManager.getCache("brandOutlets");
+                        // The names RestaurantClient's @Cacheable uses. These read "brandOutlets" etc.
+                        // before: getCache() on a Redis cache manager creates a cache for any name,
+                        // so each call returned an empty new cache, cleared it, and the real entries
+                        // lived out their TTL -- menu and outlet edits reached customers up to 10+
+                        // minutes late.
+                        org.springframework.cache.Cache brandOutletsCache = cacheManager.getCache("customer-app:brandOutlets");
                         if (brandOutletsCache != null) {
                             brandOutletsCache.clear();
                         }
                         
-                        org.springframework.cache.Cache restaurantDetailsCache = cacheManager.getCache("restaurantDetails");
+                        org.springframework.cache.Cache restaurantDetailsCache = cacheManager.getCache("customer-app:restaurantDetails");
                         if (restaurantDetailsCache != null) {
                             restaurantDetailsCache.clear();
                         }
 
-                        org.springframework.cache.Cache menuItemsBatchCache = cacheManager.getCache("menuItemsBatch");
+                        org.springframework.cache.Cache menuItemsBatchCache = cacheManager.getCache("customer-app:menuItemsBatch");
                         if (menuItemsBatchCache != null) {
                             menuItemsBatchCache.clear();
                         }

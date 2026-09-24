@@ -290,11 +290,10 @@ public class CustomerOrderService {
                     // Order lines are built from the quoted prices, so they sum to what is charged.
                     BigDecimal totalAmount = BigDecimal.ZERO;
                     Set<OrderItem> orderItems = new HashSet<>();
-                    int maxPrepTime = 15; // default minimum
+                    int maxPrepTime = OrderPrepTime.minutes(
+                            restaurantData.get("defaultPrepTimeSeconds"),
+                            quote.getItems().stream().map(com.fooddelivery.order.entity.OrderQuoteItem::getPrepTimeMinutes).toList());
                     for (com.fooddelivery.order.entity.OrderQuoteItem quoteItem : quote.getItems()) {
-                        if (quoteItem.getPrepTimeMinutes() != null && quoteItem.getPrepTimeMinutes() > maxPrepTime) {
-                            maxPrepTime = quoteItem.getPrepTimeMinutes();
-                        }
                         totalAmount = totalAmount.add(quoteItem.getUnitPrice().multiply(BigDecimal.valueOf(quoteItem.getQuantity())));
                         orderItems.add(OrderItem.builder()
                             .id(UUID.randomUUID())
