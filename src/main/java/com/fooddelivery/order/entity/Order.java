@@ -193,6 +193,12 @@ public class Order {
     private Long estimatedCompletionTime;
     @Column(name = "cancellation_reason")
     private String cancellationReason;
+    /** Minutes the restaurant asked to add, from its delay request. Null if it never asked. */
+    @Column(name = "requested_delay_minutes")
+    private Integer requestedDelayMinutes;
+    /** The restaurant's reason for the delay request, as it wrote it. */
+    @Column(name = "delay_reason", length = 500)
+    private String delayReason;
     @Version
     @Column(name = "version")
     private Integer version;
