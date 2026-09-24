@@ -217,4 +217,17 @@ public class Order {
 
     @Column(name = "delivered_at")
     private LocalDateTime deliveredAt;
+
+    /** Road driving time restaurant to door, seconds, from the maps route at order time. Null when no route was available. */
+    @Column(name = "delivery_travel_seconds")
+    private Integer deliveryTravelSeconds;
+
+    /** The customer's tip for the rider, in rupees; part of totalAmount, paid to the rider in full. */
+    @Column(name = "tip_amount", nullable = false)
+    @lombok.Builder.Default
+    private java.math.BigDecimal tipAmount = java.math.BigDecimal.ZERO;
+
+    /** When the rider picked the food up (epoch ms, like estimatedCompletionTime). */
+    @Column(name = "handed_over_at")
+    private Long handedOverAt;
 }

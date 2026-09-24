@@ -33,6 +33,10 @@ public interface RestaurantClient {
     @GetMapping("/api/v1/restaurants/{id}")
     Map<String, Object> getRestaurantById(@PathVariable("id") UUID id);
 
+    /** Supplier details for a tax invoice (legal name, GSTIN, FSSAI). Not cached: read once per invoice issued. */
+    @GetMapping("/api/v1/internal/restaurants/outlets/{outletId}/invoice-details")
+    Map<String, Object> getInvoiceDetails(@PathVariable("outletId") UUID outletId);
+
     @Cacheable(value = "customer-app:menuItemsBatch", key = "#id + '-' + #ids", sync = true)
     @GetMapping("/api/v1/restaurants/{id}/menu/batch")
     List<MenuItemDTO> getMenuItemsBatch(@PathVariable("id") UUID id, @RequestParam("ids") String ids);

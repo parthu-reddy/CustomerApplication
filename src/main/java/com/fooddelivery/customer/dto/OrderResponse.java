@@ -82,5 +82,9 @@ public class OrderResponse {
      */
     private Integer requestedDelayMinutes;
     private String delayReason;
+    /** When the food should reach the door, epoch ms; null when there is no estimate. See DeliveryEta. */
+    private Long estimatedArrivalTime;
+    /** The customer's tip for the rider, rupees; included in totalAmount. */
+    private java.math.BigDecimal tipAmount;
 
 }

@@ -68,6 +68,8 @@ public class OrderMapper {
             .cancellationReason(order.getCancellationReason())
             .requestedDelayMinutes(order.getRequestedDelayMinutes())
             .delayReason(order.getDelayReason())
+            .estimatedArrivalTime(DeliveryEta.arrivalEpochMs(order, System.currentTimeMillis()))
+            .tipAmount(order.getTipAmount())
             .build();
     }
 }
