@@ -36,6 +36,12 @@ public class RestaurantClientFallback implements RestaurantClient {
     }
 
     @Override
+    public Map<String, Object> getInvoiceDetails(UUID outletId) {
+        // An invoice must not be issued on made-up supplier details; the caller turns this into a 503.
+        throw new IllegalStateException("Restaurant service unavailable for invoice details");
+    }
+
+    @Override
     public List<MenuItemDTO> getMenuItemsBatch(UUID id, String ids) {
         return new ArrayList<>();
     }

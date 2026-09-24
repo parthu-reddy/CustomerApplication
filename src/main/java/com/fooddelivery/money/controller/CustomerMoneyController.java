@@ -40,6 +40,7 @@ public class CustomerMoneyController {
     private final RefundRepository refundRepository;
     private final com.fooddelivery.order.repository.IOrderRepository orderRepository;
     private final com.fooddelivery.customer.service.money.CustomerReceiptService customerReceiptService;
+    private final com.fooddelivery.customer.service.money.CustomerInvoiceService customerInvoiceService;
     private final com.fooddelivery.common.client.WalletServiceClient walletServiceClient;
 
     /**
@@ -119,6 +120,14 @@ public class CustomerMoneyController {
         return ResponseEntity.ok(customerReceiptService.getReceipt(orderId, customerId));
     }
     
+    /** The GST tax invoice for a delivered order; issued on first request. 409 until delivered. */
+    @GetMapping("/orders/{orderId}/invoice")
+    @PreAuthorize("@moneyAccessPolicy.canAccessMoney(authentication, T(com.fooddelivery.common.security.money.MoneyOwnerType).CUSTOMER, T(java.util.UUID).fromString(authentication.name))")
+    public ResponseEntity<com.fooddelivery.customer.dto.CustomerInvoice> getInvoice(@PathVariable UUID orderId, Principal principal) {
+        UUID customerId = UUID.fromString(principal.getName());
+        return ResponseEntity.ok(customerInvoiceService.getInvoice(orderId, customerId));
+    }
+
     private RefundView mapToView(Refund r) {
         return RefundView.builder()
             .id(r.getId())

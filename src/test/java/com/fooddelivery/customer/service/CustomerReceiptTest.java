@@ -58,6 +58,7 @@ public class CustomerReceiptTest {
 
         OrderItem item = new OrderItem();
         item.setMenuItemId(UUID.randomUUID());
+        item.setName("Masala Dosa");
         item.setPrice(new BigDecimal("5.00"));
         item.setQuantity(2);
         order.setOrderItems(Set.of(item));
@@ -73,6 +74,8 @@ public class CustomerReceiptTest {
         assertEquals(new BigDecimal("10.00"), receipt.getItemTotal());
         assertEquals(new BigDecimal("15.00"), receipt.getTotal());
         assertEquals(1, receipt.getItems().size());
+        // The dish, not "Item <uuid>".
+        assertEquals("Masala Dosa", receipt.getItems().get(0).getName());
         assertEquals(0, receipt.getRefunds().size());
     }
 

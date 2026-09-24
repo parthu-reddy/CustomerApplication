@@ -39,7 +39,8 @@ public class CustomerReceiptService {
         if (order.getOrderItems() != null) {
             receipt.setItems(order.getOrderItems().stream().map(i -> {
                 CustomerReceipt.ReceiptItem item = new CustomerReceipt.ReceiptItem();
-                item.setName("Item " + i.getMenuItemId());
+                // The dish name the order line stored; this printed "Item <uuid>" for every line.
+                item.setName(i.getName() != null ? i.getName() : "Item");
                 item.setQuantity(i.getQuantity());
                 item.setPrice(i.getPrice());
                 return item;

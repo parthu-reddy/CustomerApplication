@@ -1720,6 +1720,33 @@
         }
       }
     },
+    "/api/v1/money/customer/orders/{orderId}/invoice" : {
+      "get" : {
+        "tags" : [ "customer-money-controller" ],
+        "operationId" : "getInvoice",
+        "parameters" : [ {
+          "name" : "orderId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CustomerInvoice"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/internal/orders/{orderId}/review-context" : {
       "get" : {
         "tags" : [ "internal-order-controller" ],
@@ -3843,6 +3870,112 @@
           },
           "price" : {
             "type" : "number"
+          }
+        }
+      },
+      "CustomerInvoice" : {
+        "type" : "object",
+        "properties" : {
+          "invoiceNumber" : {
+            "type" : "string"
+          },
+          "issuedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "orderId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "orderPlacedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "supplier" : {
+            "$ref" : "#/components/schemas/Party"
+          },
+          "operator" : {
+            "$ref" : "#/components/schemas/Party"
+          },
+          "customerName" : {
+            "type" : "string"
+          },
+          "deliveryAddress" : {
+            "type" : "string"
+          },
+          "lines" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Line"
+            }
+          },
+          "taxableValue" : {
+            "type" : "number"
+          },
+          "cgstRatePercent" : {
+            "type" : "number"
+          },
+          "cgstAmount" : {
+            "type" : "number"
+          },
+          "sgstRatePercent" : {
+            "type" : "number"
+          },
+          "sgstAmount" : {
+            "type" : "number"
+          },
+          "deliveryFee" : {
+            "type" : "number"
+          },
+          "platformFee" : {
+            "type" : "number"
+          },
+          "total" : {
+            "type" : "number"
+          },
+          "paymentMethod" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Line" : {
+        "type" : "object",
+        "properties" : {
+          "description" : {
+            "type" : "string"
+          },
+          "sac" : {
+            "type" : "string"
+          },
+          "quantity" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "unitPrice" : {
+            "type" : "number"
+          },
+          "amount" : {
+            "type" : "number"
+          }
+        }
+      },
+      "Party" : {
+        "type" : "object",
+        "properties" : {
+          "legalName" : {
+            "type" : "string"
+          },
+          "tradeName" : {
+            "type" : "string"
+          },
+          "gstin" : {
+            "type" : "string"
+          },
+          "fssaiLicenseNumber" : {
+            "type" : "string"
+          },
+          "address" : {
+            "type" : "string"
           }
         }
       },
