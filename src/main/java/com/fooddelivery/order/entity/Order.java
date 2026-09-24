@@ -217,4 +217,12 @@ public class Order {
 
     @Column(name = "delivered_at")
     private LocalDateTime deliveredAt;
+
+    /** Road driving time restaurant to door, seconds, from the maps route at order time. Null when no route was available. */
+    @Column(name = "delivery_travel_seconds")
+    private Integer deliveryTravelSeconds;
+
+    /** When the rider picked the food up (epoch ms, like estimatedCompletionTime). */
+    @Column(name = "handed_over_at")
+    private Long handedOverAt;
 }

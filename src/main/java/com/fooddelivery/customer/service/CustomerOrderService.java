@@ -257,8 +257,27 @@ public class CustomerOrderService {
                     org.springframework.security.core.context.SecurityContextHolder.clearContext();
                 }
             }, executorService).orTimeout(3, java.util.concurrent.TimeUnit.SECONDS);
+            // 4. Road travel time, restaurant to door, for the arrival estimate. Best-effort and in
+            // parallel with the fleet check: no route means no estimate, never a failed order.
+            java.util.concurrent.CompletableFuture<Integer> travelFuture = restaurantDataFuture.thenApplyAsync(restaurantData -> {
+                org.springframework.web.context.request.RequestContextHolder.setRequestAttributes(requestAttributes);
+                org.springframework.security.core.context.SecurityContextHolder.setContext(securityContext);
+                try {
+                    Double rLat = com.fooddelivery.common.util.JsonNumberUtils.toDouble(restaurantData.get("lat"));
+                    Double rLng = com.fooddelivery.common.util.JsonNumberUtils.toDouble(restaurantData.get("lng"));
+                    if (address.getLatitude() == null || address.getLongitude() == null) return null;
+                    var route = mapsClient.getRoute(rLat + "," + rLng, address.getLatitude() + "," + address.getLongitude());
+                    return route == null || route.getData() == null ? null : route.getData().travelSeconds();
+                } finally {
+                    org.springframework.web.context.request.RequestContextHolder.resetRequestAttributes();
+                    org.springframework.security.core.context.SecurityContextHolder.clearContext();
+                }
+            }, executorService).orTimeout(3, java.util.concurrent.TimeUnit.SECONDS).exceptionally(e -> {
+                log.warn("No route for the arrival estimate: {}", e.getMessage());
+                return null;
+            });
             // Wait for all async calls to complete non-blockingly
-            return java.util.concurrent.CompletableFuture.allOf(menuFuture, restaurantDataFuture, mapsFuture).orTimeout(10, java.util.concurrent.TimeUnit.SECONDS).thenApplyAsync(v -> {
+            return java.util.concurrent.CompletableFuture.allOf(menuFuture, restaurantDataFuture, mapsFuture, travelFuture).orTimeout(10, java.util.concurrent.TimeUnit.SECONDS).thenApplyAsync(v -> {
                 try {
                     java.util.Map<String, Object> restaurantData = restaurantDataFuture.join();
                     Double rLat = com.fooddelivery.common.util.JsonNumberUtils.toDouble(restaurantData.get("lat"));
@@ -308,7 +327,7 @@ public class CustomerOrderService {
                             + totalAmount + " but its item total is " + quote.getItemTotal());
                     }
 
-                    Order order = Order.builder().id(UUID.randomUUID()).customerId(customerId).customerName(request.getCustomerName()).restaurantId(restaurantId).restaurantName((String) restaurantData.get("name")).deliveryAddressId(deliveryAddressId).deliveryAddress(formatAddress(address)).deliveryLat(address.getLatitude()).deliveryLng(address.getLongitude()).dispatchCityId(deliveryZoneConfig.getDefaultCity()).fleetSearchRadiusKm(deliveryZoneConfig.getFleetSearchRadiusKm()).otp(String.format("%06d", new java.security.SecureRandom().nextInt(1000000))).status(OrderStatus.CREATED).orderItems(new HashSet<>()).estimatedPrepTimeMinutes(maxPrepTime).quoteId(quote.getId()).paymentMethod(request.getPaymentMethod()).build();
+                    Order order = Order.builder().id(UUID.randomUUID()).customerId(customerId).customerName(request.getCustomerName()).restaurantId(restaurantId).restaurantName((String) restaurantData.get("name")).deliveryAddressId(deliveryAddressId).deliveryAddress(formatAddress(address)).deliveryLat(address.getLatitude()).deliveryLng(address.getLongitude()).dispatchCityId(deliveryZoneConfig.getDefaultCity()).fleetSearchRadiusKm(deliveryZoneConfig.getFleetSearchRadiusKm()).otp(String.format("%06d", new java.security.SecureRandom().nextInt(1000000))).status(OrderStatus.CREATED).orderItems(new HashSet<>()).estimatedPrepTimeMinutes(maxPrepTime).deliveryTravelSeconds(travelFuture.join()).quoteId(quote.getId()).paymentMethod(request.getPaymentMethod()).build();
                     for (OrderItem item : orderItems) {
                         item.setOrder(order);
                     }

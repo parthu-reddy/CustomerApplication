@@ -41,6 +41,7 @@ public class ReadyForPickupState implements OrderState {
         Order order = ctx.getOrder();
         order.setStatus(OrderStatus.HANDED_OVER);
         order.setDeliveryStatus(com.fooddelivery.common.enums.DeliveryStatus.OUT_FOR_DELIVERY);
+        order.setHandedOverAt(System.currentTimeMillis());
         ctx.getActionService().saveOrder(order);
         ctx.getActionService().sendNotification(order.getId().toString(), order.getCustomerId(), com.fooddelivery.common.constants.NotificationTemplate.DRIVER_ON_THE_WAY);
     }

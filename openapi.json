@@ -2642,6 +2642,10 @@
           "delayReason" : {
             "type" : "string"
           },
+          "estimatedArrivalTime" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
           "expiresAt" : {
             "type" : "integer",
             "format" : "int64"
@@ -4093,6 +4097,14 @@
           "deliveredAt" : {
             "type" : "string",
             "format" : "date-time"
+          },
+          "deliveryTravelSeconds" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "handedOverAt" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
