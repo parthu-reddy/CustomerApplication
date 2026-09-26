@@ -8,7 +8,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 @Repository
@@ -34,11 +34,11 @@ public interface OrderQuoteRepository extends JpaRepository<OrderQuote, UUID> {
             + "WHERE q.id = :quoteId AND q.consumedAt IS NULL AND q.expiresAt > :now")
     int claim(@Param("quoteId") UUID quoteId,
               @Param("orderId") UUID orderId,
-              @Param("now") LocalDateTime now);
+              @Param("now") Instant now);
 
     /** Housekeeping for quotes that expired without being redeemed. */
     @Transactional
     @Modifying
     @Query("DELETE FROM OrderQuote q WHERE q.expiresAt < :cutoff AND q.consumedAt IS NULL")
-    int deleteExpiredBefore(@Param("cutoff") LocalDateTime cutoff);
+    int deleteExpiredBefore(@Param("cutoff") Instant cutoff);
 }

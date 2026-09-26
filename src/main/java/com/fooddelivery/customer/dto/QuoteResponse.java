@@ -17,7 +17,7 @@ public class QuoteResponse {
     private java.util.UUID quoteId;
     /** After this instant the quote is dead and the customer must re-quote. */
     @NotNull
-    private java.time.LocalDateTime expiresAt;
+    private java.time.Instant expiresAt;
     @NotNull
     private BigDecimal subtotal;
     @NotNull

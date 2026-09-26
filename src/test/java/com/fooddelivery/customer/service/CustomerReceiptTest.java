@@ -15,7 +15,7 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 import java.util.Optional;
@@ -54,7 +54,7 @@ public class CustomerReceiptTest {
         order.setCgst(new BigDecimal("0.50"));
         order.setTotalAmount(new BigDecimal("15.00"));
         order.setPaymentMethod(PaymentMethod.CARD);
-        order.setCreatedAt(LocalDateTime.now());
+        order.setCreatedAt(Instant.now());
 
         OrderItem item = new OrderItem();
         item.setMenuItemId(UUID.randomUUID());

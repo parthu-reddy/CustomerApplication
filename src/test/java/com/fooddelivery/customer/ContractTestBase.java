@@ -28,15 +28,7 @@ public abstract class ContractTestBase {
      * this converter to the auto-configured mapper so the two cannot drift apart again.
      */
     public static org.springframework.http.converter.HttpMessageConverter<?>[] contractMessageConverters() {
-        com.fasterxml.jackson.databind.ObjectMapper mapper =
-                org.springframework.http.converter.json.Jackson2ObjectMapperBuilder.json()
-                        .featuresToDisable(
-                                com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
-                        .build();
-        return new org.springframework.http.converter.HttpMessageConverter<?>[] {
-            new org.springframework.http.converter.StringHttpMessageConverter(),
-            new org.springframework.http.converter.json.MappingJackson2HttpMessageConverter(mapper)
-        };
+        return com.fooddelivery.common.contract.PlatformJson.messageConverters();
     }
 
     @BeforeEach
@@ -130,7 +122,7 @@ public abstract class ContractTestBase {
         reviewOrder.setCustomerName("Priya Raghavan");
         reviewOrder.setRestaurantName("Anand Bhavan");
         reviewOrder.setDeliveryStatus(com.fooddelivery.common.enums.DeliveryStatus.DELIVERED);
-        reviewOrder.setDeliveredAt(java.time.LocalDateTime.of(2026, 9, 11, 10, 15, 30));
+        reviewOrder.setDeliveredAt(java.time.Instant.parse("2026-09-11T10:15:30Z"));
         com.fooddelivery.order.entity.OrderItem reviewItem = new com.fooddelivery.order.entity.OrderItem();
         reviewItem.setId(java.util.UUID.randomUUID());
         reviewItem.setMenuItemId(REVIEW_MENU_ITEM_ID);

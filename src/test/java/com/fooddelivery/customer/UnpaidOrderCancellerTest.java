@@ -27,7 +27,7 @@ import com.fooddelivery.common.dto.ApiResponse;
 
 import java.util.Collections;
 import java.util.UUID;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 public class UnpaidOrderCancellerTest {
 
@@ -70,7 +70,7 @@ public class UnpaidOrderCancellerTest {
         order.setStatus(OrderStatus.CREATED);
         order.setPaymentMethod(PaymentMethod.CARD);
 
-        when(orderRepo.findByStatusAndUpdatedAtBefore(eq(OrderStatus.CREATED), any(LocalDateTime.class), any(PageRequest.class)))
+        when(orderRepo.findByStatusAndUpdatedAtBefore(eq(OrderStatus.CREATED), any(Instant.class), any(PageRequest.class)))
                 .thenReturn(new PageImpl<>(Collections.singletonList(order)));
         
 

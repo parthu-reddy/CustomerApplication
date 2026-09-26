@@ -4,6 +4,7 @@ import com.fooddelivery.customer.dto.DriverSummary;
 import com.fooddelivery.order.entity.Order;
 import com.fooddelivery.order.repository.IOrderRepository;
 import com.fooddelivery.customer.client.LedgerClient;
+import com.fooddelivery.common.time.TimeWindow;
 import org.springframework.stereotype.Service;
 import java.util.UUID;
 import java.util.List;
@@ -17,18 +18,20 @@ public class DriverSummaryService {
     private final IOrderRepository orderRepository;
     private final LedgerClient ledgerClient;
 
-    public DriverSummary getSummary(UUID driverId, String period) {
+    /**
+     * The rider's earnings for {@code window}: a period on the rider's own calendar, which the rider's
+     * browser computes, because a rider has no zone on record. This used to ignore the period it was
+     * asked for and sum one UTC month back from now, capped at 1000 orders.
+     * TimezoneCorrectness_2026-09-25.
+     *
+     * <p>Delivered orders only, dated when delivered, which is what the ledger pays and when. The
+     * payout amounts are quoted onto every order when it is placed, so summing cancelled orders (as
+     * this did) reported money the rider was never going to receive.
+     */
+    public DriverSummary getSummary(UUID driverId, TimeWindow window) {
         DriverSummary summary = new DriverSummary();
-        
-        java.time.LocalDateTime start = java.time.LocalDateTime.now().minusMonths(1);
-        java.time.LocalDateTime end = java.time.LocalDateTime.now().plusDays(1);
-        
-        List<com.fooddelivery.common.enums.OrderStatus> cancelledStatuses = List.of(com.fooddelivery.common.enums.OrderStatus.CANCELLED);
-        List<com.fooddelivery.common.enums.DeliveryStatus> terminalStatuses = List.of(com.fooddelivery.common.enums.DeliveryStatus.DELIVERED);
-        org.springframework.data.domain.Page<Order> ordersPage = orderRepository.findHistoryOrdersForDriver(
-                driverId, cancelledStatuses, terminalStatuses, start, end, org.springframework.data.domain.PageRequest.of(0, 1000));
-        
-        List<Order> orders = ordersPage.getContent();
+
+        List<Order> orders = orderRepository.findByDeliveryExecutiveIdDeliveredInWindow(driverId, window.from(), window.to());
         summary.setDeliveries(orders.size());
         
         BigDecimal gross = BigDecimal.ZERO;

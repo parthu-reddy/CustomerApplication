@@ -13,7 +13,9 @@ Contract.make {
         method 'GET'
         urlPath(value(consumer(regex('/api/v1/internal/orders/driver/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/history')), producer('/api/v1/internal/orders/driver/123e4567-e89b-12d3-a456-426614174000/history'))) {
             queryParameters {
-                parameter 'date': value(consumer(regex('.*')), producer('2023-01-01'))
+                // The rider's day as [from, to) instants, computed in the rider's own zone by the UI.
+                parameter 'from': value(consumer(regex('\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z')), producer('2023-01-01T00:00:00Z'))
+                parameter 'to': value(consumer(regex('\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z')), producer('2023-01-02T00:00:00Z'))
                 parameter 'page': value(consumer(regex('\\d+')), producer('0'))
                 parameter 'size': value(consumer(regex('\\d+')), producer('10'))
             }

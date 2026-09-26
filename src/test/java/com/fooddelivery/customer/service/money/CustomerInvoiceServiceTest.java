@@ -15,7 +15,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -50,8 +50,9 @@ class CustomerInvoiceServiceTest {
         order.setCustomerName("Asha");
         order.setDeliveryAddress("12 MG Road, Bengaluru");
         order.setDeliveryStatus(DeliveryStatus.DELIVERED);
-        order.setDeliveredAt(LocalDateTime.of(2026, 9, 24, 20, 15));
-        order.setCreatedAt(LocalDateTime.of(2026, 9, 24, 19, 30));
+        // 20:15 and 19:30 in Bengaluru, where the supplier trades.
+        order.setDeliveredAt(java.time.Instant.parse("2026-09-24T14:45:00Z"));
+        order.setCreatedAt(java.time.Instant.parse("2026-09-24T14:00:00Z"));
         OrderItem biryani = new OrderItem();
         biryani.setName("Chicken Biryani");
         biryani.setQuantity(2);
@@ -70,6 +71,7 @@ class CustomerInvoiceServiceTest {
         supplier.put("outletName", "Paradise Koramangala");
         supplier.put("gstin", "29ABCDE1234F1Z5");
         supplier.put("fssaiLicenseNumber", "11224333000123");
+        supplier.put("timeZone", "Asia/Kolkata");
         when(restaurants.getInvoiceDetails(order.getRestaurantId())).thenReturn(supplier);
         when(allocator.next(any())).thenReturn("FD/2627/0000001", "FD/2627/0000002");
     }
@@ -118,6 +120,33 @@ class CustomerInvoiceServiceTest {
     @Test
     void noNumberIsSpentWithoutTheSupplier() {
         when(restaurants.getInvoiceDetails(any())).thenThrow(new IllegalStateException("down"));
+        ResponseStatusException e = assertThrows(ResponseStatusException.class, () -> service.getInvoice(order.getId(), customerId));
+        assertEquals(503, e.getStatusCode().value());
+        verifyNoInteractions(allocator);
+    }
+
+    /**
+     * The invoice date, and so its financial year, is read on the supplier's calendar. 2027-03-31T20:00Z
+     * is already 1 April in Kolkata (a new Indian financial year) but still 31 March in New York.
+     * It used to be the UTC date. TimezoneCorrectness_2026-09-25.
+     */
+    @Test
+    void theFinancialYearFollowsTheSuppliersCalendar() {
+        java.time.Instant lateOn31March = java.time.Instant.parse("2027-03-31T20:00:00Z");
+        LocalDate kolkata = CustomerInvoiceService.issuedOn(lateOn31March, Map.of("timeZone", "Asia/Kolkata"));
+        LocalDate newYork = CustomerInvoiceService.issuedOn(lateOn31March, Map.of("timeZone", "America/New_York"));
+
+        assertEquals(LocalDate.of(2027, 4, 1), kolkata);
+        assertEquals(LocalDate.of(2027, 3, 31), newYork);
+        assertEquals("FD/2728/0000001", InvoiceNumberAllocator.format(1, kolkata));
+        assertEquals("FD/2627/0000001", InvoiceNumberAllocator.format(1, newYork));
+    }
+
+    /** A tax document never guesses its zone: no zone from the supplier, no number spent. */
+    @Test
+    void noSupplierZoneMeansNoInvoiceYet() {
+        Map<String, Object> zoneless = new HashMap<>(Map.of("legalEntityName", "Paradise Food Court Pvt Ltd"));
+        when(restaurants.getInvoiceDetails(any())).thenReturn(zoneless);
         ResponseStatusException e = assertThrows(ResponseStatusException.class, () -> service.getInvoice(order.getId(), customerId));
         assertEquals(503, e.getStatusCode().value());
         verifyNoInteractions(allocator);

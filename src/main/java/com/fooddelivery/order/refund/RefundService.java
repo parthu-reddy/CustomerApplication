@@ -30,7 +30,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -125,7 +125,7 @@ public class RefundService {
                         .aggregateId(intent.getId().toString())
                         .eventType(EventType.PAYMENT_REFUND_REQUESTED)
                         .payload(objectMapper.writeValueAsString(event))
-                        .createdAt(LocalDateTime.now())
+                        .createdAt(Instant.now())
                         .status(OutboxStatus.UNPROCESSED)
                         .build();
                 outboxEventRepository.save(outboxEvent);
@@ -173,7 +173,7 @@ public class RefundService {
                     // cannot enqueue a second credit for the same refund.
                     .idempotencyKey("wallet_credit:" + refund.getId())
                     .payload(objectMapper.writeValueAsString(payload))
-                    .createdAt(LocalDateTime.now())
+                    .createdAt(Instant.now())
                     .status(OutboxStatus.UNPROCESSED)
                     .build();
             outboxEventRepository.save(outboxEvent);
@@ -264,7 +264,7 @@ public class RefundService {
     private void completeInternal(Refund refund, String gatewayRefundId, Order order) {
         refund.setStatus(RefundStatus.COMPLETED);
         refund.setGatewayRefundId(gatewayRefundId);
-        refund.setCompletedAt(java.time.OffsetDateTime.now());
+        refund.setCompletedAt(java.time.Instant.now());
         String gatewayName = paymentIntentRepository.findById(refund.getPaymentIntentId())
                 .map(PaymentIntent::getGatewayName)
                 .map(Enum::name)
@@ -290,13 +290,13 @@ public class RefundService {
     
     @Transactional
     public void retryStuck() {
-        List<Refund> stuck = refundRepository.findStuckProcessing(java.time.OffsetDateTime.now().minusMinutes(5));
+        List<Refund> stuck = refundRepository.findStuckProcessing(java.time.Instant.now().minus(java.time.Duration.ofMinutes(5)));
         for (Refund refund : stuck) {
             refund.setAttempts(refund.getAttempts() + 1);
             if (refund.getAttempts() > 3) {
                 fail(refund.getId(), "Max retries exceeded");
             } else {
-                refund.setUpdatedAt(java.time.OffsetDateTime.now());
+                refund.setUpdatedAt(java.time.Instant.now());
                 PaymentIntent intent = paymentIntentRepository.findById(refund.getPaymentIntentId()).orElseThrow();
                 PaymentRefundRequestedEvent event = PaymentRefundRequestedEvent.builder()
                         .refundId(refund.getId().toString())
@@ -312,7 +312,7 @@ public class RefundService {
                             .aggregateId(intent.getId().toString())
                             .eventType(EventType.PAYMENT_REFUND_REQUESTED)
                             .payload(objectMapper.writeValueAsString(event))
-                            .createdAt(LocalDateTime.now())
+                            .createdAt(Instant.now())
                             .status(OutboxStatus.UNPROCESSED)
                             .build();
                     outboxEventRepository.save(outboxEvent);
@@ -364,7 +364,7 @@ public class RefundService {
                     .aggregateId(order.getCustomerId().toString())
                     .eventType(EventType.NOTIFICATION_REQUEST)
                     .payload(objectMapper.writeValueAsString(notificationEvent))
-                    .createdAt(LocalDateTime.now())
+                    .createdAt(Instant.now())
                     .status(OutboxStatus.UNPROCESSED)
                     .build();
             outboxEventRepository.save(outboxEvent);
@@ -387,7 +387,7 @@ public class RefundService {
                     .aggregateId(order.getCustomerId().toString())
                     .eventType(EventType.NOTIFICATION_REQUEST)
                     .payload(objectMapper.writeValueAsString(notificationEvent))
-                    .createdAt(LocalDateTime.now())
+                    .createdAt(Instant.now())
                     .status(OutboxStatus.UNPROCESSED)
                     .build();
             outboxEventRepository.save(outboxEvent);
@@ -414,7 +414,7 @@ public class RefundService {
                     .aggregateId(order.getCustomerId().toString())
                     .eventType(EventType.NOTIFICATION_REQUEST)
                     .payload(objectMapper.writeValueAsString(notificationEvent))
-                    .createdAt(LocalDateTime.now())
+                    .createdAt(Instant.now())
                     .status(OutboxStatus.UNPROCESSED)
                     .build();
             outboxEventRepository.save(outboxEvent);
@@ -434,7 +434,7 @@ public class RefundService {
                 .reasonCode(refund.getReasonCode())
                 .requestedAt(refund.getCreatedAt())
                 .completedAt(refund.getCompletedAt())
-                .expectedBy(refund.getCreatedAt() != null ? refund.getCreatedAt().plusDays(5) : java.time.OffsetDateTime.now().plusDays(5))
+                .expectedBy(refund.getCreatedAt() != null ? refund.getCreatedAt().plus(java.time.Duration.ofDays(5)) : java.time.Instant.now().plus(java.time.Duration.ofDays(5)))
                 .build();
     }
 }

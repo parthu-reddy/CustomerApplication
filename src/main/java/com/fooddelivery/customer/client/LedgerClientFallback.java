@@ -28,6 +28,15 @@ public class LedgerClientFallback implements LedgerClient {
     }
 
     @Override
+    public java.math.BigDecimal getCategoryTotal(com.fooddelivery.common.enums.LedgerAccountType ownerType, UUID ownerId,
+                                                 com.fooddelivery.common.enums.ChargeCategory category,
+                                                 com.fooddelivery.common.enums.TransactionDirection direction,
+                                                 java.time.Instant from, java.time.Instant to) {
+        // Never a zero: it would read as "nothing clawed back".
+        throw new IllegalStateException("Ledger service is unavailable");
+    }
+
+    @Override
     public List<LedgerStatementLineDto> getStatementByReference(UUID referenceId) {
         throw new IllegalStateException("Ledger service is unavailable");
     }

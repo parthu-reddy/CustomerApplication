@@ -15,7 +15,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.test.context.TestPropertySource;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -48,7 +48,7 @@ class SweeperScopeTest {
     @Autowired
     private IOrderRepository orderRepository;
 
-    private static final LocalDateTime CUTOFF = LocalDateTime.now().plusHours(1);
+    private static final Instant CUTOFF = Instant.now().plus(java.time.Duration.ofHours(1));
 
     private static final List<OrderStatus> STUCK_STATUSES =
             List.of(OrderStatus.ACCEPTED, OrderStatus.PREPARING);
@@ -143,7 +143,7 @@ class SweeperScopeTest {
         save(OrderStatus.ACCEPTED, null);
 
         assertThat(orderRepository.findStuckInRestaurantStates(STUCK_STATUSES, ENDED_DELIVERY,
-                        LocalDateTime.now().minusHours(1), PageRequest.of(0, 100)).getContent())
+                        Instant.now().minus(java.time.Duration.ofHours(1)), PageRequest.of(0, 100)).getContent())
                 .describedAs("updatedAt is after the cutoff, so it has been touched recently")
                 .isEmpty();
     }

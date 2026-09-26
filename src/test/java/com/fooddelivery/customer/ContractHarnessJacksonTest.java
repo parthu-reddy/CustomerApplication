@@ -30,7 +30,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class ContractHarnessJacksonTest {
 
     private final ApplicationContextRunner bootJackson = new ApplicationContextRunner()
-            .withConfiguration(AutoConfigurations.of(JacksonAutoConfiguration.class));
+            .withConfiguration(AutoConfigurations.of(JacksonAutoConfiguration.class))
+            .withUserConfiguration(com.fooddelivery.common.config.JacksonConfig.class);
 
     private com.fasterxml.jackson.databind.ObjectMapper harnessMapper() {
         for (org.springframework.http.converter.HttpMessageConverter<?> c
@@ -44,8 +45,8 @@ public class ContractHarnessJacksonTest {
 
     /** The case that actually bit: `deliveredAt` on the review-context contract. */
     @Test
-    public void localDateTimeIsWrittenTheSameWayTheApplicationWritesIt() {
-        java.time.LocalDateTime t = java.time.LocalDateTime.of(2026, 9, 11, 10, 15, 30);
+    public void instantIsWrittenTheSameWayTheApplicationWritesIt() {
+        java.time.Instant t = java.time.Instant.parse("2026-09-11T10:15:30Z");
 
         bootJackson.run(context -> {
             com.fasterxml.jackson.databind.ObjectMapper application =
@@ -60,9 +61,9 @@ public class ContractHarnessJacksonTest {
     /** Asserting the value too, so a regression in BOTH mappers at once still fails. */
     @Test
     public void andThatWayIsIso8601NotAnArrayOfParts() throws Exception {
-        java.time.LocalDateTime t = java.time.LocalDateTime.of(2026, 9, 11, 10, 15, 30);
+        java.time.Instant t = java.time.Instant.parse("2026-09-11T10:15:30Z");
 
-        assertEquals("\"2026-09-11T10:15:30\"", harnessMapper().writeValueAsString(t));
+        assertEquals("\"2026-09-11T10:15:30Z\"", harnessMapper().writeValueAsString(t));
     }
 
     /** BigDecimal money fields: ten existing contracts assert them, none would have caught a change. */

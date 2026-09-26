@@ -150,7 +150,7 @@ public class CustomerOrderService {
                         } catch (Exception ex) {
                             payload = "{}";
                         }
-                        com.fooddelivery.common.outbox.entity.OutboxEventEntity cancelEvent = com.fooddelivery.common.outbox.entity.OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER).aggregateId(freshOrder.getId().toString()).eventType(com.fooddelivery.common.constants.EventType.ORDER_CANCELLED).payload(payload).createdAt(java.time.LocalDateTime.now()).build();
+                        com.fooddelivery.common.outbox.entity.OutboxEventEntity cancelEvent = com.fooddelivery.common.outbox.entity.OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER).aggregateId(freshOrder.getId().toString()).eventType(com.fooddelivery.common.constants.EventType.ORDER_CANCELLED).payload(payload).createdAt(java.time.Instant.now()).build();
                         log.info("Triggering event: {} for order: {}", com.fooddelivery.common.constants.EventType.ORDER_CANCELLED.name(), freshOrder.getId());
                         outboxEventRepository.save(cancelEvent);
                         log.info("COMPENSATION_COMPLETE: Order {} cancelled and ORDER_CANCELLED outbox event saved.", freshOrder.getId());
@@ -379,7 +379,7 @@ public class CustomerOrderService {
                     // UPDATE, so two concurrent checkouts cannot both redeem it. If the saga fails
                     // after this the quote is spent and the customer re-quotes -- the conservative
                     // direction, as against charging one quote twice.
-                    int updated = orderQuoteRepository.claim(quote.getId(), order.getId(), java.time.LocalDateTime.now());
+                    int updated = orderQuoteRepository.claim(quote.getId(), order.getId(), java.time.Instant.now());
                     if (updated == 0) {
                         throw new com.fooddelivery.customer.exception.QuoteExpiredException("This quote has already been used or has expired. Please request a new quote.");
                     }
@@ -553,7 +553,7 @@ public class CustomerOrderService {
                         .itemTotal(pricing.getItemTotal())
                         .distanceKm(quotedDistance)
                         .quotedCustomerTotal(pricing.getCustomerTotal())
-                        .expiresAt(java.time.LocalDateTime.now().plusMinutes(QUOTE_VALIDITY_MINUTES))
+                        .expiresAt(java.time.Instant.now().plus(java.time.Duration.ofMinutes(QUOTE_VALIDITY_MINUTES)))
                         .build();
                     quote.applyRates(rates);
                     for (com.fooddelivery.order.entity.OrderQuoteItem quoteItem : quoteItems) {
@@ -617,7 +617,7 @@ public class CustomerOrderService {
         if (quote.getConsumedAt() != null) {
             throw new QuoteExpiredException("This quote has already been used. Please request a new quote.");
         }
-        if (quote.getExpiresAt().isBefore(java.time.LocalDateTime.now())) {
+        if (quote.getExpiresAt().isBefore(java.time.Instant.now())) {
             throw new QuoteExpiredException("This quote has expired. Please request a new quote.");
         }
 

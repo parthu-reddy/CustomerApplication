@@ -213,12 +213,13 @@ public class OrderEventConsumer {
 
     @org.springframework.kafka.annotation.DltHandler
     public void handleDlt(String message, @org.springframework.messaging.handler.annotation.Headers java.util.Map<String, Object> headers) {
-        log.error("ORDER_EVENT_DLT eventId={} eventType={} payloadBytes={} exception={}",
+        log.error("ORDER_EVENT_DLT eventId={} eventType={} payloadBytes={} exception={} replay={}",
                 com.fooddelivery.common.util.KafkaHeaderUtils.extractHeaderValue(headers, "eventId"),
                 com.fooddelivery.common.util.KafkaHeaderUtils.extractHeaderValue(headers, "eventType"),
                 message == null ? 0 : message.length(),
                 com.fooddelivery.common.util.KafkaHeaderUtils.extractHeaderValue(headers,
-                        org.springframework.kafka.support.KafkaHeaders.EXCEPTION_MESSAGE));
+                        org.springframework.kafka.support.KafkaHeaders.EXCEPTION_MESSAGE),
+                com.fooddelivery.common.util.KafkaHeaderUtils.deadLetterPosition(headers));
     }
 
     /**

@@ -24,7 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.kafka.annotation.RetryableTopic;
 import org.springframework.messaging.handler.annotation.Payload;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -65,7 +65,7 @@ public class OrderSagaOrchestrator {
         OrderCreatedEvent event = OrderCreatedEvent.builder().orderId(savedOrder.getId()).customerId(savedOrder.getCustomerId()).restaurantId(savedOrder.getRestaurantId()).totalAmount(savedOrder.getTotalAmount()).deliveryLat(savedOrder.getDeliveryLat()).deliveryLng(savedOrder.getDeliveryLng()).deliveryAddress(savedOrder.getDeliveryAddress()).pickupOtp(savedOrder.getPickupOtp()).deliveryOtp(savedOrder.getOtp()).build();
         try {
             log.info("Creating ORDER_CREATED outbox event with both OTPs set for order {}", savedOrder.getId());
-            OutboxEventEntity outboxEvent = OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER).aggregateId(savedOrder.getId().toString()).eventType(EventType.ORDER_CREATED).payload(objectMapper.writeValueAsString(event)).createdAt(LocalDateTime.now()).build();
+            OutboxEventEntity outboxEvent = OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER).aggregateId(savedOrder.getId().toString()).eventType(EventType.ORDER_CREATED).payload(objectMapper.writeValueAsString(event)).createdAt(Instant.now()).build();
             log.info("Triggering event: {} for order: {}", EventType.ORDER_CREATED.name(), savedOrder.getId());
             outboxEventRepository.save(outboxEvent);
             log.info("Order created and outbox event saved for Order ID: {}", savedOrder.getId());
@@ -79,7 +79,7 @@ public class OrderSagaOrchestrator {
     @Transactional
     public void saveStateAndEvent(Order order, com.fooddelivery.common.event.OutboxEvent event) {
         orderRepository.save(order);
-        OutboxEventEntity outboxEvent = OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(event.getAggregateType()).aggregateId(event.getAggregateId()).eventType(event.getEventType()).payload(event.getPayload()).createdAt(LocalDateTime.now()).build();
+        OutboxEventEntity outboxEvent = OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(event.getAggregateType()).aggregateId(event.getAggregateId()).eventType(event.getEventType()).payload(event.getPayload()).createdAt(Instant.now()).build();
         log.info("Triggering event: {} for aggregate: {}", event.getEventType(), event.getAggregateId());
         outboxEventRepository.save(outboxEvent);
         log.info("Order state and outbox event saved for Order ID: {}", order.getId());
@@ -103,7 +103,7 @@ public class OrderSagaOrchestrator {
                         .restaurantId(order.getRestaurantId().toString())
                         .build();
             }
-            OutboxEventEntity outboxEvent = OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER).aggregateId(order.getId().toString()).eventType(com.fooddelivery.common.constants.EventType.valueOf(eventType)).payload(objectMapper.writeValueAsString(event)).createdAt(LocalDateTime.now()).build();
+            OutboxEventEntity outboxEvent = OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER).aggregateId(order.getId().toString()).eventType(com.fooddelivery.common.constants.EventType.valueOf(eventType)).payload(objectMapper.writeValueAsString(event)).createdAt(Instant.now()).build();
             log.info("Triggering event: {} for order: {}", eventType, order.getId());
             outboxEventRepository.save(outboxEvent);
             log.info("Saved outbox event {} for Order {}", eventType, order.getId());

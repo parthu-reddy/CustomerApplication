@@ -66,7 +66,7 @@ public class ClawbackCapTest {
         order.setRestaurantPayout(new BigDecimal("200.00"));
         order.setSgst(BigDecimal.ZERO);
         order.setCgst(BigDecimal.ZERO);
-        order.setDeliveredAt(java.time.LocalDateTime.now());
+        order.setDeliveredAt(java.time.Instant.now());
         return order;
     }
 

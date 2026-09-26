@@ -16,7 +16,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fooddelivery.order.entity.OrderItem;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 import org.springframework.security.access.prepost.PreAuthorize;
 
@@ -85,7 +85,7 @@ public class AdminRefundController {
         }
 
         ticket.setResolvedBy(adminId);
-        ticket.setResolvedAt(LocalDateTime.now());
+        ticket.setResolvedAt(Instant.now());
         ticket.setResolutionNotes(request.notes());
 
         if (request.approved()) {

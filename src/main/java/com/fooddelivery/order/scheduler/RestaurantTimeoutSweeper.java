@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import java.time.Duration;
 import org.springframework.transaction.support.TransactionTemplate;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 
 @Component
@@ -40,7 +40,7 @@ public class RestaurantTimeoutSweeper {
         if (!Boolean.TRUE.equals(locked)) {
             return;
         }
-        LocalDateTime threshold = LocalDateTime.now().minusMinutes(10);
+        Instant threshold = Instant.now().minus(java.time.Duration.ofMinutes(10));
         org.springframework.data.domain.Page<Order> staleOrdersPage = orderRepository.findByStatusAndUpdatedAtBefore(OrderStatus.PENDING_ACCEPTANCE, threshold, org.springframework.data.domain.PageRequest.of(0, 500));
         List<Order> staleOrders = staleOrdersPage.getContent();
         if (!staleOrders.isEmpty()) {
@@ -57,7 +57,7 @@ public class RestaurantTimeoutSweeper {
         if (!Boolean.TRUE.equals(locked)) {
             return;
         }
-        LocalDateTime threshold = LocalDateTime.now().minusMinutes(60);
+        Instant threshold = Instant.now().minus(java.time.Duration.ofMinutes(60));
         // ACCEPTED and PREPARING only. READY_FOR_PICKUP with a rider en route is not a restaurant
         // that has stalled, and an order whose delivery has already failed is terminal by now --
         // sweeping either of them here cancelled the order a second time, as the restaurant's fault.
@@ -82,7 +82,7 @@ public class RestaurantTimeoutSweeper {
         if (!Boolean.TRUE.equals(locked)) {
             return;
         }
-        LocalDateTime cutoffTime = LocalDateTime.now().minusMinutes(10);
+        Instant cutoffTime = Instant.now().minus(java.time.Duration.ofMinutes(10));
         org.springframework.data.domain.Page<Order> staleOrdersPage = orderRepository.findByStatusAndUpdatedAtBefore(OrderStatus.AWAITING_DELAY_APPROVAL, cutoffTime, org.springframework.data.domain.PageRequest.of(0, 500));
         List<Order> delayedOrders = staleOrdersPage.getContent();
         if (!delayedOrders.isEmpty()) {

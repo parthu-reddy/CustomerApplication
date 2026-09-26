@@ -10,7 +10,7 @@ import com.fooddelivery.common.client.PaymentServiceClient;
 import com.fooddelivery.common.dto.payment.CreateOrderRequest;
 import com.fooddelivery.common.dto.payment.CreatePaymentResponse;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -43,7 +43,7 @@ public class PaymentGatewayOrchestrator {
                     .amount(order.getTotalAmount())
                     .status(com.fooddelivery.common.constants.PaymentIntentStatus.INITIATED)
                     .paymentMethod(method)
-                    .createdAt(java.time.OffsetDateTime.now())
+                    .createdAt(java.time.Instant.now())
                     .gatewayName(null)
                     .build();
                 paymentIntentRepository.save(intent);
@@ -54,7 +54,7 @@ public class PaymentGatewayOrchestrator {
                     .paymentMethod(method);
             CreatePaymentResponse response = paymentClient.createOrder(request);
             if (response != null) {
-                PaymentIntent intent = PaymentIntent.builder().id(UUID.randomUUID()).internalOrderId(order.getId()).gatewayOrderId(response.gatewayOrderId()).amount(order.getTotalAmount()).status(com.fooddelivery.common.constants.PaymentIntentStatus.INITIATED).paymentMethod(method).gatewayName(response.gateway()).createdAt(java.time.OffsetDateTime.now()).build();
+                PaymentIntent intent = PaymentIntent.builder().id(UUID.randomUUID()).internalOrderId(order.getId()).gatewayOrderId(response.gatewayOrderId()).amount(order.getTotalAmount()).status(com.fooddelivery.common.constants.PaymentIntentStatus.INITIATED).paymentMethod(method).gatewayName(response.gateway()).createdAt(java.time.Instant.now()).build();
                 paymentIntentRepository.save(intent);
                 log.info("PAYMENT_INTENT_CREATED orderId={} gateway={} gatewayOrderId={} paymentMethod={}",
                         order.getId(), response.gateway(), response.gatewayOrderId(), method);

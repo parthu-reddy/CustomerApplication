@@ -4,7 +4,7 @@ import com.fooddelivery.common.enums.OrderStatus;
 import com.fooddelivery.order.entity.Order;
 import org.junit.jupiter.api.Test;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -54,7 +54,7 @@ class DeliveryEtaTest {
         assertNull(DeliveryEta.arrivalEpochMs(noRoute, NOW));
         Order delivered = order(OrderStatus.HANDED_OVER);
         delivered.setHandedOverAt(NOW);
-        delivered.setDeliveredAt(LocalDateTime.now());
+        delivered.setDeliveredAt(Instant.now());
         assertNull(DeliveryEta.arrivalEpochMs(delivered, NOW));
         assertNull(DeliveryEta.arrivalEpochMs(order(OrderStatus.CANCELLED), NOW));
     }

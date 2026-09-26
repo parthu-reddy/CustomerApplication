@@ -7,7 +7,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
-import java.time.OffsetDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -21,11 +21,11 @@ public interface RefundRepository extends JpaRepository<Refund, UUID> {
     Optional<Refund> findByIdempotencyKey(String idempotencyKey);
 
     @Query("SELECT r FROM Refund r WHERE r.status = 'PROCESSING' AND r.updatedAt < :threshold")
-    List<Refund> findStuckProcessing(@Param("threshold") OffsetDateTime threshold);
+    List<Refund> findStuckProcessing(@Param("threshold") Instant threshold);
 
     /** Oldest refund still in flight, used by the RefundStuck alert. */
     @Query("SELECT MIN(r.createdAt) FROM Refund r WHERE r.status IN ('REQUESTED', 'PROCESSING')")
-    OffsetDateTime findOldestInFlightCreatedAt();
+    Instant findOldestInFlightCreatedAt();
 
     List<Refund> findByOrderId(UUID orderId);
     

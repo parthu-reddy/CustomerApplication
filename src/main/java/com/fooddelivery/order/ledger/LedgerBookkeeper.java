@@ -23,7 +23,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -244,7 +244,7 @@ public class LedgerBookkeeper {
                     .aggregateId(transferId.toString())
                     .eventType(EventType.LEDGER_TRANSACTION_REQUEST)
                     .payload(objectMapper.writeValueAsString(cmd))
-                    .createdAt(LocalDateTime.now())
+                    .createdAt(Instant.now())
                     .status(OutboxStatus.UNPROCESSED)
                     .build();
             outboxEventRepository.save(outboxEvent);

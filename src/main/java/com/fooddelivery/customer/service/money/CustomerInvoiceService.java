@@ -15,7 +15,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -64,10 +64,10 @@ public class CustomerInvoiceService {
             log.warn("Supplier details unavailable for order {}: {}", order.getId(), e.getMessage());
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Could not prepare the invoice right now. Try again shortly.");
         }
-        LocalDateTime issuedAt = order.getDeliveredAt() != null ? order.getDeliveredAt() : LocalDateTime.now();
+        Instant issuedAt = order.getDeliveredAt() != null ? order.getDeliveredAt() : Instant.now();
         OrderInvoice invoice = OrderInvoice.builder()
                 .orderId(order.getId())
-                .invoiceNumber(numberAllocator.next(issuedAt.toLocalDate()))
+                .invoiceNumber(numberAllocator.next(issuedOn(issuedAt, supplier)))
                 .issuedAt(issuedAt)
                 .supplierLegalName(text(supplier.get("legalEntityName")))
                 .supplierTradeName(text(supplier.get("outletName")))
@@ -80,6 +80,21 @@ public class CustomerInvoiceService {
             // Two first requests at once: the other one issued it. Read theirs.
             return invoiceRepository.findById(order.getId()).orElseThrow(() -> raced);
         }
+    }
+
+    /**
+     * The date the invoice is issued on, and so its financial year: read on the supplier outlet's
+     * calendar. On 31 March at 20:00Z it is already 1 April in Kolkata, a new financial year there.
+     * This used to be the UTC date. RandomDocuments/TimezoneCorrectness_2026-09-25.
+     */
+    static java.time.LocalDate issuedOn(Instant issuedAt, Map<String, Object> supplier) {
+        Object zone = supplier.get("timeZone");
+        if (!(zone instanceof String id) || !com.fooddelivery.common.time.IanaTimeZoneValidator.isRegionId(id)) {
+            // Never guess a zone for a tax document: the date decides which financial year the
+            // number belongs to, and an issued number cannot be corrected.
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Could not prepare the invoice right now. Try again shortly.");
+        }
+        return com.fooddelivery.common.time.BusinessCalendar.localDate(issuedAt, java.time.ZoneId.of(id));
     }
 
     private CustomerInvoice toDto(Order order, OrderInvoice invoice) {

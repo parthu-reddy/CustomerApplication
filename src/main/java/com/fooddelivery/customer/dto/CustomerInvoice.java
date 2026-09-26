@@ -1,7 +1,7 @@
 package com.fooddelivery.customer.dto;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -20,9 +20,9 @@ import java.util.UUID;
 @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
 public class CustomerInvoice {
     private String invoiceNumber;
-    private LocalDateTime issuedAt;
+    private Instant issuedAt;
     private UUID orderId;
-    private LocalDateTime orderPlacedAt;
+    private Instant orderPlacedAt;
 
     private Party supplier;
     /** The e-commerce operator; null until its details are configured. */

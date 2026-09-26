@@ -204,11 +204,11 @@ public class CustomerMcpService {
         }
     }
 
-    @Tool(description = "Driver: Get history orders. Provide driverId and date (optional).")
-    public String getHistoryOrders(String driverId, String date) {
+    @Tool(description = "Driver: Get history orders. Provide driverId and the window as ISO-8601 instants with a zone, from (inclusive) and to (exclusive), e.g. 2026-09-24T18:30:00Z.")
+    public String getHistoryOrders(String driverId, String from, String to) {
         try {
             return objectMapper.writeValueAsString(internalOrderController.fetchOrderHistoryForDriver(
-                    java.util.UUID.fromString(driverId), date,
+                    java.util.UUID.fromString(driverId), java.time.Instant.parse(from), java.time.Instant.parse(to),
                     org.springframework.data.domain.PageRequest.of(0, 50)).getBody());
         } catch (Exception e) {
             return "Error: " + e.getMessage();

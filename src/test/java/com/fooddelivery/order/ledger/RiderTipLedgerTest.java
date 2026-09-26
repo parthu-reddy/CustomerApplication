@@ -50,7 +50,7 @@ class RiderTipLedgerTest {
         order.setDriverNetPayout(new BigDecimal("40.00"));
         order.setRestaurantPayout(new BigDecimal("80.00"));
         order.setTipAmount(new BigDecimal(tip));
-        order.setDeliveredAt(java.time.LocalDateTime.now());
+        order.setDeliveredAt(java.time.Instant.now());
         Set<OrderCharge> charges = new HashSet<>();
         OrderCharge fee = OrderCharge.builder().id(UUID.randomUUID()).category(ChargeCategory.DELIVERY_FEE)
                 .payerType(com.fooddelivery.order.enums.ChargeEntityType.CUSTOMER)

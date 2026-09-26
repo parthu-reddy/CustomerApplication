@@ -7,7 +7,7 @@ import com.fooddelivery.order.service.state.OrderActionService;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 
 @Component
@@ -34,11 +34,11 @@ public class AbandonedDeliverySweeper {
         if (!Boolean.TRUE.equals(locked)) {
             return;
         }
-        LocalDateTime threshold = LocalDateTime.now().minusHours(2);
+        Instant threshold = Instant.now().minus(java.time.Duration.ofHours(2));
         sweepByStatus(OrderStatus.HANDED_OVER, threshold);
     }
 
-    private void sweepByStatus(OrderStatus status, LocalDateTime threshold) {
+    private void sweepByStatus(OrderStatus status, Instant threshold) {
         org.springframework.data.domain.Page<Order> page = orderRepository.findByStatusAndUpdatedAtBefore(status, threshold, org.springframework.data.domain.PageRequest.of(0, 500));
         List<Order> abandonedOrders = page.getContent();
         if (!abandonedOrders.isEmpty()) {

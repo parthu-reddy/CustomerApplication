@@ -36,7 +36,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 @AutoConfigureStubRunner(
     ids = {
         "com.fooddelivery:restaurant-application:+:stubs",
-        "com.fooddelivery:bidding-engine:+:stubs"
+        "com.fooddelivery:bidding-engine:+:stubs",
+        "com.fooddelivery:ledger-service:+:stubs"
     }
 )
 public class CustomerContractConsumerTest {
@@ -46,6 +47,9 @@ public class CustomerContractConsumerTest {
     
     @MockBean
     private RestaurantClientFallback restaurantClientFallback;
+
+    @MockBean
+    private com.fooddelivery.customer.client.LedgerClientFallback ledgerClientFallback;
 
     @org.springframework.boot.SpringBootConfiguration
     @org.springframework.boot.autoconfigure.EnableAutoConfiguration(exclude = {
@@ -62,6 +66,9 @@ public class CustomerContractConsumerTest {
     
     @Autowired
     private RestaurantClient restaurantClient;
+
+    @Autowired
+    private com.fooddelivery.customer.client.LedgerClient ledgerClient;
 
     @Test
     public void testGetNearbyRestaurants() {
@@ -91,6 +98,15 @@ public class CustomerContractConsumerTest {
         assertEquals("Test Restaurant", data.get("name"));
     }
 
+    /** The earnings summary sums the outlet's day, week and month in this zone (RestaurantSummaryService). */
+    @Test
+    public void testGetOutletSummaryCarriesTheOutletZone() {
+        Map<String, String> outlet = restaurantClient.getOutletSummary(UUID.fromString("123e4567-e89b-12d3-a456-426614174000"));
+        assertNotNull(outlet);
+        assertEquals("Asia/Kolkata", outlet.get("timeZone"));
+        assertEquals("Test Restaurant", outlet.get("name"));
+    }
+
     @SuppressWarnings("unchecked")
     @Test
     public void testFetchAds() {
@@ -113,5 +129,21 @@ public class CustomerContractConsumerTest {
         assertEquals(1, ads.size());
         assertEquals("AD-12345-campaign-1", ads.get(0).getAdId());
         assertEquals("campaign-1", ads.get(0).getCampaignId());
+    }
+
+    /**
+     * An outlet's clawbacks for a window, as RestaurantSummaryService asks for them. The stub only
+     * matches ISO-8601 UTC instants for from/to, so this also proves how Feign writes an Instant.
+     */
+    @Test
+    public void testGetCategoryTotalForAnOutletsClawbacks() {
+        java.math.BigDecimal total = ledgerClient.getCategoryTotal(
+                com.fooddelivery.common.enums.LedgerAccountType.RESTAURANT_PAYABLE,
+                UUID.fromString("0c9a8b7d-1e2f-4a3b-8c4d-5e6f7a8b9c01"),
+                com.fooddelivery.common.enums.ChargeCategory.CLAWBACK,
+                com.fooddelivery.common.enums.TransactionDirection.DEBIT,
+                java.time.Instant.parse("2026-10-18T23:00:00Z"), java.time.Instant.parse("2026-10-26T00:00:00Z"));
+        assertNotNull(total);
+        assertEquals(0, new java.math.BigDecimal("42.50").compareTo(total));
     }
 }

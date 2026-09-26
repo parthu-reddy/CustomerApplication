@@ -82,7 +82,7 @@ public class LedgerBookkeeperRefundTest {
         order.setTotalAmount(new BigDecimal("100.00"));
         order.setRestaurantId(UUID.randomUUID());
         order.setRestaurantPayout(new BigDecimal("80.00"));
-        order.setDeliveredAt(java.time.LocalDateTime.now());
+        order.setDeliveredAt(java.time.Instant.now());
 
         Refund refund = new Refund();
         refund.setId(UUID.randomUUID());

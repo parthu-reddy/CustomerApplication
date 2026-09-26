@@ -4,6 +4,9 @@ import com.fooddelivery.money.controller.RestaurantMoneyController;
 
 import com.fooddelivery.common.security.money.MoneyAccessPolicy;
 import com.fooddelivery.common.security.money.MoneyOwnerType;
+import com.fooddelivery.customer.dto.RestaurantSummary;
+import com.fooddelivery.customer.service.money.RestaurantSummaryService;
+import com.fooddelivery.customer.service.money.SummaryPeriod;
 import com.fooddelivery.order.entity.Order;
 import com.fooddelivery.order.entity.OrderItem;
 import com.fooddelivery.order.repository.IOrderRepository;
@@ -24,6 +27,8 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -40,14 +45,19 @@ public class RestaurantMoneyControllerTest {
     @Mock
     private MoneyAccessPolicy moneyAccessPolicy;
 
+    @Mock
+    private RestaurantSummaryService restaurantSummaryService;
+
     private final UUID restaurantId = UUID.randomUUID();
     private final UUID orderId = UUID.randomUUID();
     private Order testOrder;
 
     @BeforeEach
     void setUp() {
-        RestaurantMoneyController controller = new RestaurantMoneyController(orderRepository, moneyAccessPolicy, Mockito.mock(RefundRepository.class), org.mockito.Mockito.mock(com.fooddelivery.customer.service.money.RestaurantSummaryService.class), org.mockito.Mockito.mock(com.fooddelivery.customer.client.LedgerClient.class));
-        mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+        RestaurantMoneyController controller = new RestaurantMoneyController(orderRepository, moneyAccessPolicy, Mockito.mock(RefundRepository.class), restaurantSummaryService, org.mockito.Mockito.mock(com.fooddelivery.customer.client.LedgerClient.class));
+        // The platform's advice, so a bad window answers with the status production gives it.
+        mockMvc = MockMvcBuilders.standaloneSetup(controller)
+                .setControllerAdvice(new com.fooddelivery.common.exception.GlobalExceptionHandler()).build();
 
         testOrder = new Order();
         testOrder.setId(orderId);
@@ -102,5 +112,40 @@ public class RestaurantMoneyControllerTest {
                 // Rupees as the API stores them, not paise.
                 .andExpect(jsonPath("$.platformFee").value(10))
                 .andExpect(jsonPath("$.deliveryContribution").value(5));
+    }
+
+    // ---- summary period ----
+
+    /** The earnings screen sends no period, so the default is what every outlet sees. */
+    @Test
+    void summaryWithoutAPeriodIsTheMonth() throws Exception {
+        when(restaurantSummaryService.getSummary(restaurantId, SummaryPeriod.MONTH)).thenReturn(new RestaurantSummary());
+
+        mockMvc.perform(get("/api/v1/money/restaurant/" + restaurantId + "/summary"))
+                .andExpect(status().isOk());
+
+        verify(restaurantSummaryService).getSummary(restaurantId, SummaryPeriod.MONTH);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"today,TODAY", "week,WEEK", "month,MONTH"})
+    void eachAcceptedPeriodReachesTheService(String param, SummaryPeriod period) throws Exception {
+        when(restaurantSummaryService.getSummary(restaurantId, period)).thenReturn(new RestaurantSummary());
+
+        mockMvc.perform(get("/api/v1/money/restaurant/" + restaurantId + "/summary").param("period", param))
+                .andExpect(status().isOk());
+
+        verify(restaurantSummaryService).getSummary(restaurantId, period);
+    }
+
+    /** An unknown period used to be ignored and answered with the month. Now it is refused, before any lookup. */
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"year", "MONTH", "7d", "yesterday"})
+    void anUnknownPeriodIsA400(String param) throws Exception {
+        mockMvc.perform(get("/api/v1/money/restaurant/" + restaurantId + "/summary").param("period", param))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("period must be one of: today, week, month"));
+
+        verifyNoInteractions(restaurantSummaryService);
     }
 }

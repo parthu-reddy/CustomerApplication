@@ -8,8 +8,7 @@ import com.fooddelivery.order.enums.RefundSource;
 import com.fooddelivery.order.enums.InitiatorType;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
+import java.time.Instant;
 import java.util.UUID;
 import java.util.Set;
 import java.util.HashSet;
@@ -88,14 +87,14 @@ public class Refund {
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
-    private OffsetDateTime createdAt;
+    private Instant createdAt;
 
     @UpdateTimestamp
     @Column(name = "updated_at")
-    private OffsetDateTime updatedAt;
+    private Instant updatedAt;
 
     @Column(name = "completed_at")
-    private OffsetDateTime completedAt;
+    private Instant completedAt;
 
     @Column(name = "attempts", nullable = false)
     @lombok.Builder.Default

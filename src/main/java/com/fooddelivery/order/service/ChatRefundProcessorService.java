@@ -23,7 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -122,7 +122,7 @@ public class ChatRefundProcessorService {
                         .aggregateId(event.getAggregateId())
                         .eventType(EventType.valueOf("CHAT_REFUND_QUOTE_RESPONSE"))
                         .payload(objectMapper.writeValueAsString(responseEvent))
-                        .createdAt(LocalDateTime.now())
+                        .createdAt(Instant.now())
                         .build();
                 outboxEventRepository.save(outboxEvent);
                 log.info("Calculated quote {} for session {}", quoteAmount, event.getAggregateId());
@@ -220,7 +220,7 @@ public class ChatRefundProcessorService {
                         .aggregateId(event.getAggregateId())
                         .eventType(EventType.valueOf("CHAT_REFUND_DECISION"))
                         .payload(objectMapper.writeValueAsString(responseEvent))
-                        .createdAt(LocalDateTime.now())
+                        .createdAt(Instant.now())
                         .build();
                 outboxEventRepository.save(outboxEvent);
                 log.info("Created SupportTicket {} for session {}", ticket.getId(), event.getAggregateId());
@@ -254,7 +254,7 @@ public class ChatRefundProcessorService {
                     .aggregateId(chatSessionId)
                     .eventType(EventType.valueOf("CHAT_REFUND_ERROR"))
                     .payload(objectMapper.writeValueAsString(errorEvent))
-                    .createdAt(LocalDateTime.now())
+                    .createdAt(Instant.now())
                     .build();
             outboxEventRepository.save(outboxEvent);
         } catch (Exception e) {

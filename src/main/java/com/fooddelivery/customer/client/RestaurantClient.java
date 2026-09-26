@@ -33,6 +33,13 @@ public interface RestaurantClient {
     @GetMapping("/api/v1/restaurants/{id}")
     Map<String, Object> getRestaurantById(@PathVariable("id") UUID id);
 
+    /**
+     * The outlet's name, brand and IANA {@code timeZone}. The earnings summary reads its calendar
+     * periods in that zone. Not cached: a stale or made-up zone would put orders in the wrong day.
+     */
+    @GetMapping("/api/v1/internal/restaurants/outlets/{outletId}/summary")
+    Map<String, String> getOutletSummary(@PathVariable("outletId") UUID outletId);
+
     /** Supplier details for a tax invoice (legal name, GSTIN, FSSAI). Not cached: read once per invoice issued. */
     @GetMapping("/api/v1/internal/restaurants/outlets/{outletId}/invoice-details")
     Map<String, Object> getInvoiceDetails(@PathVariable("outletId") UUID outletId);

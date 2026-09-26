@@ -9,7 +9,7 @@ import com.fooddelivery.common.enums.OrderStatus;
 import com.fooddelivery.common.constants.PaymentIntentStatus;
 import com.fooddelivery.common.enums.PaymentMethod;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -209,14 +209,14 @@ public class Order {
     @CreationTimestamp
     @Column(name = "created_at")
     @io.swagger.v3.oas.annotations.media.Schema(requiredMode = io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED)
-    private LocalDateTime createdAt;
+    private Instant createdAt;
     @UpdateTimestamp
     @Column(name = "updated_at")
     @io.swagger.v3.oas.annotations.media.Schema(requiredMode = io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED)
-    private LocalDateTime updatedAt;
+    private Instant updatedAt;
 
     @Column(name = "delivered_at")
-    private LocalDateTime deliveredAt;
+    private Instant deliveredAt;
 
     /** Road driving time restaurant to door, seconds, from the maps route at order time. Null when no route was available. */
     @Column(name = "delivery_travel_seconds")

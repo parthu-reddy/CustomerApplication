@@ -1,10 +1,12 @@
 package com.fooddelivery.order.controller;
 
 import com.fooddelivery.common.dto.ApiResponse;
+import com.fooddelivery.common.messaging.DeadLetterReplayRequest;
+import com.fooddelivery.common.messaging.DeadLetterReplayResult;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/internal/admin/orders/dlq")
@@ -18,15 +20,8 @@ public class AdminDlqController {
 
     @PostMapping("/retry")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<String>> retryDlqEvent(@RequestBody Map<String, Object> payload, @RequestParam(required = false) String topic) {
-        try {
-            adminDlqService.retryDlqEvent(payload, topic);
-            String targetTopic = topic != null && !topic.isEmpty() ? topic : com.fooddelivery.common.constants.KafkaConstants.TOPIC_ORDER_EVENTS;
-            return ResponseEntity.ok(ApiResponse.success("Event republished successfully to " + targetTopic, "Successfully queued for retry"));
-        } catch (Exception e) {
-            log.error("Failed to retry DLQ event", e);
-            return ResponseEntity.badRequest().body(ApiResponse.error("Failed to republish event: " + e.getMessage()));
-        }
+    public ResponseEntity<ApiResponse<DeadLetterReplayResult>> retryDlqEvent(@Valid @RequestBody DeadLetterReplayRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(adminDlqService.replayDeadLetter(request), "Dead-letter record replayed"));
     }
 
     @PostMapping("/refunds/{refundId}/retry")

@@ -593,22 +593,11 @@
       "post" : {
         "tags" : [ "admin-dlq-controller" ],
         "operationId" : "retryDlqEvent",
-        "parameters" : [ {
-          "name" : "topic",
-          "in" : "query",
-          "required" : false,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
         "requestBody" : {
           "content" : {
             "application/json" : {
               "schema" : {
-                "type" : "object",
-                "additionalProperties" : {
-                  "type" : "object"
-                }
+                "$ref" : "#/components/schemas/DeadLetterReplayRequest"
               }
             }
           },
@@ -620,7 +609,7 @@
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseString"
+                  "$ref" : "#/components/schemas/ApiResponseDeadLetterReplayResult"
                 }
               }
             }
@@ -1371,59 +1360,6 @@
         }
       }
     },
-    "/api/v1/money/restaurant/{outletId}/orders" : {
-      "get" : {
-        "tags" : [ "restaurant-money-controller" ],
-        "operationId" : "fetchOrders",
-        "parameters" : [ {
-          "name" : "outletId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "string",
-            "format" : "uuid"
-          }
-        }, {
-          "name" : "from",
-          "in" : "query",
-          "required" : false,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "to",
-          "in" : "query",
-          "required" : false,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "page",
-          "in" : "query",
-          "required" : false,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int32",
-            "default" : 0
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "type" : "array",
-                  "items" : {
-                    "$ref" : "#/components/schemas/RestaurantOrderEarnings"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/money/restaurant/{outletId}/orders/{orderId}" : {
       "get" : {
         "tags" : [ "restaurant-money-controller" ],
@@ -1499,12 +1435,20 @@
         "tags" : [ "driver-money-controller" ],
         "operationId" : "fetchSummary_1",
         "parameters" : [ {
-          "name" : "period",
+          "name" : "from",
           "in" : "query",
-          "required" : false,
+          "required" : true,
           "schema" : {
             "type" : "string",
-            "default" : "month"
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
           }
         } ],
         "responses" : {
@@ -1551,35 +1495,6 @@
               "application/json" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/PageResponseDtoLedgerStatementLineDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/money/driver/orders" : {
-      "get" : {
-        "tags" : [ "driver-money-controller" ],
-        "operationId" : "fetchOrders_1",
-        "parameters" : [ {
-          "name" : "date",
-          "in" : "query",
-          "required" : false,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "type" : "array",
-                  "items" : {
-                    "$ref" : "#/components/schemas/DriverOrderEarnings"
-                  }
                 }
               }
             }
@@ -1868,11 +1783,20 @@
             "format" : "uuid"
           }
         }, {
-          "name" : "date",
+          "name" : "from",
           "in" : "query",
-          "required" : false,
+          "required" : true,
           "schema" : {
-            "type" : "string"
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
           }
         }, {
           "name" : "pageable",
@@ -1989,12 +1913,20 @@
         "tags" : [ "internal-money-controller" ],
         "operationId" : "getDailyPaidOrderTotal",
         "parameters" : [ {
-          "name" : "date",
+          "name" : "from",
           "in" : "query",
           "required" : true,
           "schema" : {
             "type" : "string",
-            "format" : "date"
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
           }
         } ],
         "responses" : {
@@ -2016,12 +1948,20 @@
         "tags" : [ "internal-money-controller" ],
         "operationId" : "getDailyPayables",
         "parameters" : [ {
-          "name" : "date",
+          "name" : "from",
           "in" : "query",
           "required" : true,
           "schema" : {
             "type" : "string",
-            "format" : "date"
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
           }
         } ],
         "responses" : {
@@ -3046,6 +2986,62 @@
           "expectedBy" : {
             "type" : "string",
             "format" : "date-time"
+          }
+        }
+      },
+      "DeadLetterReplayRequest" : {
+        "required" : [ "dltTopic", "offset", "partition" ],
+        "type" : "object",
+        "properties" : {
+          "dltTopic" : {
+            "type" : "string"
+          },
+          "partition" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "offset" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "ApiResponseDeadLetterReplayResult" : {
+        "required" : [ "message", "success", "timestamp" ],
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "errorCode" : {
+            "type" : "string"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/DeadLetterReplayResult"
+          },
+          "timestamp" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "DeadLetterReplayResult" : {
+        "type" : "object",
+        "properties" : {
+          "topic" : {
+            "type" : "string"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "eventType" : {
+            "type" : "string"
+          },
+          "eventId" : {
+            "type" : "string"
           }
         }
       },
@@ -4284,8 +4280,9 @@
             "type" : "integer",
             "format" : "int32"
           },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
           },
           "first" : {
             "type" : "boolean"
@@ -4293,8 +4290,9 @@
           "last" : {
             "type" : "boolean"
           },
-          "sort" : {
-            "$ref" : "#/components/schemas/SortObject"
+          "number" : {
+            "type" : "integer",
+            "format" : "int32"
           },
           "size" : {
             "type" : "integer",
@@ -4306,13 +4304,11 @@
               "$ref" : "#/components/schemas/Order"
             }
           },
-          "number" : {
-            "type" : "integer",
-            "format" : "int32"
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
           },
-          "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
+          "sort" : {
+            "$ref" : "#/components/schemas/SortObject"
           },
           "empty" : {
             "type" : "boolean"
@@ -4323,6 +4319,10 @@
         "required" : [ "offset", "pageNumber", "pageSize", "paged", "unpaged" ],
         "type" : "object",
         "properties" : {
+          "offset" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
           "paged" : {
             "type" : "boolean"
           },
@@ -4334,15 +4334,11 @@
             "type" : "integer",
             "format" : "int32"
           },
-          "sort" : {
-            "$ref" : "#/components/schemas/SortObject"
-          },
-          "offset" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
           "unpaged" : {
             "type" : "boolean"
+          },
+          "sort" : {
+            "$ref" : "#/components/schemas/SortObject"
           }
         }
       },
@@ -4392,8 +4388,9 @@
             "type" : "integer",
             "format" : "int32"
           },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
           },
           "first" : {
             "type" : "boolean"
@@ -4401,8 +4398,9 @@
           "last" : {
             "type" : "boolean"
           },
-          "sort" : {
-            "$ref" : "#/components/schemas/SortObject"
+          "number" : {
+            "type" : "integer",
+            "format" : "int32"
           },
           "size" : {
             "type" : "integer",
@@ -4414,13 +4412,11 @@
               "$ref" : "#/components/schemas/SupportTicket"
             }
           },
-          "number" : {
-            "type" : "integer",
-            "format" : "int32"
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
           },
-          "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
+          "sort" : {
+            "$ref" : "#/components/schemas/SortObject"
           },
           "empty" : {
             "type" : "boolean"

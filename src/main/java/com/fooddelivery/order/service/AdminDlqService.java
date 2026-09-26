@@ -1,60 +1,40 @@
 package com.fooddelivery.order.service;
 
-import com.fooddelivery.common.constants.KafkaConstants;
-import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.messaging.support.MessageBuilder;
-import org.springframework.kafka.support.KafkaHeaders;
-import org.springframework.stereotype.Service;
-import java.util.Map;
-import java.util.UUID;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.extern.slf4j.Slf4j;
-import lombok.RequiredArgsConstructor;
+import com.fooddelivery.common.messaging.DeadLetterReplayRequest;
+import com.fooddelivery.common.messaging.DeadLetterReplayResult;
+import com.fooddelivery.common.messaging.DeadLetterReplayer;
 import com.fooddelivery.order.entity.Refund;
-import com.fooddelivery.order.repository.RefundRepository;
 import com.fooddelivery.order.refund.RefundService;
+import com.fooddelivery.order.repository.RefundRepository;
+import java.util.UUID;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.kafka.core.ConsumerFactory;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.stereotype.Service;
 
 @Service
 @Slf4j
-@RequiredArgsConstructor
 public class AdminDlqService {
 
-    private final KafkaTemplate<String, String> kafkaTemplate;
+    private final DeadLetterReplayer deadLetterReplayer;
     private final RefundRepository refundRepository;
     private final RefundService refundService;
 
-    public void retryDlqEvent(Map<String, Object> payload, String topic) throws Exception {
-        ObjectMapper mapper = new ObjectMapper();
-        String jsonPayload = mapper.writeValueAsString(payload);
-        String targetTopic = topic != null && !topic.isEmpty() ? topic : KafkaConstants.TOPIC_ORDER_EVENTS;
-        log.info("ADMIN_DLT_RETRY_REQUESTED topic={} payloadBytes={}", targetTopic,
-                jsonPayload.getBytes(java.nio.charset.StandardCharsets.UTF_8).length);
-        
-        String partitionKey = null;
-        if (payload.containsKey("aggregateId") && payload.get("aggregateId") != null) {
-            partitionKey = payload.get("aggregateId").toString();
-        } else if (payload.containsKey("payload") && payload.get("payload") instanceof Map) {
-            Map<String, Object> innerPayload = (Map<String, Object>) payload.get("payload");
-            if (innerPayload.containsKey("orderId") && innerPayload.get("orderId") != null) {
-                partitionKey = innerPayload.get("orderId").toString();
-            }
-        }
-        
-        MessageBuilder<String> builder = MessageBuilder
-            .withPayload(jsonPayload)
-            .setHeader(KafkaHeaders.TOPIC, targetTopic);
+    public AdminDlqService(ConsumerFactory<String, String> consumerFactory, KafkaTemplate<String, String> kafkaTemplate,
+                           RefundRepository refundRepository, RefundService refundService) {
+        this.deadLetterReplayer = new DeadLetterReplayer(consumerFactory, kafkaTemplate);
+        this.refundRepository = refundRepository;
+        this.refundService = refundService;
+    }
 
-        if (partitionKey != null) {
-            builder.setHeader(KafkaHeaders.KEY, partitionKey);
-        }
-        
-        if (payload.containsKey("eventId") && payload.get("eventId") != null) {
-            builder.setHeader("eventId", payload.get("eventId").toString());
-        } else {
-            builder.setHeader("eventId", UUID.randomUUID().toString());
-        }
-        
-        kafkaTemplate.send(builder.build());
+    /**
+     * Replays one dead-letter record onto the topic it failed on, with its original key, value and
+     * headers. This service's listeners dead-letter two ways -- {@code <topic>-dlt} through
+     * {@code @RetryableTopic}, {@code <topic>.DLT} through the shared DefaultErrorHandler -- and both
+     * are replayed the same way.
+     */
+    public DeadLetterReplayResult replayDeadLetter(DeadLetterReplayRequest request) {
+        return deadLetterReplayer.replay(request);
     }
 
     public void retryRefund(UUID refundId) {

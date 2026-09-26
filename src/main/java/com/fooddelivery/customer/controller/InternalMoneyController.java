@@ -34,22 +34,23 @@ public class InternalMoneyController {
     // Endpoint: /api/v1/internal/money/daily-totals
     @GetMapping("/daily-totals")
     @PreAuthorize("hasRole('SERVICE')")
-    public com.fooddelivery.customer.dto.DailyTotalDto getDailyPaidOrderTotal(@RequestParam("date") LocalDate date) {
+    public com.fooddelivery.customer.dto.DailyTotalDto getDailyPaidOrderTotal(@RequestParam("from") java.time.Instant from, @RequestParam("to") java.time.Instant to) {
+        // [from, to) is the ledger's accounting day (LedgerService.AccountingCalendar); no date is interpreted here.
         java.util.List<com.fooddelivery.common.enums.OrderStatus> excludedStatuses = java.util.List.of(
             com.fooddelivery.common.enums.OrderStatus.CANCELLED,
             com.fooddelivery.common.enums.OrderStatus.CANCELLED_BY_RESTAURANT
         );
-        BigDecimal orderTotals = orderRepository.sumOrderTotalsByDate(date, excludedStatuses);
+        BigDecimal orderTotals = orderRepository.sumOrderTotalsInWindow(from, to, excludedStatuses);
         return new com.fooddelivery.customer.dto.DailyTotalDto(orderTotals);
     }
 
     // Endpoint: /api/v1/internal/money/daily-payables
     @GetMapping("/daily-payables")
     @PreAuthorize("hasRole('SERVICE')")
-    public com.fooddelivery.customer.dto.DailyPayableDto getDailyPayables(@RequestParam("date") LocalDate date) {
+    public com.fooddelivery.customer.dto.DailyPayableDto getDailyPayables(@RequestParam("from") java.time.Instant from, @RequestParam("to") java.time.Instant to) {
         return new com.fooddelivery.customer.dto.DailyPayableDto(
-                orderRepository.sumRestaurantPayableByDeliveryDate(date),
-                orderRepository.sumDriverPayableByDeliveryDate(date));
+                orderRepository.sumRestaurantPayableDeliveredInWindow(from, to),
+                orderRepository.sumDriverPayableDeliveredInWindow(from, to));
     }
 
     // --- Driver Earnings Internal Endpoints ---

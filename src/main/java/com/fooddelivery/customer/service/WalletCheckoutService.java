@@ -32,7 +32,7 @@ public class WalletCheckoutService {
                         order.getId(), order.getCustomerId(), intent, order.getTotalAmount());
                 walletServiceClient.debit(com.fooddelivery.common.enums.WalletEntityType.CUSTOMER.name(), order.getCustomerId(), txReq, SERVICE_NAME);
                 String payload = String.format("{\"eventType\":\"PAYMENT_COMPLETED\", \"orderId\":\"%s\", \"gatewayOrderId\":\"%s\"}", order.getId(), intent);
-                com.fooddelivery.common.outbox.entity.OutboxEventEntity evt = com.fooddelivery.common.outbox.entity.OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.PAYMENT).aggregateId(intent).eventType(com.fooddelivery.common.constants.EventType.PAYMENT_COMPLETED).payload(payload).createdAt(java.time.LocalDateTime.now()).build();
+                com.fooddelivery.common.outbox.entity.OutboxEventEntity evt = com.fooddelivery.common.outbox.entity.OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.PAYMENT).aggregateId(intent).eventType(com.fooddelivery.common.constants.EventType.PAYMENT_COMPLETED).payload(payload).createdAt(java.time.Instant.now()).build();
                 outboxEventRepository.save(evt);
                 log.info("WALLET_PAYMENT_COMPLETED_ENQUEUED orderId={} paymentIntentId={} eventId={}",
                         order.getId(), intent, evt.getId());

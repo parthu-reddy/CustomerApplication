@@ -4,7 +4,7 @@ import com.fooddelivery.order.repository.OrderQuoteRepository;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Component
 @lombok.extern.slf4j.Slf4j
@@ -31,7 +31,7 @@ public class ExpiredQuoteSweeper {
 
     @Scheduled(fixedDelayString = "${quotes.sweeper.fixed-delay-ms:3600000}")
     public void purgeExpiredQuotes() {
-        LocalDateTime cutoff = LocalDateTime.now().minusHours(RETAIN_EXPIRED_HOURS);
+        Instant cutoff = Instant.now().minus(java.time.Duration.ofHours(RETAIN_EXPIRED_HOURS));
         Integer deleted = transactionTemplate.execute(status -> orderQuoteRepository.deleteExpiredBefore(cutoff));
         if (deleted != null && deleted > 0) {
             log.info("Purged {} unredeemed order quotes that expired before {}", deleted, cutoff);

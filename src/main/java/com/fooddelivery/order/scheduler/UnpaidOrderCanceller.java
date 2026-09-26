@@ -11,7 +11,7 @@ import com.fooddelivery.common.client.WalletServiceClient;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import feign.FeignException;
@@ -43,7 +43,7 @@ public class UnpaidOrderCanceller {
         if (!Boolean.TRUE.equals(locked)) {
             return;
         }
-        LocalDateTime threshold = LocalDateTime.now().minusMinutes(15);
+        Instant threshold = Instant.now().minus(java.time.Duration.ofMinutes(15));
         
         // 1. Cancel stale CREATED orders
         org.springframework.data.domain.Page<Order> staleOrdersPage = orderRepository.findByStatusAndUpdatedAtBefore(OrderStatus.CREATED, threshold, org.springframework.data.domain.PageRequest.of(0, 500));
@@ -97,7 +97,7 @@ public class UnpaidOrderCanceller {
     private void emitPaymentCompleted(Order order, String intentGatewayOrderId) {
         transactionTemplate.executeWithoutResult(status -> {
             String payload = String.format("{\"eventType\":\"PAYMENT_COMPLETED\", \"orderId\":\"%s\", \"gatewayOrderId\":\"%s\"}", order.getId(), intentGatewayOrderId);
-            com.fooddelivery.common.outbox.entity.OutboxEventEntity evt = com.fooddelivery.common.outbox.entity.OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.PAYMENT).aggregateId(intentGatewayOrderId).eventType(com.fooddelivery.common.constants.EventType.PAYMENT_COMPLETED).payload(payload).createdAt(java.time.LocalDateTime.now()).build();
+            com.fooddelivery.common.outbox.entity.OutboxEventEntity evt = com.fooddelivery.common.outbox.entity.OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.PAYMENT).aggregateId(intentGatewayOrderId).eventType(com.fooddelivery.common.constants.EventType.PAYMENT_COMPLETED).payload(payload).createdAt(java.time.Instant.now()).build();
             outboxEventRepository.save(evt);
         });
     }

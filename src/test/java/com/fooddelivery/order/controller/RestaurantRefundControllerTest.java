@@ -13,7 +13,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.math.BigDecimal;
-import java.time.OffsetDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -69,8 +69,8 @@ public class RestaurantRefundControllerTest {
         refund.setStatus(RefundStatus.PROCESSING);
         refund.setDestination(RefundDestination.ORIGINAL_METHOD);
         refund.setReasonCode("ITEM_MISSING");
-        refund.setCreatedAt(OffsetDateTime.parse("2026-09-01T10:15:30Z"));
-        refund.setUpdatedAt(OffsetDateTime.parse("2026-09-02T11:00:00Z"));
+        refund.setCreatedAt(Instant.parse("2026-09-01T10:15:30Z"));
+        refund.setUpdatedAt(Instant.parse("2026-09-02T11:00:00Z"));
         return refund;
     }
 

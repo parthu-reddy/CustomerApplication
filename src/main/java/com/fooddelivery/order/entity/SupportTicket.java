@@ -1,7 +1,7 @@
 package com.fooddelivery.order.entity;
 
 import jakarta.persistence.*;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 import java.math.BigDecimal;
 
@@ -50,10 +50,10 @@ public class SupportTicket {
 
     @Column(name = "created_at", nullable = false)
     @io.swagger.v3.oas.annotations.media.Schema(requiredMode = io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED)
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
     @Column(name = "resolved_at")
-    private LocalDateTime resolvedAt;
+    private Instant resolvedAt;
 
     @Column(name = "chat_session_id")
     private UUID chatSessionId;
@@ -73,7 +73,7 @@ public class SupportTicket {
     @PrePersist
     public void prePersist() {
         if (id == null) id = UUID.randomUUID();
-        if (createdAt == null) createdAt = LocalDateTime.now();
+        if (createdAt == null) createdAt = Instant.now();
     }
 
     // Getters and Setters
@@ -98,11 +98,11 @@ public class SupportTicket {
     public UUID getResolvedBy() { return resolvedBy; }
     public void setResolvedBy(UUID resolvedBy) { this.resolvedBy = resolvedBy; }
 
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public Instant getCreatedAt() { return createdAt; }
+    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 
-    public LocalDateTime getResolvedAt() { return resolvedAt; }
-    public void setResolvedAt(LocalDateTime resolvedAt) { this.resolvedAt = resolvedAt; }
+    public Instant getResolvedAt() { return resolvedAt; }
+    public void setResolvedAt(Instant resolvedAt) { this.resolvedAt = resolvedAt; }
 
     public UUID getChatSessionId() { return chatSessionId; }
     public void setChatSessionId(UUID chatSessionId) { this.chatSessionId = chatSessionId; }

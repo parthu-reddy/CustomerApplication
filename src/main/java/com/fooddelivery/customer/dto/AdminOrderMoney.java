@@ -50,7 +50,7 @@ public class AdminOrderMoney {
         private String reasonCode;
         private String gatewayRefundId;
         private String failureReason;
-        private java.time.OffsetDateTime requestedAt;
-        private java.time.OffsetDateTime completedAt;
+        private java.time.Instant requestedAt;
+        private java.time.Instant completedAt;
     }
 }

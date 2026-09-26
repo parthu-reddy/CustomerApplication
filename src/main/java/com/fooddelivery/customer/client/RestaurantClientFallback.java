@@ -36,6 +36,13 @@ public class RestaurantClientFallback implements RestaurantClient {
     }
 
     @Override
+    public Map<String, String> getOutletSummary(UUID outletId) {
+        // No stand-in zone: summing an outlet's day in a guessed zone moves orders between days.
+        // The caller turns this into a 503.
+        throw new IllegalStateException("Restaurant service unavailable for outlet summary");
+    }
+
+    @Override
     public Map<String, Object> getInvoiceDetails(UUID outletId) {
         // An invoice must not be issued on made-up supplier details; the caller turns this into a 503.
         throw new IllegalStateException("Restaurant service unavailable for invoice details");

@@ -39,10 +39,11 @@ Contract.make {
                 // Completion is read from here, never from OrderStatus -- that enum has no
                 // DELIVERED value and HANDED_OVER is not "the food arrived".
                 deliveryStatus: 'DELIVERED',
-                // Start of the review window. ReviewEligibilityService parses it as a LocalDateTime,
-                // so the offset-free ISO form is part of what this pins.
-                deliveredAt: $(producer(regex('\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?')),
-                               consumer('2026-09-11T10:15:30')),
+                // Start of the review window: an Instant, so ISO-8601 in UTC with its 'Z'. The
+                // regex used to pin the offset-free form, which production never sent (JacksonConfig
+                // appended a literal Z): TimezoneCorrectness_2026-09-25.
+                deliveredAt: $(producer(regex('\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z')),
+                               consumer('2026-09-11T10:15:30Z')),
                 items: [
                     [
                         menuItemId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',

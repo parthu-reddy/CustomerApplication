@@ -6,7 +6,7 @@ import com.fooddelivery.common.enums.PaymentMethod;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
-import java.time.OffsetDateTime;
+import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.UUID;
 
@@ -25,7 +25,7 @@ public class CustomerRefundViewTest {
 
     @Test
     public void testView() {
-        OffsetDateTime requested = OffsetDateTime.of(2026, 9, 1, 10, 15, 30, 0, ZoneOffset.UTC);
+        Instant requested = java.time.Instant.parse("2026-09-01T10:15:30Z");
         RefundView view = RefundView.builder()
                 .id(UUID.randomUUID())
                 .orderId(UUID.randomUUID())
@@ -34,7 +34,7 @@ public class CustomerRefundViewTest {
                 .destination(RefundDestination.STORE_CREDIT)
                 .method(PaymentMethod.WALLET)
                 .requestedAt(requested)
-                .expectedBy(requested.plusDays(5))
+                .expectedBy(requested.plus(java.time.Duration.ofDays(5)))
                 .build();
 
         assertNotNull(view.getId());
@@ -45,22 +45,24 @@ public class CustomerRefundViewTest {
         assertEquals(requested, view.getRequestedAt());
     }
 
-    /** The offset must survive the round trip; that is the whole point of the type. */
+    /**
+     * A request made at 10:15:30 IST is the same moment as 04:45:30Z. The view holds that moment, not
+     * a wall clock, so whatever zone it was written from, every reader agrees on when it happened.
+     */
     @Test
-    public void timestampsKeepTheirOffset() {
-        OffsetDateTime istRequest = OffsetDateTime.of(2026, 9, 1, 10, 15, 30, 0, ZoneOffset.ofHoursMinutes(5, 30));
-        RefundView view = RefundView.builder().requestedAt(istRequest).expectedBy(istRequest.plusDays(5)).build();
+    public void anIstRequestIsTheSameMomentInUtc() {
+        Instant istRequest = java.time.OffsetDateTime.parse("2026-09-01T10:15:30+05:30").toInstant();
+        RefundView view = RefundView.builder().requestedAt(istRequest).expectedBy(istRequest.plus(java.time.Duration.ofDays(5))).build();
 
-        assertEquals(ZoneOffset.ofHoursMinutes(5, 30), view.getRequestedAt().getOffset());
-        assertEquals(istRequest.toInstant(), view.getRequestedAt().toInstant());
+        assertEquals(java.time.Instant.parse("2026-09-01T04:45:30Z"), view.getRequestedAt());
     }
 
     /** The customer is told when to expect the money: five days from the request. */
     @Test
     public void expectedByIsFiveDaysAfterTheRequest() {
-        OffsetDateTime requested = OffsetDateTime.of(2026, 9, 1, 10, 15, 30, 0, ZoneOffset.UTC);
-        RefundView view = RefundView.builder().requestedAt(requested).expectedBy(requested.plusDays(5)).build();
+        Instant requested = java.time.Instant.parse("2026-09-01T10:15:30Z");
+        RefundView view = RefundView.builder().requestedAt(requested).expectedBy(requested.plus(java.time.Duration.ofDays(5))).build();
 
-        assertEquals(requested.plusDays(5), view.getExpectedBy());
+        assertEquals(requested.plus(java.time.Duration.ofDays(5)), view.getExpectedBy());
     }
 }

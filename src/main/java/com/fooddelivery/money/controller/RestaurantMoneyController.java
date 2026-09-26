@@ -117,15 +117,21 @@ public class RestaurantMoneyController {
         return ResponseEntity.ok(views);
     }
 
+    /**
+     * Earnings for the outlet's current {@code today}, {@code week} or {@code month}, on the outlet's
+     * own calendar. Any other {@code period} is a 400: it used to be accepted and ignored, so every
+     * value answered with the same month.
+     */
     @GetMapping("/{outletId}/summary")
     @PreAuthorize("@moneyAccessPolicy.canAccessMoney(authentication, T(com.fooddelivery.common.security.money.MoneyOwnerType).RESTAURANT, #outletId)")
     public ResponseEntity<com.fooddelivery.customer.dto.RestaurantSummary> fetchSummary(
             @PathVariable UUID outletId,
             @RequestParam(required = false, defaultValue = "month") String period) {
-        
-
-        
-        return ResponseEntity.ok(restaurantSummaryService.getSummary(outletId, period));
+        com.fooddelivery.customer.service.money.SummaryPeriod summaryPeriod =
+                com.fooddelivery.customer.service.money.SummaryPeriod.fromParam(period)
+                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                                "period must be one of: " + com.fooddelivery.customer.service.money.SummaryPeriod.ACCEPTED));
+        return ResponseEntity.ok(restaurantSummaryService.getSummary(outletId, summaryPeriod));
     }
 
     @GetMapping("/{outletId}/statement")
@@ -138,27 +144,6 @@ public class RestaurantMoneyController {
 
         
         return ResponseEntity.ok(ledgerClient.getStatement("RESTAURANT_PAYABLE", outletId, page, size));
-    }
-
-    @GetMapping("/{outletId}/orders")
-    @PreAuthorize("@moneyAccessPolicy.canAccessMoney(authentication, T(com.fooddelivery.common.security.money.MoneyOwnerType).RESTAURANT, #outletId)")
-    public ResponseEntity<java.util.List<RestaurantOrderEarnings>> fetchOrders(
-            @PathVariable UUID outletId,
-            @RequestParam(required = false) String from,
-            @RequestParam(required = false) String to,
-            @RequestParam(value = "page", defaultValue = "0") int page) {
-        
-        java.time.LocalDateTime start = from != null ? java.time.LocalDateTime.parse(from, java.time.format.DateTimeFormatter.ISO_DATE_TIME) : java.time.LocalDateTime.now().minusMonths(1);
-        java.time.LocalDateTime end = to != null ? java.time.LocalDateTime.parse(to, java.time.format.DateTimeFormatter.ISO_DATE_TIME) : java.time.LocalDateTime.now().plusDays(1);
-        java.util.List<Order> orders = orderRepository.findByRestaurantId(outletId).stream()
-                .filter(o -> o.getCreatedAt().isAfter(start) && o.getCreatedAt().isBefore(end))
-                .collect(java.util.stream.Collectors.toList());
-        
-        java.util.List<RestaurantOrderEarnings> earnings = orders.stream()
-            .map(this::buildRestaurantEarnings)
-            .collect(java.util.stream.Collectors.toList());
-            
-        return ResponseEntity.ok(earnings);
     }
 
     private RestaurantOrderEarnings buildRestaurantEarnings(Order order) {

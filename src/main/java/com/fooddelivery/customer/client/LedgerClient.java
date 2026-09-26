@@ -43,6 +43,20 @@ public interface LedgerClient {
             @RequestParam(value = "page", defaultValue = "0") int page, 
             @RequestParam(value = "size", defaultValue = "20") int size);
 
+    /**
+     * What one owner's account moved under one category in {@code [from, to)}. The restaurant earnings
+     * summary reads an outlet's clawbacks from here: only the ledger knows what was actually clawed
+     * back, because each clawback is capped by the ones booked before it.
+     */
+    @GetMapping("/api/v1/internal/ledger/accounts/{ownerType}/{ownerId}/totals")
+    java.math.BigDecimal getCategoryTotal(
+            @PathVariable("ownerType") com.fooddelivery.common.enums.LedgerAccountType ownerType,
+            @PathVariable("ownerId") UUID ownerId,
+            @RequestParam("category") com.fooddelivery.common.enums.ChargeCategory category,
+            @RequestParam("direction") com.fooddelivery.common.enums.TransactionDirection direction,
+            @RequestParam("from") java.time.Instant from,
+            @RequestParam("to") java.time.Instant to);
+
     @GetMapping("/api/v1/internal/ledger/statements/references/{referenceId}")
     List<LedgerStatementLineDto> getStatementByReference(
             @PathVariable("referenceId") UUID referenceId);

@@ -15,7 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -75,7 +75,7 @@ public class AdminOrderManualController {
                 .aggregateId(order.getId().toString())
                 .eventType(com.fooddelivery.common.constants.EventType.FORCE_ASSIGN_DRIVER)
                 .payload(jsonMessage)
-                .createdAt(java.time.LocalDateTime.now())
+                .createdAt(java.time.Instant.now())
                 .build();
             outboxEventRepository.save(outboxEvent);
             log.info("Admin successfully requested manual assignment of driver {} to order {}", driverId, order.getId());
@@ -115,7 +115,7 @@ public class AdminOrderManualController {
                 .aggregateId(order.getId().toString())
                 .eventType(com.fooddelivery.common.constants.EventType.ORDER_CANCELLED_BY_ADMIN)
                 .payload(jsonMessage)
-                .createdAt(java.time.LocalDateTime.now())
+                .createdAt(java.time.Instant.now())
                 .build();
             outboxEventRepository.save(outboxEvent);
             log.info("Admin successfully requested manual cancellation for order {}. Reason: {}", order.getId(), reason);
@@ -192,7 +192,7 @@ public class AdminOrderManualController {
         }
         ticket.setResolutionNotes(notes);
         ticket.setResolvedBy(UUID.fromString(principal.getName()));
-        ticket.setResolvedAt(LocalDateTime.now());
+        ticket.setResolvedAt(Instant.now());
         supportTicketRepository.save(ticket);
 
         log.info("Admin {} {} support ticket {} for order {}. Notes: {}", principal.getName(), action, ticketId, ticket.getOrderId(), notes);

@@ -5,8 +5,7 @@ import com.fooddelivery.common.constants.PaymentIntentStatus;
 import com.fooddelivery.common.enums.PaymentMethod;
 import com.fooddelivery.common.enums.PaymentGateway;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 @Entity
@@ -39,7 +38,7 @@ public class PaymentIntent {
     private PaymentGateway gatewayName;
 
     @Column(name = "created_at")
-    private OffsetDateTime createdAt;
+    private Instant createdAt;
 
     /**
      * Maintained by Hibernate on every update. RefundRetrySweeper sweeps on this, not createdAt:
@@ -48,5 +47,5 @@ public class PaymentIntent {
      */
     @org.hibernate.annotations.UpdateTimestamp
     @Column(name = "updated_at")
-    private OffsetDateTime updatedAt;
+    private Instant updatedAt;
 }

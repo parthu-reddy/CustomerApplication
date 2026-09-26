@@ -77,37 +77,21 @@ public class DriverMoneyController {
         return value;
     }
 
+    /**
+     * The rider's earnings for {@code [from, to)}: a period on the rider's own calendar (this month,
+     * the last 30 days), computed in the rider's browser from the rider's zone. A rider has no zone on
+     * record, so the server has no calendar to compute one on. This took a {@code period} it never
+     * read and always answered with one UTC month. TimezoneCorrectness_2026-09-25.
+     */
     @GetMapping("/summary")
     @PreAuthorize("@moneyAccessPolicy.canAccessMoney(authentication, T(com.fooddelivery.common.security.money.MoneyOwnerType).DRIVER, T(java.util.UUID).fromString(authentication.name))")
     public ResponseEntity<com.fooddelivery.customer.dto.DriverSummary> fetchSummary(
-            @RequestParam(required = false, defaultValue = "month") String period,
+            @RequestParam("from") java.time.Instant from,
+            @RequestParam("to") java.time.Instant to,
             Authentication authentication) {
-        
-        UUID driverId = UUID.fromString(authentication.getName());
-        return ResponseEntity.ok(driverSummaryService.getSummary(driverId, period));
-    }
 
-    @GetMapping("/orders")
-    @PreAuthorize("@moneyAccessPolicy.canAccessMoney(authentication, T(com.fooddelivery.common.security.money.MoneyOwnerType).DRIVER, T(java.util.UUID).fromString(authentication.name))")
-    public ResponseEntity<java.util.List<DriverOrderEarnings>> fetchOrders(
-            @RequestParam(required = false) String date,
-            Authentication authentication) {
-        
         UUID driverId = UUID.fromString(authentication.getName());
-        
-        java.time.LocalDateTime start = java.time.LocalDateTime.now().minusMonths(1);
-        java.time.LocalDateTime end = java.time.LocalDateTime.now().plusDays(1);
-        
-        java.util.List<com.fooddelivery.common.enums.OrderStatus> cancelledStatuses = java.util.List.of(com.fooddelivery.common.enums.OrderStatus.CANCELLED);
-        java.util.List<com.fooddelivery.common.enums.DeliveryStatus> terminalStatuses = java.util.List.of(com.fooddelivery.common.enums.DeliveryStatus.DELIVERED);
-        org.springframework.data.domain.Page<Order> ordersPage = orderRepository.findHistoryOrdersForDriver(
-                driverId, cancelledStatuses, terminalStatuses, start, end, org.springframework.data.domain.PageRequest.of(0, 1000));
-        
-        java.util.List<DriverOrderEarnings> earnings = ordersPage.getContent().stream()
-            .map(this::buildDriverEarnings)
-            .collect(java.util.stream.Collectors.toList());
-            
-        return ResponseEntity.ok(earnings);
+        return ResponseEntity.ok(driverSummaryService.getSummary(driverId, new com.fooddelivery.common.time.TimeWindow(from, to)));
     }
 
     @GetMapping("/statement")

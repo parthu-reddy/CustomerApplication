@@ -5,7 +5,7 @@ import com.fooddelivery.common.enums.RefundDestination;
 import com.fooddelivery.common.enums.PaymentMethod;
 
 import java.math.BigDecimal;
-import java.time.OffsetDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 @lombok.Data
@@ -20,7 +20,7 @@ public class RefundView {
     private RefundDestination destination;
     private PaymentMethod method;
     private String reasonCode;
-    private OffsetDateTime requestedAt;
-    private OffsetDateTime completedAt;
-    private OffsetDateTime expectedBy;
+    private Instant requestedAt;
+    private Instant completedAt;
+    private Instant expectedBy;
 }

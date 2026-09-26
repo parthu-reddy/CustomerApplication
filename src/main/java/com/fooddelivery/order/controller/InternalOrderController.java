@@ -6,9 +6,7 @@ import com.fooddelivery.common.enums.OrderStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.access.prepost.PreAuthorize;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import java.util.Arrays;
@@ -49,12 +47,16 @@ public class InternalOrderController {
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public ResponseEntity<org.springframework.data.domain.Page<Order>> fetchOrderHistoryForDriver(
             @PathVariable UUID driverId, 
-            @RequestParam(required = false) String date,
+            @RequestParam("from") Instant from,
+            @RequestParam("to") Instant to,
             @org.springframework.data.web.PageableDefault(size = 50) org.springframework.data.domain.Pageable pageable) {
-        log.info("Fetching order history for driver {} for date {}", driverId, date);
-        LocalDate queryDate = date != null ? LocalDate.parse(date) : LocalDate.now();
-        LocalDateTime startOfDay = queryDate.atStartOfDay();
-        LocalDateTime endOfDay = queryDate.atTime(LocalTime.MAX);
+        // [from, to) is the rider's own day, computed in the rider's browser from the rider's zone. A
+        // bare date used to be read on this JVM's calendar, which is nobody's in particular.
+        // TimezoneCorrectness_2026-09-25.
+        com.fooddelivery.common.time.TimeWindow window = new com.fooddelivery.common.time.TimeWindow(from, to);
+        log.info("Fetching order history for driver {} in {}", driverId, window);
+        Instant startOfDay = window.from();
+        Instant endOfDay = window.to();
         List<OrderStatus> cancelledStatuses = Arrays.asList(OrderStatus.CANCELLED, OrderStatus.CANCELLED_BY_RESTAURANT);
         List<com.fooddelivery.common.enums.DeliveryStatus> terminalDeliveryStatuses = java.util.List.of(com.fooddelivery.common.enums.DeliveryStatus.DELIVERED, com.fooddelivery.common.enums.DeliveryStatus.FAILED, com.fooddelivery.common.enums.DeliveryStatus.CANCELLED);
         log.info("findHistoryOrdersForDriver parameters: driverId={}, start={}, end={}, cancelledStatuses={}, terminalDeliveryStatuses={}", driverId, startOfDay, endOfDay, cancelledStatuses, terminalDeliveryStatuses);

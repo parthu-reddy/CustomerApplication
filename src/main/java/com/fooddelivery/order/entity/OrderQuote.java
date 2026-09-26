@@ -9,7 +9,7 @@ import jakarta.persistence.Table;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -90,14 +90,14 @@ public class OrderQuote {
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
     @Column(name = "expires_at", nullable = false)
-    private LocalDateTime expiresAt;
+    private Instant expiresAt;
 
     /** Non-null once redeemed. Claimed atomically; a second checkout on the same quote fails. */
     @Column(name = "consumed_at")
-    private LocalDateTime consumedAt;
+    private Instant consumedAt;
 
     @Column(name = "consumed_order_id")
     private UUID consumedOrderId;

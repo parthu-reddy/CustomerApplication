@@ -12,7 +12,7 @@ import com.fooddelivery.order.repository.IOrderRepository;
 import com.fooddelivery.order.repository.IPaymentIntentRepository;
 import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 import com.fooddelivery.common.constants.PaymentIntentStatus;
 
@@ -47,7 +47,7 @@ public class OrderActionService {
                     .orderId(orderId.toString())
                     .reason(reason)
                     .build();
-            OutboxEventEntity outboxEvent = OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER).aggregateId(orderId.toString()).eventType(EventType.ORDER_CANCELLED).payload(objectMapper.writeValueAsString(event)).createdAt(LocalDateTime.now()).status(com.fooddelivery.common.enums.OutboxStatus.UNPROCESSED).build();
+            OutboxEventEntity outboxEvent = OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER).aggregateId(orderId.toString()).eventType(EventType.ORDER_CANCELLED).payload(objectMapper.writeValueAsString(event)).createdAt(Instant.now()).status(com.fooddelivery.common.enums.OutboxStatus.UNPROCESSED).build();
             log.info("Triggering event: {} for order: {}", EventType.ORDER_CANCELLED.name(), orderId);
             outboxEventRepository.save(outboxEvent);
         } catch (Exception e) {
@@ -63,7 +63,7 @@ public class OrderActionService {
                     .amount(amount)
                     .reason(reason)
                     .build();
-            OutboxEventEntity outboxEvent = OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER).aggregateId(orderId.toString()).eventType(EventType.valueOf("ORDER_PARTIALLY_REFUNDED")).payload(objectMapper.writeValueAsString(event)).createdAt(LocalDateTime.now()).status(com.fooddelivery.common.enums.OutboxStatus.UNPROCESSED).build();
+            OutboxEventEntity outboxEvent = OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER).aggregateId(orderId.toString()).eventType(EventType.valueOf("ORDER_PARTIALLY_REFUNDED")).payload(objectMapper.writeValueAsString(event)).createdAt(Instant.now()).status(com.fooddelivery.common.enums.OutboxStatus.UNPROCESSED).build();
             log.info("Triggering event: ORDER_PARTIALLY_REFUNDED for order: {} amount: {}", orderId, amount);
             outboxEventRepository.save(outboxEvent);
         } catch (Exception e) {
@@ -78,7 +78,7 @@ public class OrderActionService {
                     .orderId(orderId.toString())
                     .reason("Cancelled by customer")
                     .build();
-            OutboxEventEntity outboxEvent = OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER).aggregateId(orderId.toString()).eventType(EventType.ORDER_CANCELLED_BY_CUSTOMER).payload(objectMapper.writeValueAsString(event)).createdAt(LocalDateTime.now()).status(com.fooddelivery.common.enums.OutboxStatus.UNPROCESSED).build();
+            OutboxEventEntity outboxEvent = OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER).aggregateId(orderId.toString()).eventType(EventType.ORDER_CANCELLED_BY_CUSTOMER).payload(objectMapper.writeValueAsString(event)).createdAt(Instant.now()).status(com.fooddelivery.common.enums.OutboxStatus.UNPROCESSED).build();
             log.info("Triggering event: {} for order: {}", EventType.ORDER_CANCELLED_BY_CUSTOMER.name(), orderId);
             outboxEventRepository.save(outboxEvent);
         } catch (Exception e) {
@@ -93,7 +93,7 @@ public class OrderActionService {
                     .orderId(orderId.toString())
                     .reason(reason)
                     .build();
-            OutboxEventEntity outboxEvent = OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER).aggregateId(orderId.toString()).eventType(EventType.ORDER_CANCELLED_BY_RESTAURANT).payload(objectMapper.writeValueAsString(event)).createdAt(LocalDateTime.now()).status(com.fooddelivery.common.enums.OutboxStatus.UNPROCESSED).build();
+            OutboxEventEntity outboxEvent = OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER).aggregateId(orderId.toString()).eventType(EventType.ORDER_CANCELLED_BY_RESTAURANT).payload(objectMapper.writeValueAsString(event)).createdAt(Instant.now()).status(com.fooddelivery.common.enums.OutboxStatus.UNPROCESSED).build();
             log.info("Triggering event: {} for order: {}", EventType.ORDER_CANCELLED_BY_RESTAURANT.name(), orderId);
             outboxEventRepository.save(outboxEvent);
         } catch (Exception e) {
@@ -108,7 +108,7 @@ public class OrderActionService {
                     .orderId(orderId.toString())
                     .reason(reason)
                     .build();
-            OutboxEventEntity outboxEvent = OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER).aggregateId(orderId.toString()).eventType(com.fooddelivery.common.constants.EventType.DELIVERY_FAILED).payload(objectMapper.writeValueAsString(event)).createdAt(LocalDateTime.now()).status(com.fooddelivery.common.enums.OutboxStatus.UNPROCESSED).build();
+            OutboxEventEntity outboxEvent = OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER).aggregateId(orderId.toString()).eventType(com.fooddelivery.common.constants.EventType.DELIVERY_FAILED).payload(objectMapper.writeValueAsString(event)).createdAt(Instant.now()).status(com.fooddelivery.common.enums.OutboxStatus.UNPROCESSED).build();
             log.info("Triggering event: {} for order: {}", com.fooddelivery.common.constants.EventType.DELIVERY_FAILED.name(), orderId);
             outboxEventRepository.save(outboxEvent);
         } catch (Exception e) {
@@ -159,7 +159,7 @@ public class OrderActionService {
                     .platformBonus(order.getPlatformBonus())
                     .restaurantPayout(order.getRestaurantPayout())
                     .build();
-            OutboxEventEntity outboxEvent = OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER).aggregateId(order.getId().toString()).eventType(eventType).payload(objectMapper.writeValueAsString(paidEvent)).createdAt(LocalDateTime.now()).status(com.fooddelivery.common.enums.OutboxStatus.UNPROCESSED).build();
+            OutboxEventEntity outboxEvent = OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER).aggregateId(order.getId().toString()).eventType(eventType).payload(objectMapper.writeValueAsString(paidEvent)).createdAt(Instant.now()).status(com.fooddelivery.common.enums.OutboxStatus.UNPROCESSED).build();
             log.info("Triggering event: {} for order: {}", eventType.name(), order.getId());
             outboxEventRepository.save(outboxEvent);
         } catch (Exception e) {
@@ -171,7 +171,7 @@ public class OrderActionService {
     public void sendNotification(String orderId, UUID customerId, com.fooddelivery.common.constants.NotificationTemplate templateCode) {
         try {
             com.fooddelivery.common.event.NotificationRequestEvent notificationEvent = com.fooddelivery.common.event.NotificationRequestEvent.builder().userId(customerId).channel(com.fooddelivery.common.enums.ChannelType.PUSH).eventName(templateCode).templateParams(java.util.List.of(orderId)).build();
-            OutboxEventEntity outboxEvent = OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.NOTIFICATION).aggregateId(customerId.toString()).eventType(EventType.NOTIFICATION_REQUEST).payload(objectMapper.writeValueAsString(notificationEvent)).createdAt(LocalDateTime.now()).status(com.fooddelivery.common.enums.OutboxStatus.UNPROCESSED).build();
+            OutboxEventEntity outboxEvent = OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.NOTIFICATION).aggregateId(customerId.toString()).eventType(EventType.NOTIFICATION_REQUEST).payload(objectMapper.writeValueAsString(notificationEvent)).createdAt(Instant.now()).status(com.fooddelivery.common.enums.OutboxStatus.UNPROCESSED).build();
             log.info("Triggering event: {} for customer: {}", EventType.NOTIFICATION_REQUEST.name(), customerId);
             outboxEventRepository.save(outboxEvent);
             log.info("Saved notification request to outbox for order {} to customer {}", orderId, customerId);
@@ -187,7 +187,7 @@ public class OrderActionService {
                     .orderId(orderId.toString())
                     .status(currentStatus.name())
                     .build();
-            OutboxEventEntity outboxEvent = OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER).aggregateId(orderId.toString()).eventType(EventType.ORDER_STATUS_SYNC).payload(objectMapper.writeValueAsString(event)).createdAt(LocalDateTime.now()).status(com.fooddelivery.common.enums.OutboxStatus.UNPROCESSED).build();
+            OutboxEventEntity outboxEvent = OutboxEventEntity.builder().id(UUID.randomUUID()).aggregateType(com.fooddelivery.common.constants.AggregateType.ORDER).aggregateId(orderId.toString()).eventType(EventType.ORDER_STATUS_SYNC).payload(objectMapper.writeValueAsString(event)).createdAt(Instant.now()).status(com.fooddelivery.common.enums.OutboxStatus.UNPROCESSED).build();
             outboxEventRepository.save(outboxEvent);
             log.info("Saved ORDER_STATUS_SYNC event to outbox for order: {}", orderId);
         } catch (Exception e) {
@@ -200,7 +200,7 @@ public class OrderActionService {
     public void completeDelivery(com.fooddelivery.order.service.state.OrderContext ctx) {
         Order order = ctx.getOrder();
         order.setDeliveryStatus(com.fooddelivery.common.enums.DeliveryStatus.DELIVERED);
-        order.setDeliveredAt(LocalDateTime.now());
+        order.setDeliveredAt(Instant.now());
 
         saveOrder(order);
         ctx.getLedgerBookkeeper().bookDelivered(order);
