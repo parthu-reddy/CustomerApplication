@@ -43,6 +43,21 @@ public class CustomerMoneyController {
     private final com.fooddelivery.customer.service.money.CustomerInvoiceService customerInvoiceService;
     private final com.fooddelivery.common.client.WalletServiceClient walletServiceClient;
 
+    @org.springframework.beans.factory.annotation.Value("${platform.default-currency:INR}")
+    private String defaultCurrency = "INR";
+
+    private com.fooddelivery.common.dto.wallet.WalletDto ensureCustomerWallet(UUID customerId) {
+        // Every customer owns a wallet, even before the first credit. Seeded and older accounts can
+        // predate wallet provisioning, so make that invariant true at this owner-scoped boundary.
+        // WalletService's upsert is concurrency-safe; unlike getWallet(), this cannot turn a
+        // perfectly valid new customer into a generic Feign 404 -> CustomerApplication 500.
+        return walletServiceClient.getOrCreateWallet(
+                new com.fooddelivery.common.dto.wallet.CreateWalletRequest()
+                        .entityId(customerId)
+                        .entityType(com.fooddelivery.common.enums.WalletEntityType.CUSTOMER)
+                        .currency(defaultCurrency));
+    }
+
     /**
      * The customer's own wallet.
      *
@@ -58,9 +73,7 @@ public class CustomerMoneyController {
     @GetMapping("/wallet")
     @PreAuthorize("@moneyAccessPolicy.canAccessMoney(authentication, T(com.fooddelivery.common.security.money.MoneyOwnerType).CUSTOMER, T(java.util.UUID).fromString(authentication.name))")
     public ResponseEntity<com.fooddelivery.common.dto.wallet.WalletDto> getMyWallet(Principal principal) {
-        return ResponseEntity.ok(walletServiceClient.getWallet(
-                com.fooddelivery.common.enums.WalletEntityType.CUSTOMER.name(),
-                UUID.fromString(principal.getName())));
+        return ResponseEntity.ok(ensureCustomerWallet(UUID.fromString(principal.getName())));
     }
 
     @GetMapping("/wallet/transactions")
@@ -69,9 +82,11 @@ public class CustomerMoneyController {
             Principal principal,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
+        UUID customerId = UUID.fromString(principal.getName());
+        ensureCustomerWallet(customerId);
         return ResponseEntity.ok(walletServiceClient.getWalletTransactions(
                 com.fooddelivery.common.enums.WalletEntityType.CUSTOMER.name(),
-                UUID.fromString(principal.getName()), page, size));
+                customerId, page, size));
     }
 
     @GetMapping("/refunds")

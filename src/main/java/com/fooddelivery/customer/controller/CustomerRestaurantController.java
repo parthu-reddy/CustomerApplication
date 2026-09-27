@@ -141,19 +141,14 @@ public class CustomerRestaurantController {
             throw new IllegalStateException(com.fooddelivery.common.constants.AppConstants.ERROR_MSG_RESTAURANT_UNKNOWN);
         }
         // 2. Check Driver Availability in MapsIntegration
-        try {
-            com.fooddelivery.common.dto.maps.FleetAvailabilityResponseDto mapsResponse = mapsClient.checkFleetAvailability(
-                    deliveryZoneConfig.getDefaultCity(), lat, lng,
-                    deliveryZoneConfig.getFleetSearchRadiusKm());
-            if (mapsResponse != null) {
-                Boolean available = mapsResponse.getAvailable();
-                if (Boolean.TRUE.equals(available)) {
-                    return ResponseEntity.ok(ApiResponse.success(true, "Delivery partner available."));
-                }
+        com.fooddelivery.common.dto.maps.FleetAvailabilityResponseDto mapsResponse = mapsClient.checkFleetAvailability(
+                deliveryZoneConfig.getDefaultCity(), lat, lng,
+                deliveryZoneConfig.getFleetSearchRadiusKm());
+        if (mapsResponse != null) {
+            Boolean available = mapsResponse.getAvailable();
+            if (Boolean.TRUE.equals(available)) {
+                return ResponseEntity.ok(ApiResponse.success(true, "Delivery partner available."));
             }
-        } catch (Exception e) {
-            // Log and allow it to fall through to the unavailable exception
-            log.warn("Failed to reach MapsIntegration for fleet check: {}", e.getMessage());
         }
         // 3. Throw Exception if not available
         throw new com.fooddelivery.customer.exception.DeliveryPartnerUnavailableException(com.fooddelivery.common.constants.AppConstants.ERROR_MSG_NO_DELIVERY_PARTNER_NEARBY, com.fooddelivery.common.constants.AppConstants.ERROR_NO_DELIVERY_PARTNER_NEARBY);

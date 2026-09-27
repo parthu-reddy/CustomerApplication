@@ -243,15 +243,10 @@ public class CustomerOrderService {
                 try {
                     Double rLat = com.fooddelivery.common.util.JsonNumberUtils.toDouble(restaurantData.get("lat"));
                     Double rLng = com.fooddelivery.common.util.JsonNumberUtils.toDouble(restaurantData.get("lng"));
-                    try {
-                        com.fooddelivery.common.dto.maps.FleetAvailabilityResponseDto mapsResponse = mapsClient.checkFleetAvailability(deliveryZoneConfig.getDefaultCity(), rLat, rLng, deliveryZoneConfig.getFleetSearchRadiusKm());
-                        if (mapsResponse != null) {
-                            return Boolean.TRUE.equals(mapsResponse.getAvailable());
-                        }
-                    } catch (Exception e) {
-                        log.warn("Failed to reach MapsIntegration for fleet check: {}", e.getMessage());
-                    }
-                    return false;
+                    com.fooddelivery.common.dto.maps.FleetAvailabilityResponseDto mapsResponse = mapsClient.checkFleetAvailability(
+                            deliveryZoneConfig.getDefaultCity(), rLat, rLng,
+                            deliveryZoneConfig.getFleetSearchRadiusKm());
+                    return mapsResponse != null && Boolean.TRUE.equals(mapsResponse.getAvailable());
                 } finally {
                     org.springframework.web.context.request.RequestContextHolder.resetRequestAttributes();
                     org.springframework.security.core.context.SecurityContextHolder.clearContext();
