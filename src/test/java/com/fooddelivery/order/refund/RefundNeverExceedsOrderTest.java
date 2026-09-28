@@ -10,6 +10,7 @@ import com.fooddelivery.order.entity.Order;
 import com.fooddelivery.order.entity.PaymentIntent;
 import com.fooddelivery.order.entity.Refund;
 import com.fooddelivery.order.enums.InitiatorType;
+import com.fooddelivery.order.enums.RefundSource;
 import com.fooddelivery.order.ledger.LedgerBookkeeper;
 import com.fooddelivery.order.repository.IOrderRepository;
 import com.fooddelivery.order.repository.IPaymentIntentRepository;
@@ -106,6 +107,7 @@ class RefundNeverExceedsOrderTest {
         cmd.setOrderId(orderId);
         cmd.setAmount(new BigDecimal(amount));
         cmd.setInitiatorType(InitiatorType.SYSTEM);
+        cmd.setSource(RefundSource.SYSTEM_CANCELLATION);
         cmd.setIdempotencyKey("k-" + UUID.randomUUID());
         return cmd;
     }

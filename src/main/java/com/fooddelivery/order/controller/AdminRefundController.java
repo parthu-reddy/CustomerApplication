@@ -128,6 +128,7 @@ public class AdminRefundController {
                .amount(refundAmount)
                .items(refundCommandItems.isEmpty() ? null : refundCommandItems)
                .faultType(request.faultType() != null ? com.fooddelivery.order.enums.FaultType.valueOf(request.faultType()) : com.fooddelivery.order.enums.FaultType.UNKNOWN)
+               .source(com.fooddelivery.order.enums.RefundSource.CUSTOMER_TICKET)
                // No destination: RefundService routes from the payment method and intent state.
                // Hardcoding ORIGINAL_METHOD here pushed wallet-paid orders at a gateway that had
                // never taken the money.

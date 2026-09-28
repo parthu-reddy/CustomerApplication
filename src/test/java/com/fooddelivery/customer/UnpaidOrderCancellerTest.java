@@ -76,6 +76,7 @@ public class UnpaidOrderCancellerTest {
 
         canceller.sweepStaleCreatedOrders();
 
-        verify(sagaOrchestrator, times(1)).cancelOrderLocally(eq(order), anyString());
+        verify(sagaOrchestrator, times(1)).cancelOrderLocally(eq(order), anyString(),
+                eq(com.fooddelivery.order.enums.RefundSource.SYSTEM_LATE_PAYMENT));
     }
 }

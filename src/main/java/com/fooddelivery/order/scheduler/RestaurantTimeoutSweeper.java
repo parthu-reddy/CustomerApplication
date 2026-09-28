@@ -124,6 +124,7 @@ public class RestaurantTimeoutSweeper {
                         .orderId(order.getId())
                         .amount(order.getTotalAmount())
                         .faultType(com.fooddelivery.order.enums.FaultType.RESTAURANT_FAULT)
+                        .source(com.fooddelivery.order.enums.RefundSource.SYSTEM_CANCELLATION)
                         // No destination: RefundService routes from the persisted payment facts.
                         .initiatorType(com.fooddelivery.order.enums.InitiatorType.SYSTEM)
                         .reasonCode("AUTO_CANCEL_STALE")
@@ -156,6 +157,7 @@ public class RestaurantTimeoutSweeper {
                         .orderId(order.getId())
                         .amount(order.getTotalAmount())
                         .faultType(com.fooddelivery.order.enums.FaultType.RESTAURANT_FAULT)
+                        .source(com.fooddelivery.order.enums.RefundSource.SYSTEM_CANCELLATION)
                         // No destination: RefundService routes from the persisted payment facts.
                         .initiatorType(com.fooddelivery.order.enums.InitiatorType.SYSTEM)
                         .reasonCode("AUTO_CANCEL_STUCK")

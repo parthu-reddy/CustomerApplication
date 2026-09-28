@@ -51,6 +51,7 @@ public class RefundRemainingTest {
         RefundCommand command = new RefundCommand();
         command.setOrderId(orderId);
         command.setAmount(new BigDecimal("50.00")); // 60 + 50 = 110 > 100
+        command.setSource(com.fooddelivery.order.enums.RefundSource.SYSTEM_CANCELLATION);
         
         IllegalStateException ex = assertThrows(IllegalStateException.class, () -> service.request(command));
         assertEquals("REFUND_EXCEEDS_REMAINING", ex.getMessage());
@@ -80,6 +81,7 @@ public class RefundRemainingTest {
         RefundCommand command = new RefundCommand();
         command.setOrderId(orderId);
         command.setAmount(new BigDecimal("50.00"));
+        command.setSource(com.fooddelivery.order.enums.RefundSource.SYSTEM_CANCELLATION);
         assertThrows(IllegalStateException.class, () -> service.request(command));
 
         ArgumentCaptor<List<RefundStatus>> statuses = ArgumentCaptor.forClass(List.class);
@@ -114,6 +116,7 @@ public class RefundRemainingTest {
         RefundCommand command = new RefundCommand();
         command.setOrderId(orderId);
         command.setAmount(new BigDecimal("40.00"));
+        command.setSource(com.fooddelivery.order.enums.RefundSource.SYSTEM_CANCELLATION);
 
         // It clears the remaining-amount gate and is stopped later, by the routing matrix.
         IllegalStateException ex = assertThrows(IllegalStateException.class, () -> service.request(command));

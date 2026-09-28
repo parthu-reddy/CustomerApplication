@@ -92,6 +92,9 @@ public class RefundDestinationMatrixTest {
         command.setOrderId(orderId);
         command.setAmount(new BigDecimal("50.00"));
         command.setDestination(override);
+        command.setSource(initiator == InitiatorType.ADMIN
+                ? com.fooddelivery.order.enums.RefundSource.ADMIN
+                : com.fooddelivery.order.enums.RefundSource.SYSTEM_CANCELLATION);
         command.setInitiatorType(initiator);
         command.setInitiatorId(UUID.randomUUID());
         command.setIdempotencyKey("k-" + UUID.randomUUID());

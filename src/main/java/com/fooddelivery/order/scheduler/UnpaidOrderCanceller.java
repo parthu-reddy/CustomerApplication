@@ -88,7 +88,8 @@ public class UnpaidOrderCanceller {
 
         // Cancel the order
         try {
-            orderSagaOrchestrator.cancelOrderLocally(order, "Payment timeout after 15 minutes");
+            orderSagaOrchestrator.cancelOrderLocally(order, "Payment timeout after 15 minutes",
+                    com.fooddelivery.order.enums.RefundSource.SYSTEM_LATE_PAYMENT);
         } catch (Exception e) {
             log.error("Failed to cancel stale order {}", order.getId(), e);
         }

@@ -94,6 +94,7 @@ class RefundStoreCreditHandoffTest {
                 .orderId(orderId)
                 .amount(new BigDecimal("420.00"))
                 .faultType(FaultType.UNKNOWN)
+                .source(com.fooddelivery.order.enums.RefundSource.SYSTEM_CANCELLATION)
                 .initiatorType(InitiatorType.SYSTEM)
                 .reasonCode("TEST")
                 .idempotencyKey("test_" + orderId)

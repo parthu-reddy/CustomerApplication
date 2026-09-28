@@ -422,7 +422,8 @@ public class CustomerOrderService {
             throw new org.springframework.security.access.AccessDeniedException("You are not authorized to perform this action on this order");
         }
         transactionTemplate.executeWithoutResult(status -> {
-            orderSagaOrchestrator.cancelOrderLocally(order, "Cancelled by customer via UI");
+            orderSagaOrchestrator.cancelOrderLocally(order, "Cancelled by customer via UI",
+                    com.fooddelivery.order.enums.RefundSource.SYSTEM_CANCELLATION);
         });
     }
 

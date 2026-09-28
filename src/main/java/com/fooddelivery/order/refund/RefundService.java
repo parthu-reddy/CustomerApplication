@@ -53,6 +53,9 @@ public class RefundService {
 
     @Transactional
     public RefundView request(RefundCommand command) {
+        if (command.getSource() == null) {
+            throw new IllegalArgumentException("Refund source is required");
+        }
         Optional<Refund> existing = refundRepository.findByIdempotencyKey(command.getIdempotencyKey());
         if (existing.isPresent()) {
             Order order = orderRepository.findById(existing.get().getOrderId()).orElseThrow();

@@ -176,6 +176,7 @@ public class PaymentEventConsumer {
                         .orderId(orderToRefund.getId())
                         .amount(orderToRefund.getTotalAmount())
                         .faultType(com.fooddelivery.order.enums.FaultType.UNKNOWN)
+                        .source(com.fooddelivery.order.enums.RefundSource.SYSTEM_LATE_PAYMENT)
                         // No destination: RefundService routes it from the payment method
                         // and intent state.
                         .initiatorType(com.fooddelivery.order.enums.InitiatorType.SYSTEM)

@@ -113,7 +113,8 @@ public class OrderSagaOrchestrator {
         }
     }
 
-    public void cancelOrderLocally(Order order, String reason) {
+    public void cancelOrderLocally(Order order, String reason,
+                                   com.fooddelivery.order.enums.RefundSource refundSource) {
         Order orderToRefund = transactionTemplate.execute(status -> {
             Order dbOrder = orderRepository.findById(order.getId()).orElse(order);
             com.fooddelivery.order.service.state.OrderContext context = new com.fooddelivery.order.service.state.OrderContext(
@@ -141,6 +142,7 @@ public class OrderSagaOrchestrator {
                .orderId(orderToRefund.getId())
                .amount(orderToRefund.getTotalAmount())
                .faultType(com.fooddelivery.order.enums.FaultType.UNKNOWN)
+               .source(refundSource)
                // No destination: RefundService routes it from the payment method and intent state.
                .initiatorType(com.fooddelivery.order.enums.InitiatorType.SYSTEM)
                .reasonCode("SAGA_COMPENSATION")

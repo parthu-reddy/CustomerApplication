@@ -188,6 +188,7 @@ public class OrderEventConsumer {
                                 .orderId(order.getId())
                                 .amount(order.getTotalAmount())
                                 .faultType(faultTypeFor(eventType))
+                                .source(refundSourceFor(eventType))
                                 // No destination: RefundService is the single routing authority.
                                 .initiatorType(com.fooddelivery.order.enums.InitiatorType.SYSTEM)
                                 .reasonCode(eventType)
@@ -253,6 +254,29 @@ public class OrderEventConsumer {
             return com.fooddelivery.order.enums.FaultType.RESTAURANT_FAULT;
         }
         return com.fooddelivery.order.enums.FaultType.UNKNOWN;
+    }
+
+    /**
+     * Persist the event's origin separately from fault attribution. The refund table requires a
+     * source for audit/reporting; omitting it made the refund insert fail and rolled back the
+     * cancellation event and order-state transition together.
+     */
+    private static com.fooddelivery.order.enums.RefundSource refundSourceFor(String eventType) {
+        if (EventType.ORDER_REJECTED.name().equals(eventType)
+                || EventType.ORDER_CANCELLED_BY_RESTAURANT.name().equals(eventType)) {
+            return com.fooddelivery.order.enums.RefundSource.RESTAURANT;
+        }
+        if (EventType.ORDER_CANCELLED_BY_ADMIN.name().equals(eventType)) {
+            return com.fooddelivery.order.enums.RefundSource.ADMIN;
+        }
+        if (EventType.DELIVERY_FAILED.name().equals(eventType)
+                || EventType.DISPATCH_FAILED.name().equals(eventType)
+                || EventType.MANUAL_INTERVENTION_REQUIRED.name().equals(eventType)) {
+            return com.fooddelivery.order.enums.RefundSource.SYSTEM_DELIVERY_FAILED;
+        }
+        // A customer declining a restaurant delay is finalized by the order-event consumer and is
+        // an automated cancellation flow rather than a direct support-ticket refund.
+        return com.fooddelivery.order.enums.RefundSource.SYSTEM_CANCELLATION;
     }
 
     private void requestRefundWithoutPoisoningTheEvent(java.util.UUID orderId,
