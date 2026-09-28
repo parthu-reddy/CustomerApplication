@@ -12,8 +12,15 @@ import java.time.Instant;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.transaction.annotation.Transactional;
 
 public interface IOrderRepository extends JpaRepository<Order, UUID> {
+    /** Loads review target membership without keeping a transaction open during ownership lookup. */
+    @EntityGraph(attributePaths = {"orderItems"})
+    @Query("SELECT o FROM Order o WHERE o.id = :orderId")
+    @Transactional(readOnly = true)
+    java.util.Optional<Order> findForReviewAuthorization(@Param("orderId") UUID orderId);
+
     @EntityGraph(attributePaths = {"orderItems"})
     List<Order> findByStatusAndUpdatedAtBefore(com.fooddelivery.common.enums.OrderStatus status, Instant time);
     @EntityGraph(attributePaths = {"orderItems"})
