@@ -34,6 +34,28 @@ cd Deployment
 - Recreate the `food-delivery-app-ui` container.
 - Verify that it successfully started with the correct image.
 
-## 3. Hard Refresh
+## 3. Apply Dev Profile Configuration
+
+**CRITICAL RULE FOR AGENT:** After deploying the UI, you MUST also apply the dev profile
+configuration to ensure all services remain on the correct dev settings.
+
+```bash
+Deployment/deploy.sh --config --dry-run application-dev.yml api-gateway.yml api-gateway-dev.yml identity-service-dev.yml
+```
+
+Review the dry-run output, then apply:
+
+```bash
+Deployment/deploy.sh --config --yes application-dev.yml api-gateway.yml api-gateway-dev.yml identity-service-dev.yml
+```
+
+Then validate:
+
+```bash
+python3 Deployment/validate_hardening_phase1.py --remote
+Deployment/reconcile.sh
+```
+
+## 4. Hard Refresh
 
 Then **hard-refresh the browser** (`Cmd+Shift+R`). The SPA caches `index.html`, so a correct deploy looks like nothing happened until you force a refresh.

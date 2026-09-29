@@ -9,9 +9,6 @@ Deployment/deploy.sh <service>
 
 Deploys a single service to the Oracle VM. **This script does not build or publish.** It reads the tag recorded in `Deployment/env_deployments/dev/<service>.env`, pulls that specific image onto the VM, restarts the container, and waits for it to become healthy.
 
-This deploys an image only. It does not sync Spring configuration files. For profile config
-changes, use [deploy-dev-profile-config.md](deploy-dev-profile-config.md).
-
 If you need to build and publish a new image first, see `publish-one-service.md`.
 
 - `--fresh` recreating the container from scratch (does not touch the database).
@@ -19,12 +16,35 @@ If you need to build and publish a new image first, see `publish-one-service.md`
 
 Service names are compose names, not directory names — `chat-service`, not `CommunicationService`.
 
+### Apply Dev Profile Configuration
+
+**CRITICAL RULE FOR AGENT:** After deploying the service image, you MUST also apply the dev profile
+configuration so that the deployed service picks up the correct dev settings. This replaces the
+previous instruction to use a separate workflow — it is now built into every deploy.
+
+```bash
+Deployment/deploy.sh --config --dry-run application-dev.yml api-gateway.yml api-gateway-dev.yml identity-service-dev.yml
+```
+
+Review the dry-run output, then apply:
+
+```bash
+Deployment/deploy.sh --config --yes application-dev.yml api-gateway.yml api-gateway-dev.yml identity-service-dev.yml
+```
+
 ### Verification
 
 **CRITICAL RULE FOR AGENT:** After deploying, read the log and confirm it booted cleanly; "healthy" is not the same as error-free.
 
 ```bash
 ssh -i $SSH_KEY ubuntu@140.245.234.137 "cd 'Food Delivery.nosync/Deployment' && docker compose logs --tail=100 <service>"
+```
+
+Then validate the dev config reached the VM:
+
+```bash
+python3 Deployment/validate_hardening_phase1.py --remote
+Deployment/reconcile.sh
 ```
 
 ### Rollback
