@@ -7,7 +7,7 @@ description: End-to-End Data Integrity Verification
 > **Deployment context**: See [deployment-context.md](file:///Users/parthureddy/Documents/Food%20Delivery.nosync/CustomerApplication/.agents/rules/deployment-context.md) for Cloudflare domain, Oracle VM IP, SSH commands, and ports.
 > **Operational rules**: See [data-integrity-rules.md](file:///Users/parthureddy/Documents/Food%20Delivery.nosync/CustomerApplication/.agents/rules/data-integrity-rules.md) for sandbox configuration and global mandates.
 
-**CRITICAL**: All HTTP requests MUST target `https://eng-restricted-dad-separately.trycloudflare.com/`, never `localhost`.
+**CRITICAL**: All HTTP requests MUST target `https://gulf-strike-dark-extras.trycloudflare.com/`, never `localhost`.
 
 ## Operational Mandate
 
@@ -24,7 +24,7 @@ Execute a comprehensive, zero-mistake audit of all data movement — from the UI
 * **Objective:** Guarantee microservices honor shared interface agreements.
 * **Skill:** Activate `api-contract-enforcer`. Execute Pact CDC tests and Schemathesis:
   ```bash
-  schemathesis run --checks all openapi.yaml --base-url https://eng-restricted-dad-separately.trycloudflare.com/
+  schemathesis run --checks all openapi.yaml --base-url https://gulf-strike-dark-extras.trycloudflare.com/
   ```
 * **Output:** Generate a Test Report Artifact proving zero unhandled 500-level errors.
 

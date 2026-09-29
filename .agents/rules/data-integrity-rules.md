@@ -9,7 +9,7 @@
 3. **Strict Schema Drift Halting**: The agent must immediately halt execution if validation schemas drift between the client and the server, await human review, and provide a Code Diff to consolidate them.
 4. **No Destructive Operations Without Approval**: The agent must prompt for human approval before applying any destructive database operations or infrastructure changes, acting in a read-only assessment mode primarily.
 5. **Static Analysis & Terminal Testing Only**: The agent must strictly use terminal-based tools, automated tests, and static code analysis. Browser automation (BrowserMCP) is strictly forbidden for testing validation rules.
-6. **Cloudflare Domain for All HTTP Requests**: All HTTP-based verification commands targeting the deployed backend MUST use `https://eng-restricted-dad-separately.trycloudflare.com/` as the base URL, never `localhost` or raw IP addresses.
+6. **Cloudflare Domain for All HTTP Requests**: All HTTP-based verification commands targeting the deployed backend MUST use `https://gulf-strike-dark-extras.trycloudflare.com/` as the base URL, never `localhost` or raw IP addresses.
 
 ## Sandbox Configuration
 
