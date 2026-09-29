@@ -40,7 +40,7 @@ public class RestaurantMoneyController {
             @PathVariable("outletId") UUID outletId,
             @PathVariable("orderId") UUID orderId) {
 
-        Order order = orderRepository.findById(orderId)
+        Order order = orderRepository.findForRestaurantEarnings(orderId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
 
         // Validate the outletId matches the order's restaurant

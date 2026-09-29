@@ -69,19 +69,21 @@ Run this to restore repositories back to private. It remembers their original st
 **Not automated, and not chained to the steps above.**
 
 ```bash
-cd Deployment && ./OracleDeployment/03_clean_deploy.sh --wipe
-cd Deployment && ./dummy-data.sh
+export REGISTRY=hyd.ocir.io/axekmbadoczl
+Deployment/OracleDeployment/03_clean_deploy.sh
 ```
 
-Answer their prompts yourself. `--wipe` destroys every container and every volume on the VM;
-`dummy-data.sh` drops the public schema of twelve databases. Both scripts ask before doing it.
+The normal clean deploy keeps database volumes. Use
+[`deploy-dev-profile-config.md`](deploy-dev-profile-config.md) for configuration-only changes;
+they do not need image builds or database resets. `--wipe` and dummy-data reset are destructive
+operations and are not part of this workflow.
 
 The previous version of this workflow ran them unattended as
 `echo "WIPE" | ./03_clean_deploy.sh --wipe` and `./dummy-data.sh --yes`, piping past both
 confirmations. Those prompts were written by someone who meant them. Do not automate past them.
 
-Note deployment is parked as of 2026-09-13 — nothing is in production — so most of the time this
-step should simply not run.
+Oracle Dev is active. This workflow still does not deploy automatically: choose the image or config
+deployment path that matches the change and review its dry-run before execution.
 
 ## What the rewrite removed, and why
 

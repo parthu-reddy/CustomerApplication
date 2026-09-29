@@ -8,10 +8,10 @@ Deployment/OracleDeployment/03_clean_deploy.sh          # keeps the databases
 Deployment/OracleDeployment/03_clean_deploy.sh --wipe   # destroys volumes too (prompts)
 ```
 
-Deploys every service: syncs the image tags to the VM, starts infrastructure, waits for Postgres,
-then deploys config + discovery first and the remaining 17 services second. Starting 27 JVMs at
-once on a 4-core box drove load average past 120, which is why it runs in waves. It finishes by
-reconciling declared against running.
+Deploys every service: syncs the image tags, Compose file, and checksummed Spring config YAML bundle
+to the VM, starts infrastructure, waits for Postgres, then recreates config/discovery and the
+remaining services in ordered waves. Recreating containers makes them fetch the newly published
+profile files at startup. It finishes by reconciling declared against running.
 
 `--wipe` destroys all data. Recreate it afterwards with `Deployment/dummy-data.sh`.
 
@@ -33,9 +33,13 @@ per-deploy.
 - **Publishing a stale jar.** `publish.sh` refuses a jar older than its sources — `mvn compile`
   produces no jar, and publishing after it once shipped an image without the change.
 - **Config changes do not travel in the image.** `config-service` bind-mounts the VM's
-  `Deployment/` directory, so editing `<service>.yml` means rsyncing it and restarting the readers.
+  `Deployment/` directory. The clean deployment now publishes the YAML bundle and recreates
+  consumers; for a config-only release use `/deploy-dev-profile-config` or `Deployment/deploy.sh --config`.
 - **Migrations are immutable.** Never edit an applied one; add a new one. Flyway runs with
   `validate-on-migrate`, and `ddl-auto: validate` means Hibernate creates nothing.
+
+This command preserves database volumes by default. `--wipe` is a separate destructive operation;
+never use it for a profile config update.
 
 **CRITICAL RULE FOR AGENT:** after deploying, read each service's logs yourself. Healthy is not
 error-free — Flyway validation failures, bean creation errors and pool exhaustion all happen after

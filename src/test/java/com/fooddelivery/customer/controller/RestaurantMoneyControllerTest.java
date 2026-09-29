@@ -76,7 +76,7 @@ public class RestaurantMoneyControllerTest {
 
     @Test
     void getOrderEarnings_ReturnsEarnings_WhenOrderBelongsToOutlet() throws Exception {
-        when(orderRepository.findById(orderId)).thenReturn(Optional.of(testOrder));
+        when(orderRepository.findForRestaurantEarnings(orderId)).thenReturn(Optional.of(testOrder));
         mockMvc.perform(get("/api/v1/money/restaurant/" + restaurantId + "/orders/" + orderId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.orderId").value(orderId.toString()))
@@ -88,7 +88,7 @@ public class RestaurantMoneyControllerTest {
     @Test
     void getOrderEarnings_IsNotFound_WhenTheOrderBelongsToAnotherOutlet() throws Exception {
         testOrder.setRestaurantId(UUID.randomUUID());
-        when(orderRepository.findById(orderId)).thenReturn(Optional.of(testOrder));
+        when(orderRepository.findForRestaurantEarnings(orderId)).thenReturn(Optional.of(testOrder));
 
         mockMvc.perform(get("/api/v1/money/restaurant/" + restaurantId + "/orders/" + orderId))
                 .andExpect(status().isNotFound());
@@ -96,7 +96,7 @@ public class RestaurantMoneyControllerTest {
 
     @Test
     void getOrderEarnings_IsNotFound_WhenTheOrderDoesNotExist() throws Exception {
-        when(orderRepository.findById(orderId)).thenReturn(Optional.empty());
+        when(orderRepository.findForRestaurantEarnings(orderId)).thenReturn(Optional.empty());
 
         mockMvc.perform(get("/api/v1/money/restaurant/" + restaurantId + "/orders/" + orderId))
                 .andExpect(status().isNotFound());
@@ -105,7 +105,7 @@ public class RestaurantMoneyControllerTest {
     /** The deductions are shown, not just the net: an outlet must see why it was paid that. */
     @Test
     void getOrderEarnings_ShowsTheDeductionsBehindTheNet() throws Exception {
-        when(orderRepository.findById(orderId)).thenReturn(Optional.of(testOrder));
+        when(orderRepository.findForRestaurantEarnings(orderId)).thenReturn(Optional.of(testOrder));
 
         mockMvc.perform(get("/api/v1/money/restaurant/" + restaurantId + "/orders/" + orderId))
                 .andExpect(status().isOk())

@@ -164,4 +164,16 @@ class EarningsWindowQueriesTest {
         assertThat(Hibernate.isInitialized(orders.get(0).getOrderItems())).isTrue();
         assertThat(orders.get(0).getOrderItems()).hasSize(1);
     }
+
+    @Test
+    void restaurantOrderEarningsLoadItemsWithTheOrder() {
+        UUID orderId = delivered(OUTLET, RIDER, FROM.plusSeconds(60));
+        entityManager.clear();
+
+        Order order = orderRepository.findForRestaurantEarnings(orderId).orElseThrow();
+        entityManager.clear();
+
+        assertThat(Hibernate.isInitialized(order.getOrderItems())).isTrue();
+        assertThat(order.getOrderItems()).hasSize(1);
+    }
 }

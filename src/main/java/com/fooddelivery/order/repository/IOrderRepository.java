@@ -21,6 +21,12 @@ public interface IOrderRepository extends JpaRepository<Order, UUID> {
     @Transactional(readOnly = true)
     java.util.Optional<Order> findForReviewAuthorization(@Param("orderId") UUID orderId);
 
+    /** Loads the order items needed to calculate restaurant earnings after the repository call ends. */
+    @EntityGraph(attributePaths = {"orderItems"})
+    @Query("SELECT o FROM Order o WHERE o.id = :orderId")
+    @Transactional(readOnly = true)
+    java.util.Optional<Order> findForRestaurantEarnings(@Param("orderId") UUID orderId);
+
     @EntityGraph(attributePaths = {"orderItems"})
     List<Order> findByStatusAndUpdatedAtBefore(com.fooddelivery.common.enums.OrderStatus status, Instant time);
     @EntityGraph(attributePaths = {"orderItems"})

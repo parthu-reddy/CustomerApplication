@@ -6,6 +6,10 @@ description: Build and publish a single service image to the registry (local or 
 
 Deployment and publishing are decoupled. You must build and publish an image before you can deploy it. 
 
+This workflow publishes application images only. Changes under `Deployment/*.yml` are served from
+the VM's bind-mounted config directory and are not included in an image. For a Dev profile config
+change, use [deploy-dev-profile-config.md](deploy-dev-profile-config.md).
+
 There are two ways to publish a single service: the **Local Fast Path** (using your machine to build) or the **CI Path** (using GitHub Actions).
 
 ## Option A: Local Fast Path (Recommended for Agents)

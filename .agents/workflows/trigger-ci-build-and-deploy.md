@@ -2,26 +2,17 @@
 description: Trigger GitHub Actions CI build and deploy the newly built images
 ---
 
-```bash
-# 1. Push changes (from whichever repo was modified)
-(cd FoodDeliveryContracts && git add . && git commit -m "chore: <describe>" && git push)
+Use [publish-all-changes.md](publish-all-changes.md) for reviewed commits, CI builds, and contract
+checks. Use [deploy-one-service.md](deploy-one-service.md) or [clean-deploy.md](clean-deploy.md)
+for image deployment after CI finishes.
 
-# 2. Trigger the CI build
-gh workflow run build-and-publish.yml -f services="all" -R parthu-reddy/FoodDeliveryContracts
+This CI path is for code changes that need new images. A config-only change under `Deployment/*.yml`
+does not need CI or a container build; use [deploy-dev-profile-config.md](deploy-dev-profile-config.md).
+Do not use the old `git add .` / unfiltered latest-run commands or add `--wipe` to the deployment.
 
-# 3. Monitor (blocks until complete)
-RUN_ID=$(gh run list -R parthu-reddy/FoodDeliveryContracts -L 1 --json databaseId -q '.[0].databaseId')
-gh run watch "$RUN_ID" -R parthu-reddy/FoodDeliveryContracts
-
-# 4. Deploy the updated env file
-(cd Deployment && git pull)
-export REGISTRY=hyd.ocir.io/axekmbadoczl
-bash Deployment/OracleDeployment/03_clean_deploy.sh
-```
-
-The `build-and-publish` workflow is `workflow_dispatch`-only — pushes do NOT auto-trigger it.
-It always builds the entire Maven reactor + UI bundle (~9 minutes). The `services` input only
-controls which Docker images get published to OCIR, not what gets compiled.
+The `build-and-publish` workflow is `workflow_dispatch`-only — pushes do NOT auto-trigger it. The
+`services` input controls which Docker images get published to OCIR; it does not publish config
+YAML files.
 
 Service names are **compose service names** from `Deployment/service-map.tsv` (e.g. `customer-service`,
 not `CustomerApplication`). To publish a subset, space-separate them:
