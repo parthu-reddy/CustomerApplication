@@ -6,21 +6,16 @@ description: Deploy UI only using the image built by CI
 Deploys the UI container to the Oracle VM using the Docker image that was previously built by GitHub Actions (via `/publish-ui-only` or `/publish-all-changes`). 
 This allows you to easily deploy the UI without needing to run a full `/clean-deploy` or relying on a local build.
 
-## 1. Update the image tag
+## 1. Ensure latest tags are pulled
 
-The deployment script (`Deployment/deploy.sh`) relies on the tags pinned in `Deployment/env_deployments/dev/food-delivery-app-ui.env`.
-Update `FOOD_DELIVERY_APP_UI_TAG` in `Deployment/env_deployments/dev/food-delivery-app-ui.env` to match the latest git commit SHA from the `FoodDeliveryAppUI` repository. 
+The GitHub Actions workflow automatically updates the image tag in `Deployment/env_deployments/dev/food-delivery-app-ui.env` after a successful build. 
+The deployment script (`deploy.sh`) will automatically pull this update as long as there are no uncommitted local changes in the `Deployment` repository.
 
-You can find the latest commit SHA by running:
-```bash
-(cd FoodDeliveryAppUI && git rev-parse HEAD)
-```
-
-*(Note: Don't forget to commit and push the updated `.versions` file later to keep your deployment history in sync!)*
+Ensure your `Deployment` repository has no uncommitted changes (especially manual tag updates).
 
 ## 2. Deploy to VM
 
-Once `.versions` is updated, deploy just the UI container:
+Deploy just the UI container:
 
 ```bash
 export REGISTRY=hyd.ocir.io/axekmbadoczl
