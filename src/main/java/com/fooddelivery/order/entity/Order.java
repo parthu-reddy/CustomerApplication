@@ -193,6 +193,28 @@ public class Order {
     private Long estimatedCompletionTime;
     @Column(name = "cancellation_reason")
     private String cancellationReason;
+    /**
+     * The most recent manual intervention command that is still allowed to change this order.
+     *
+     * <p>Kafka delivery is asynchronous. Keeping this correlation value on the aggregate lets
+     * consumers discard an earlier force-assignment or cancellation after an administrator has
+     * made a newer decision.
+     */
+    @Column(name = "manual_intervention_operation_id", length = 192)
+    private String manualInterventionOperationId;
+    @Column(name = "manual_intervention_requested_driver_id")
+    private UUID manualInterventionRequestedDriverId;
+    @Column(name = "manual_intervention_requested_by")
+    private UUID manualInterventionRequestedBy;
+    @Column(name = "manual_intervention_reason", length = 500)
+    private String manualInterventionReason;
+    @Column(name = "manual_intervention_requested_at")
+    private Instant manualInterventionRequestedAt;
+    /** Stable, operator-safe result code from Delivery when the current manual assignment is rejected. */
+    @Column(name = "manual_intervention_failure_code", length = 80)
+    private String manualInterventionFailureCode;
+    @Column(name = "manual_intervention_failed_at")
+    private Instant manualInterventionFailedAt;
     /** Minutes the restaurant asked to add, from its delay request. Null if it never asked. */
     @Column(name = "requested_delay_minutes")
     private Integer requestedDelayMinutes;

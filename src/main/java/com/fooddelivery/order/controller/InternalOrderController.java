@@ -141,6 +141,49 @@ public class InternalOrderController {
     }
 
     /**
+     * Returns the authoritative chat roster for an order.
+     *
+     * <p>Unlike the legacy string list, this identifies an outlet explicitly so Communication
+     * Service can resolve the outlet's owner before it persists a session member. Browser input
+     * must never be used to populate this roster.
+     */
+    @GetMapping("/{orderId}/chat-participants")
+    @PreAuthorize("hasAnyRole('SERVICE', 'ADMIN') or @orderSecurityHelper.isOrderParticipant(#orderId, authentication.name)")
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public ResponseEntity<List<com.fooddelivery.common.dto.order.OrderChatParticipantDto>> fetchOrderChatParticipants(
+            @PathVariable UUID orderId) {
+        return orderRepository.findById(orderId).map(order -> {
+            List<com.fooddelivery.common.dto.order.OrderChatParticipantDto> participants = new java.util.ArrayList<>();
+            if (order.getCustomerId() != null) {
+                participants.add(com.fooddelivery.common.dto.order.OrderChatParticipantDto.builder()
+                        .id(order.getCustomerId())
+                        .participantType("CUSTOMER")
+                        .displayName(defaultLabel(order.getCustomerName(), "Customer"))
+                        .build());
+            }
+            if (order.getRestaurantId() != null) {
+                participants.add(com.fooddelivery.common.dto.order.OrderChatParticipantDto.builder()
+                        .id(order.getRestaurantId())
+                        .participantType("RESTAURANT_OUTLET")
+                        .displayName(defaultLabel(order.getRestaurantName(), "Restaurant"))
+                        .build());
+            }
+            if (order.getDeliveryExecutiveId() != null) {
+                participants.add(com.fooddelivery.common.dto.order.OrderChatParticipantDto.builder()
+                        .id(order.getDeliveryExecutiveId())
+                        .participantType("DELIVERY")
+                        .displayName("Delivery partner")
+                        .build());
+            }
+            return ResponseEntity.ok(participants);
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
+    private String defaultLabel(String value, String fallback) {
+        return value == null || value.isBlank() ? fallback : value.trim();
+    }
+
+    /**
      * Returns the order's OTPs and payment method for service-to-service calls.
      *
      * <p>Used by delivery-service when a force-assign occurs after the Redis dispatch
@@ -156,6 +199,18 @@ public class InternalOrderController {
             details.put("pickupOtp", order.getPickupOtp());
             details.put("deliveryOtp", order.getOtp());
             details.put("paymentMethod", order.getPaymentMethod() != null ? order.getPaymentMethod().name() : null);
+            // Force assignment must validate current order authority instead of trusting an older
+            // Kafka message. These values are service-to-service only and are deliberately kept
+            // alongside the existing dispatch details so old consumers remain compatible.
+            details.put("dispatchCityId", order.getDispatchCityId());
+            details.put("deliveryStatus", order.getDeliveryStatus() != null ? order.getDeliveryStatus().name() : null);
+            details.put("orderStatus", order.getStatus() != null ? order.getStatus().name() : null);
+            details.put("deliveryExecutiveId",
+                    order.getDeliveryExecutiveId() != null ? order.getDeliveryExecutiveId().toString() : null);
+            details.put("manualInterventionOperationId", order.getManualInterventionOperationId());
+            details.put("manualInterventionRequestedDriverId",
+                    order.getManualInterventionRequestedDriverId() != null
+                            ? order.getManualInterventionRequestedDriverId().toString() : null);
             return ResponseEntity.ok(details);
         }).orElse(ResponseEntity.notFound().build());
     }

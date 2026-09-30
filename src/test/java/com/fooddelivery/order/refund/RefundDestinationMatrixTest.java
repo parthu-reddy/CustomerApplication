@@ -97,6 +97,8 @@ public class RefundDestinationMatrixTest {
                 : com.fooddelivery.order.enums.RefundSource.SYSTEM_CANCELLATION);
         command.setInitiatorType(initiator);
         command.setInitiatorId(UUID.randomUUID());
+        command.setFaultType(com.fooddelivery.order.enums.FaultType.UNKNOWN);
+        command.setReasonCode("TEST");
         command.setIdempotencyKey("k-" + UUID.randomUUID());
         return command;
     }

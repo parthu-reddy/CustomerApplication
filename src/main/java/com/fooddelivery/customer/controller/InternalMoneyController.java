@@ -67,7 +67,11 @@ public class InternalMoneyController {
         return ResponseEntity.ok(buildDriverEarnings(order));
     }
 
-    @PostMapping("/driver/{driverId}/orders:batch")
+    /**
+     * Fetches earnings for a driver's listed orders. The slash form is deliberate: generated
+     * OpenAPI clients interpret a colon as a path-parameter marker and omitted the old route.
+     */
+    @PostMapping("/driver/{driverId}/orders/batch")
     @PreAuthorize("hasRole('ADMIN') or hasRole('SERVICE')")
     public ResponseEntity<java.util.List<DriverOrderEarnings>> fetchDriverOrderMoneyBatch(
             @PathVariable("driverId") UUID driverId,
@@ -85,6 +89,20 @@ public class InternalMoneyController {
             }
         }
         return ResponseEntity.ok(batch);
+    }
+
+    /**
+     * Kept for a rolling Customer/Delivery deployment only. It is hidden from the generated
+     * contract so new callers use the slash-form route above.
+     */
+    @Deprecated(forRemoval = true)
+    @io.swagger.v3.oas.annotations.Hidden
+    @PostMapping("/driver/{driverId}/orders:batch")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('SERVICE')")
+    public ResponseEntity<java.util.List<DriverOrderEarnings>> fetchDriverOrderMoneyBatchLegacy(
+            @PathVariable("driverId") UUID driverId,
+            @RequestBody java.util.List<String> orderIds) {
+        return fetchDriverOrderMoneyBatch(driverId, orderIds);
     }
 
     private DriverOrderEarnings buildDriverEarnings(Order order) {

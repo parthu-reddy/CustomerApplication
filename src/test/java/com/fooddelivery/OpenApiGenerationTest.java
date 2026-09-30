@@ -23,6 +23,9 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.connection.ReactiveRedisConnectionFactory;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 @SpringBootTest(classes = OpenApiGenerationTest.TestApp.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
     "spring.datasource.url=jdbc:h2:mem:testdb_openapi;DB_CLOSE_DELAY=-1;MODE=PostgreSQL",
     "spring.datasource.driver-class-name=org.h2.Driver",
@@ -113,6 +116,11 @@ public class OpenApiGenerationTest {
 
     @org.springframework.boot.test.mock.mockito.MockBean
     private com.fooddelivery.customer.client.RestaurantClient restaurantClient;
+
+    // InternalOrderReviewController reads restaurant review data. Keep this constrained OpenAPI
+    // context independent of the Feign client so endpoint-schema generation remains deterministic.
+    @org.springframework.boot.test.mock.mockito.MockBean
+    private com.fooddelivery.common.client.RestaurantServiceClient restaurantServiceClient;
 
 
     @org.springframework.boot.test.mock.mockito.MockBean
@@ -242,6 +250,13 @@ public class OpenApiGenerationTest {
         }
 
         if (openApiJson != null && !openApiJson.isEmpty()) {
+            // The former manual-controller resolver could mark a refund ticket RESOLVED without
+            // creating a Refund. Only the typed AdminRefundController route may be advertised.
+            assertFalse(openApiJson.contains(
+                    "/api/v1/internal/admin/orders/intervention/support-tickets/{ticketId}/resolve"));
+            assertTrue(openApiJson.contains("/api/v1/internal/admin/refunds/{ticketId}/resolve"));
+            assertFalse(openApiJson.contains("/api/v1/internal/money/driver/{driverId}/orders:batch"));
+            assertTrue(openApiJson.contains("/api/v1/internal/money/driver/{driverId}/orders/batch"));
             Path path = Paths.get("target/openapi.json");
             if (path.getParent() != null) Files.createDirectories(path.getParent());
             Files.write(path, openApiJson.getBytes(StandardCharsets.UTF_8));

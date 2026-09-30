@@ -16,21 +16,11 @@ If you need to build and publish a new image first, see `publish-one-service.md`
 
 Service names are compose names, not directory names — `chat-service`, not `CommunicationService`.
 
-### Apply Dev Profile Configuration
+### Dev profile configuration
 
-**CRITICAL RULE FOR AGENT:** After deploying the service image, you MUST also apply the dev profile
-configuration so that the deployed service picks up the correct dev settings. This replaces the
-previous instruction to use a separate workflow — it is now built into every deploy.
-
-```bash
-Deployment/deploy.sh --config --dry-run application-dev.yml api-gateway.yml api-gateway-dev.yml identity-service-dev.yml
-```
-
-Review the dry-run output, then apply:
-
-```bash
-Deployment/deploy.sh --config --yes application-dev.yml api-gateway.yml api-gateway-dev.yml identity-service-dev.yml
-```
+This image deployment does not publish configuration. If YAML changed, use
+[deploy-dev-profile-config.md](deploy-dev-profile-config.md) for the affected configuration files.
+Do not restart every configuration consumer after an image-only deployment.
 
 ### Verification
 

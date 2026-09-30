@@ -36,20 +36,12 @@ per-deploy.
   `Deployment/` directory. The clean deployment now publishes the YAML bundle and recreates
   consumers.
 
-## Apply Dev Profile Configuration
+## Dev profile configuration
 
-**CRITICAL RULE FOR AGENT:** After deploying, you MUST also apply the dev profile configuration so
-that every service picks up the correct dev settings. This is a mandatory step of every clean deploy.
-
-```bash
-Deployment/deploy.sh --config --dry-run application-dev.yml api-gateway.yml api-gateway-dev.yml identity-service-dev.yml
-```
-
-Review the dry-run output, then apply:
-
-```bash
-Deployment/deploy.sh --config --yes application-dev.yml api-gateway.yml api-gateway-dev.yml identity-service-dev.yml
-```
+The clean deployment already syncs the complete Config Server YAML bundle and recreates every
+consumer in ordered waves. Do not run a second all-service `deploy.sh --config` command after it.
+Use [deploy-dev-profile-config.md](deploy-dev-profile-config.md) only when a later, config-only
+change needs to be published and its affected readers restarted.
 
 - **Migrations are immutable.** Never edit an applied one; add a new one. Flyway runs with
   `validate-on-migrate`, and `ddl-auto: validate` means Hibernate creates nothing.

@@ -12,6 +12,11 @@ public class AddressRequest {
     private String addressLine2;
     @NotBlank
     private String city;
+    /** Optional only while one fleet city is configured; then the server supplies that scope. */
+    @jakarta.validation.constraints.Size(max = 64)
+    @com.fooddelivery.common.location.CityId
+    @jakarta.validation.constraints.Pattern(regexp = com.fooddelivery.common.location.CityIdValidator.REGEX)
+    private String cityId;
     @NotBlank
     private String state;
     @NotBlank

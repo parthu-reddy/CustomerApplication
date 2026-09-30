@@ -30,8 +30,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -53,9 +55,7 @@ public class RefundService {
 
     @Transactional
     public RefundView request(RefundCommand command) {
-        if (command.getSource() == null) {
-            throw new IllegalArgumentException("Refund source is required");
-        }
+        BigDecimal amount = validateRequest(command);
         Optional<Refund> existing = refundRepository.findByIdempotencyKey(command.getIdempotencyKey());
         if (existing.isPresent()) {
             Order order = orderRepository.findById(existing.get().getOrderId()).orElseThrow();
@@ -68,10 +68,17 @@ public class RefundService {
         Order order = orderRepository.findById(command.getOrderId())
                 .orElseThrow(() -> new IllegalArgumentException("Order not found"));
 
+        if (command.getItems() != null) {
+            BigDecimal quote = quote(order, command.getItems());
+            if (amount.compareTo(quote) != 0) {
+                throw new IllegalArgumentException("REFUND_AMOUNT_DOES_NOT_MATCH_QUOTE");
+            }
+        }
+
         BigDecimal committed = refundRepository.sumByOrderAndStatusIn(command.getOrderId(),
                 List.of(RefundStatus.REQUESTED, RefundStatus.PROCESSING, RefundStatus.COMPLETED));
         BigDecimal remaining = intent.getAmount().subtract(committed);
-        if (command.getAmount().compareTo(remaining) > 0) {
+        if (amount.compareTo(remaining) > 0) {
             throw new IllegalStateException("REFUND_EXCEEDS_REMAINING");
         }
 
@@ -81,7 +88,7 @@ public class RefundService {
                 .id(UUID.randomUUID())
                 .orderId(order.getId())
                 .paymentIntentId(intent.getId())
-                .amount(command.getAmount())
+                .amount(amount)
                 .currency("INR")
                 .reasonCode(command.getReasonCode())
                 .reasonText(command.getReasonText())
@@ -329,15 +336,37 @@ public class RefundService {
     @Transactional(readOnly = true)
     public BigDecimal quote(UUID orderId, List<RefundCommand.Item> items) {
         Order order = orderRepository.findById(orderId).orElseThrow();
-        if (order.getItemTotal() == null || order.getItemTotal().compareTo(BigDecimal.ZERO) == 0) {
+        return quote(order, items);
+    }
+
+    private BigDecimal quote(Order order, List<RefundCommand.Item> items) {
+        if (items == null) {
+            throw new IllegalArgumentException("REFUND_ITEMS_INVALID");
+        }
+        if (items.isEmpty()) {
+            return quoteAmount(order.getTotalAmount());
+        }
+        if (order.getItemTotal() == null || order.getItemTotal().compareTo(BigDecimal.ZERO) == 0
+                || order.getOrderItems() == null) {
             throw new IllegalStateException("QUOTE_UNAVAILABLE");
         }
 
         BigDecimal itemsRefundTotal = BigDecimal.ZERO;
+        Set<UUID> itemIds = new HashSet<>();
         for (RefundCommand.Item itemCmd : items) {
+            if (itemCmd == null || itemCmd.getOrderItemId() == null || itemCmd.getQuantity() <= 0) {
+                throw new IllegalArgumentException("REFUND_ITEMS_INVALID");
+            }
+            if (!itemIds.add(itemCmd.getOrderItemId())) {
+                throw new IllegalArgumentException("REFUND_ITEM_DUPLICATE");
+            }
             OrderItem item = order.getOrderItems().stream()
                 .filter(i -> i.getId().equals(itemCmd.getOrderItemId()))
-                .findFirst().orElseThrow();
+                .findFirst().orElseThrow(() -> new IllegalArgumentException("REFUND_ITEM_NOT_ON_ORDER"));
+            if (item.getQuantity() == null || item.getQuantity() <= 0 || item.getPrice() == null
+                    || item.getPrice().compareTo(BigDecimal.ZERO) < 0) {
+                throw new IllegalStateException("QUOTE_UNAVAILABLE");
+            }
             
             int alreadyRefunded = refundItemRepository.sumCompletedQuantity(itemCmd.getOrderItemId());
             if (itemCmd.getQuantity() + alreadyRefunded > item.getQuantity()) {
@@ -351,6 +380,79 @@ public class RefundService {
         BigDecimal proratedSgst = order.getSgst() != null ? order.getSgst().multiply(itemRatio) : BigDecimal.ZERO;
         BigDecimal proratedCgst = order.getCgst() != null ? order.getCgst().multiply(itemRatio) : BigDecimal.ZERO;
         return itemsRefundTotal.add(proratedSgst).add(proratedCgst).setScale(2, java.math.RoundingMode.HALF_UP);
+    }
+
+    /**
+     * This is the final validation boundary before a refund row and its money-moving outbox event
+     * are created. Controllers still validate their public DTOs, but background jobs and internal
+     * callers also use this service and must receive controlled validation failures.
+     */
+    private BigDecimal validateRequest(RefundCommand command) {
+        if (command == null) {
+            throw new IllegalArgumentException("REFUND_COMMAND_REQUIRED");
+        }
+        if (command.getOrderId() == null) {
+            throw new IllegalArgumentException("REFUND_ORDER_REQUIRED");
+        }
+        if (command.getSource() == null) {
+            throw new IllegalArgumentException("REFUND_SOURCE_REQUIRED");
+        }
+        if (command.getInitiatorType() == null) {
+            throw new IllegalArgumentException("REFUND_INITIATOR_REQUIRED");
+        }
+        if (command.getInitiatorType() != com.fooddelivery.order.enums.InitiatorType.SYSTEM
+                && command.getInitiatorId() == null) {
+            throw new IllegalArgumentException("REFUND_INITIATOR_ID_REQUIRED");
+        }
+        if (command.getFaultType() == null) {
+            throw new IllegalArgumentException("REFUND_FAULT_TYPE_REQUIRED");
+        }
+        if (command.getReasonCode() == null || command.getReasonCode().isBlank()
+                || command.getReasonCode().length() > 40) {
+            throw new IllegalArgumentException("REFUND_REASON_CODE_INVALID");
+        }
+        if (command.getReasonText() != null && command.getReasonText().length() > 2000) {
+            throw new IllegalArgumentException("REFUND_REASON_TEXT_INVALID");
+        }
+        if (command.getIdempotencyKey() == null || command.getIdempotencyKey().isBlank()
+                || command.getIdempotencyKey().length() > 255) {
+            throw new IllegalArgumentException("REFUND_IDEMPOTENCY_KEY_INVALID");
+        }
+        return monetaryAmount(command.getAmount(), "REFUND_AMOUNT_INVALID");
+    }
+
+    private BigDecimal quoteAmount(BigDecimal amount) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalStateException("QUOTE_UNAVAILABLE");
+        }
+        try {
+            BigDecimal normalized = amount.setScale(2, RoundingMode.UNNECESSARY);
+            if (integerDigits(normalized) > 12) {
+                throw new IllegalStateException("QUOTE_UNAVAILABLE");
+            }
+            return normalized;
+        } catch (ArithmeticException ex) {
+            throw new IllegalStateException("QUOTE_UNAVAILABLE", ex);
+        }
+    }
+
+    private BigDecimal monetaryAmount(BigDecimal amount, String errorCode) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException(errorCode);
+        }
+        try {
+            BigDecimal normalized = amount.setScale(2, RoundingMode.UNNECESSARY);
+            if (integerDigits(normalized) > 12) {
+                throw new IllegalArgumentException(errorCode);
+            }
+            return normalized;
+        } catch (ArithmeticException ex) {
+            throw new IllegalArgumentException(errorCode, ex);
+        }
+    }
+
+    private int integerDigits(BigDecimal amount) {
+        return Math.max(0, amount.precision() - amount.scale());
     }
     
     private void sendNotification(Order order, Refund refund) {

@@ -12,9 +12,20 @@ import java.time.Instant;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.Lock;
+import jakarta.persistence.LockModeType;
 import org.springframework.transaction.annotation.Transactional;
 
 public interface IOrderRepository extends JpaRepository<Order, UUID> {
+    /**
+     * Serialises an administrator's decision with a concurrent manual action on the same order.
+     * The aggregate already has an optimistic version; the row lock also makes the idempotency
+     * lookup and outbox write one ordered command.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT o FROM Order o WHERE o.id = :orderId")
+    java.util.Optional<Order> findLockedById(@Param("orderId") UUID orderId);
+
     /** Loads review target membership without keeping a transaction open during ownership lookup. */
     @EntityGraph(attributePaths = {"orderItems"})
     @Query("SELECT o FROM Order o WHERE o.id = :orderId")

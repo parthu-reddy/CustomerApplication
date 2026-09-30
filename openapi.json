@@ -166,6 +166,43 @@
         }
       }
     },
+    "/api/v1/internal/orders/{orderId}/review-authorizations" : {
+      "post" : {
+        "tags" : [ "internal-order-review-controller" ],
+        "operationId" : "authorizeTargets",
+        "parameters" : [ {
+          "name" : "orderId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OrderReviewAuthorizationRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListOrderReviewAuthorizationResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/internal/orders/{orderId}/partial-refund" : {
       "post" : {
         "tags" : [ "internal-order-refund-controller" ],
@@ -203,7 +240,7 @@
         }
       }
     },
-    "/api/v1/internal/money/driver/{driverId}/orders:batch" : {
+    "/api/v1/internal/money/driver/{driverId}/orders/batch" : {
       "post" : {
         "tags" : [ "internal-money-controller" ],
         "operationId" : "fetchDriverOrderMoneyBatch",
@@ -295,14 +332,6 @@
             "type" : "string",
             "format" : "uuid"
           }
-        }, {
-          "name" : "X-User-Id",
-          "in" : "header",
-          "required" : true,
-          "schema" : {
-            "type" : "string",
-            "format" : "uuid"
-          }
         } ],
         "requestBody" : {
           "content" : {
@@ -336,7 +365,7 @@
           "content" : {
             "application/json" : {
               "schema" : {
-                "$ref" : "#/components/schemas/RefundCommand"
+                "$ref" : "#/components/schemas/AdminRefundRequest"
               }
             }
           },
@@ -441,15 +470,22 @@
             "type" : "string",
             "format" : "uuid"
           }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "maxLength" : 80,
+            "minLength" : 8,
+            "pattern" : "[A-Za-z0-9][A-Za-z0-9._:-]{7,79}",
+            "type" : "string"
+          }
         } ],
         "requestBody" : {
           "content" : {
             "application/json" : {
               "schema" : {
-                "type" : "object",
-                "additionalProperties" : {
-                  "type" : "string"
-                }
+                "$ref" : "#/components/schemas/AdminManualCancellationRequest"
               }
             }
           },
@@ -481,15 +517,22 @@
             "type" : "string",
             "format" : "uuid"
           }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : true,
+          "schema" : {
+            "maxLength" : 80,
+            "minLength" : 8,
+            "pattern" : "[A-Za-z0-9][A-Za-z0-9._:-]{7,79}",
+            "type" : "string"
+          }
         } ],
         "requestBody" : {
           "content" : {
             "application/json" : {
               "schema" : {
-                "type" : "object",
-                "additionalProperties" : {
-                  "type" : "string"
-                }
+                "$ref" : "#/components/schemas/AdminManualCancellationRequest"
               }
             }
           },
@@ -521,55 +564,22 @@
             "type" : "string",
             "format" : "uuid"
           }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "type" : "object",
-                "additionalProperties" : {
-                  "type" : "string"
-                }
-              }
-            }
-          },
-          "required" : true
-        },
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseString"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/internal/admin/orders/intervention/support-tickets/{ticketId}/resolve" : {
-      "post" : {
-        "tags" : [ "admin-order-manual-controller" ],
-        "operationId" : "resolveSupportTicket",
-        "parameters" : [ {
-          "name" : "ticketId",
-          "in" : "path",
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
           "required" : true,
           "schema" : {
-            "type" : "string",
-            "format" : "uuid"
+            "maxLength" : 80,
+            "minLength" : 8,
+            "pattern" : "[A-Za-z0-9][A-Za-z0-9._:-]{7,79}",
+            "type" : "string"
           }
         } ],
         "requestBody" : {
           "content" : {
             "application/json" : {
               "schema" : {
-                "type" : "object",
-                "additionalProperties" : {
-                  "type" : "string"
-                }
+                "$ref" : "#/components/schemas/AdminManualAssignmentRequest"
               }
             }
           },
@@ -1749,6 +1759,36 @@
         }
       }
     },
+    "/api/v1/internal/orders/{orderId}/chat-participants" : {
+      "get" : {
+        "tags" : [ "internal-order-controller" ],
+        "operationId" : "fetchOrderChatParticipants",
+        "parameters" : [ {
+          "name" : "orderId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/OrderChatParticipantDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/internal/orders/unassigned" : {
       "get" : {
         "tags" : [ "internal-order-controller" ],
@@ -2292,11 +2332,33 @@
         "tags" : [ "admin-customer-controller" ],
         "operationId" : "getAllCustomerAddresses",
         "parameters" : [ {
-          "name" : "pageable",
+          "name" : "cityId",
           "in" : "query",
-          "required" : true,
+          "required" : false,
           "schema" : {
-            "$ref" : "#/components/schemas/Pageable"
+            "pattern" : "^[A-Z][A-Z0-9_-]{0,63}$",
+            "type" : "string"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "minimum" : 0,
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "maximum" : 100,
+            "minimum" : 1,
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 100
           }
         } ],
         "responses" : {
@@ -2620,6 +2682,20 @@
           "tipAmount" : {
             "type" : "number"
           },
+          "dispatchCityId" : {
+            "type" : "string"
+          },
+          "fleetSearchRadiusKm" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "manualInterventionFailureCode" : {
+            "type" : "string"
+          },
+          "manualInterventionFailedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
           "expiresAt" : {
             "type" : "integer",
             "format" : "int64"
@@ -2740,6 +2816,84 @@
           },
           "restaurantDeliveryContribution" : {
             "type" : "number"
+          }
+        }
+      },
+      "OrderReviewAuthorizationRequest" : {
+        "required" : [ "reviewerId", "reviewerRole", "targets" ],
+        "type" : "object",
+        "properties" : {
+          "reviewerId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "reviewerRole" : {
+            "type" : "string",
+            "enum" : [ "CUSTOMER", "DELIVERY", "RESTAURANT", "ADMIN" ]
+          },
+          "targets" : {
+            "maxItems" : 100,
+            "minItems" : 0,
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/OrderReviewTargetAuthorizationRequest"
+            }
+          }
+        }
+      },
+      "OrderReviewTargetAuthorizationRequest" : {
+        "required" : [ "targetId", "targetType" ],
+        "type" : "object",
+        "properties" : {
+          "targetType" : {
+            "type" : "string",
+            "enum" : [ "RESTAURANT", "DRIVER", "PRODUCT", "CUSTOMER" ]
+          },
+          "targetId" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ApiResponseListOrderReviewAuthorizationResult" : {
+        "required" : [ "message", "success", "timestamp" ],
+        "type" : "object",
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "errorCode" : {
+            "type" : "string"
+          },
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/OrderReviewAuthorizationResult"
+            }
+          },
+          "timestamp" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "OrderReviewAuthorizationResult" : {
+        "type" : "object",
+        "properties" : {
+          "targetType" : {
+            "type" : "string",
+            "enum" : [ "RESTAURANT", "DRIVER", "PRODUCT", "CUSTOMER" ]
+          },
+          "targetId" : {
+            "type" : "string"
+          },
+          "allowed" : {
+            "type" : "boolean"
+          },
+          "reasonCode" : {
+            "type" : "string"
           }
         }
       },
@@ -2946,6 +3100,47 @@
           }
         }
       },
+      "AdminRefundRequest" : {
+        "required" : [ "faultType", "items", "orderId", "reasonText" ],
+        "type" : "object",
+        "properties" : {
+          "orderId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "items" : {
+            "maxItems" : 100,
+            "minItems" : 0,
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RefundItemRequest"
+            }
+          },
+          "faultType" : {
+            "type" : "string",
+            "enum" : [ "PLATFORM_FAULT", "RESTAURANT_FAULT", "RIDER_FAULT", "CUSTOMER_FAULT", "UNKNOWN" ]
+          },
+          "reasonText" : {
+            "maxLength" : 2000,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        }
+      },
+      "RefundItemRequest" : {
+        "required" : [ "orderItemId" ],
+        "type" : "object",
+        "properties" : {
+          "orderItemId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "quantity" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
       "RefundView" : {
         "type" : "object",
         "properties" : {
@@ -2986,6 +3181,32 @@
           "expectedBy" : {
             "type" : "string",
             "format" : "date-time"
+          }
+        }
+      },
+      "AdminManualCancellationRequest" : {
+        "required" : [ "reason" ],
+        "type" : "object",
+        "properties" : {
+          "reason" : {
+            "maxLength" : 500,
+            "minLength" : 5,
+            "type" : "string"
+          }
+        }
+      },
+      "AdminManualAssignmentRequest" : {
+        "required" : [ "deliveryExecutiveId", "reason" ],
+        "type" : "object",
+        "properties" : {
+          "deliveryExecutiveId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "reason" : {
+            "maxLength" : 500,
+            "minLength" : 5,
+            "type" : "string"
           }
         }
       },
@@ -3061,6 +3282,12 @@
           "city" : {
             "type" : "string"
           },
+          "cityId" : {
+            "maxLength" : 64,
+            "minLength" : 0,
+            "pattern" : "^[A-Z][A-Z0-9_-]{0,63}$",
+            "type" : "string"
+          },
           "state" : {
             "type" : "string"
           },
@@ -3100,7 +3327,7 @@
         }
       },
       "CustomerAddressDto" : {
-        "required" : [ "addressLine1", "city", "customerId", "id", "label", "latitude", "longitude", "state", "zipCode" ],
+        "required" : [ "addressLine1", "city", "cityId", "customerId", "id", "label", "latitude", "longitude", "state", "zipCode" ],
         "type" : "object",
         "properties" : {
           "id" : {
@@ -3121,6 +3348,9 @@
             "type" : "string"
           },
           "city" : {
+            "type" : "string"
+          },
+          "cityId" : {
             "type" : "string"
           },
           "state" : {
@@ -4060,6 +4290,22 @@
           }
         }
       },
+      "OrderChatParticipantDto" : {
+        "required" : [ "displayName", "id", "participantType" ],
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "participantType" : {
+            "type" : "string"
+          },
+          "displayName" : {
+            "type" : "string"
+          }
+        }
+      },
       "Order" : {
         "required" : [ "createdAt", "customerId", "id", "restaurantId", "status", "totalAmount", "updatedAt" ],
         "type" : "object",
@@ -4214,6 +4460,31 @@
           "cancellationReason" : {
             "type" : "string"
           },
+          "manualInterventionOperationId" : {
+            "type" : "string"
+          },
+          "manualInterventionRequestedDriverId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "manualInterventionRequestedBy" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "manualInterventionReason" : {
+            "type" : "string"
+          },
+          "manualInterventionRequestedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "manualInterventionFailureCode" : {
+            "type" : "string"
+          },
+          "manualInterventionFailedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
           "requestedDelayMinutes" : {
             "type" : "integer",
             "format" : "int32"
@@ -4280,15 +4551,11 @@
             "type" : "integer",
             "format" : "int32"
           },
-          "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
+          "sort" : {
+            "$ref" : "#/components/schemas/SortObject"
           },
-          "first" : {
-            "type" : "boolean"
-          },
-          "last" : {
-            "type" : "boolean"
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
           },
           "number" : {
             "type" : "integer",
@@ -4304,11 +4571,15 @@
               "$ref" : "#/components/schemas/Order"
             }
           },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
+          "first" : {
+            "type" : "boolean"
           },
-          "sort" : {
-            "$ref" : "#/components/schemas/SortObject"
+          "last" : {
+            "type" : "boolean"
+          },
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
           },
           "empty" : {
             "type" : "boolean"
@@ -4319,9 +4590,8 @@
         "required" : [ "offset", "pageNumber", "pageSize", "paged", "unpaged" ],
         "type" : "object",
         "properties" : {
-          "offset" : {
-            "type" : "integer",
-            "format" : "int64"
+          "sort" : {
+            "$ref" : "#/components/schemas/SortObject"
           },
           "paged" : {
             "type" : "boolean"
@@ -4337,8 +4607,9 @@
           "unpaged" : {
             "type" : "boolean"
           },
-          "sort" : {
-            "$ref" : "#/components/schemas/SortObject"
+          "offset" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
@@ -4388,15 +4659,11 @@
             "type" : "integer",
             "format" : "int32"
           },
-          "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
+          "sort" : {
+            "$ref" : "#/components/schemas/SortObject"
           },
-          "first" : {
-            "type" : "boolean"
-          },
-          "last" : {
-            "type" : "boolean"
+          "pageable" : {
+            "$ref" : "#/components/schemas/PageableObject"
           },
           "number" : {
             "type" : "integer",
@@ -4412,11 +4679,15 @@
               "$ref" : "#/components/schemas/SupportTicket"
             }
           },
-          "pageable" : {
-            "$ref" : "#/components/schemas/PageableObject"
+          "first" : {
+            "type" : "boolean"
           },
-          "sort" : {
-            "$ref" : "#/components/schemas/SortObject"
+          "last" : {
+            "type" : "boolean"
+          },
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
           },
           "empty" : {
             "type" : "boolean"

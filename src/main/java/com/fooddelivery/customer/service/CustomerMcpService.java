@@ -175,10 +175,10 @@ public class CustomerMcpService {
     // }
 
     // AdminCustomerController
-    @Tool(description = "Admin: Get all customer addresses.")
-    public String getAllCustomerAddresses() {
+    @Tool(description = "Admin: Get customer addresses for one configured fleet city. Provide cityId.")
+    public String getAllCustomerAddresses(String cityId) {
         try {
-            return objectMapper.writeValueAsString(adminCustomerController.getAllCustomerAddresses(org.springframework.data.domain.PageRequest.of(0, 50)).getBody());
+            return objectMapper.writeValueAsString(adminCustomerController.getAllCustomerAddresses(cityId, 0, 100).getBody());
         } catch (Exception e) {
             return "Error: " + e.getMessage();
         }

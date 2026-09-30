@@ -14,6 +14,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import org.springframework.security.access.prepost.PreAuthorize;
 import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Value;
 
 @RestController
 @RequestMapping("/api/v1/customers/{customerId}/addresses")
@@ -26,12 +27,16 @@ public class CustomerAddressController {
     private final CustomerAddressRepository addressRepository;
     private final ICustomerRepository customerRepository;
 
+    @Value("${platform.fleet.allowed-city-ids:BLR}")
+    private String allowedFleetCityIds = "BLR";
+
     @PostMapping
     public ResponseEntity<ApiResponse<CustomerAddressDto>> addAddress(@PathVariable UUID customerId, @Valid @RequestBody AddressRequest request) {
         if (!customerRepository.existsById(customerId)) {
             throw new IllegalArgumentException("Customer not found.");
         }
-        CustomerAddress address = CustomerAddress.builder().id(UUID.randomUUID()).customerId(customerId).label(request.getLabel()).addressLine1(request.getAddressLine1()).addressLine2(request.getAddressLine2()).city(request.getCity()).state(request.getState()).zipCode(request.getZipCode()).latitude(request.getLatitude()).longitude(request.getLongitude()).build();
+        String cityId = com.fooddelivery.common.location.FleetCityScope.resolve(request.getCityId(), allowedFleetCityIds);
+        CustomerAddress address = CustomerAddress.builder().id(UUID.randomUUID()).customerId(customerId).label(request.getLabel()).addressLine1(request.getAddressLine1()).addressLine2(request.getAddressLine2()).city(request.getCity()).cityId(cityId).state(request.getState()).zipCode(request.getZipCode()).latitude(request.getLatitude()).longitude(request.getLongitude()).build();
         CustomerAddress saved = addressRepository.save(address);
         return ResponseEntity.ok(ApiResponse.success(toDto(saved), "Address added successfully"));
     }
@@ -61,7 +66,7 @@ public class CustomerAddressController {
     }
 
     private CustomerAddressDto toDto(CustomerAddress entity) {
-        return CustomerAddressDto.builder().id(entity.getId()).customerId(entity.getCustomerId()).label(entity.getLabel()).addressLine1(entity.getAddressLine1()).addressLine2(entity.getAddressLine2()).city(entity.getCity()).state(entity.getState()).zipCode(entity.getZipCode()).latitude(entity.getLatitude()).longitude(entity.getLongitude()).isDefault(entity.getIsDefault()).build();
+        return CustomerAddressDto.builder().id(entity.getId()).customerId(entity.getCustomerId()).label(entity.getLabel()).addressLine1(entity.getAddressLine1()).addressLine2(entity.getAddressLine2()).city(entity.getCity()).cityId(entity.getCityId()).state(entity.getState()).zipCode(entity.getZipCode()).latitude(entity.getLatitude()).longitude(entity.getLongitude()).isDefault(entity.getIsDefault()).build();
     }
 
     

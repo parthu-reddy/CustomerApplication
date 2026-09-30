@@ -70,6 +70,10 @@ public class OrderMapper {
             .delayReason(order.getDelayReason())
             .estimatedArrivalTime(DeliveryEta.arrivalEpochMs(order, System.currentTimeMillis()))
             .tipAmount(order.getTipAmount())
+            .dispatchCityId(order.getDispatchCityId())
+            .fleetSearchRadiusKm(order.getFleetSearchRadiusKm())
+            .manualInterventionFailureCode(order.getManualInterventionFailureCode())
+            .manualInterventionFailedAt(order.getManualInterventionFailedAt())
             .build();
     }
 }

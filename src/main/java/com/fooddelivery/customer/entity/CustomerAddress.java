@@ -30,6 +30,9 @@ public class CustomerAddress {
     private String addressLine2;
     @Column(name = "city", nullable = false)
     private String city;
+    /** Canonical operating-area key used by dispatch and the administrative fleet map. */
+    @Column(name = "city_id", nullable = false, length = 64)
+    private String cityId;
     @Column(name = "state", nullable = false)
     private String state;
     @Column(name = "zip_code", nullable = false)

@@ -85,5 +85,11 @@ public class OrderResponse {
     private Long estimatedArrivalTime;
     /** The customer's tip for the rider, rupees; included in totalAmount. */
     private java.math.BigDecimal tipAmount;
+    /** Dispatch scope consumed by the authenticated admin manual-intervention view. */
+    private String dispatchCityId;
+    private Double fleetSearchRadiusKm;
+    /** Safe delivery validation result shown only by the admin intervention UI. */
+    private String manualInterventionFailureCode;
+    private Instant manualInterventionFailedAt;
 
 }

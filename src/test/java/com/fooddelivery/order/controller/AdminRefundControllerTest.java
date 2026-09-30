@@ -15,6 +15,9 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 import java.math.BigDecimal;
 import java.util.Optional;
@@ -82,14 +85,73 @@ class AdminRefundControllerTest {
         when(bucket.tryConsume(1)).thenReturn(true);
 
         // Act
-        ResponseEntity<SupportTicket> response = adminRefundController.resolveTicket(ticketId, request, adminId);
+        ResponseEntity<SupportTicket> response = adminRefundController.resolveTicket(ticketId, request, adminAuthentication());
 
         // Assert
         assertEquals(200, response.getStatusCodeValue());
         assertEquals(SupportTicket.TicketStatus.RESOLVED, ticket.getStatus());
+        org.mockito.ArgumentCaptor<com.fooddelivery.order.refund.RefundCommand> commandCaptor =
+                org.mockito.ArgumentCaptor.forClass(com.fooddelivery.order.refund.RefundCommand.class);
+        org.mockito.InOrder orderedResolution = inOrder(refundService, supportTicketRepository);
+        orderedResolution.verify(refundService).request(commandCaptor.capture());
+        orderedResolution.verify(supportTicketRepository).save(ticket);
+        assertEquals(ticketId, commandCaptor.getValue().getTicketId());
+        assertEquals(new BigDecimal("10.10"), commandCaptor.getValue().getAmount());
+        assertEquals(adminId, commandCaptor.getValue().getInitiatorId());
 
 //         verify(orderRefundService, times(1)).processRefund(order, RefundDestination.GATEWAY, FaultType.RESTAURANT_FAULT);
 //         verify(orderRefundService, never()).processPartialRefund(any(), any(), any(), any());
+    }
+
+    @Test
+    void unquotedTicketCannotBeApprovedAndDoesNotRequestMoney() {
+        SupportTicket ticket = new SupportTicket();
+        ticket.setId(ticketId);
+        ticket.setOrderId(orderId);
+        ticket.setStatus(SupportTicket.TicketStatus.OPEN);
+        when(supportTicketRepository.findById(ticketId)).thenReturn(Optional.of(ticket));
+        Order order = new Order();
+        order.setId(orderId);
+        order.setTotalAmount(new BigDecimal("10.10"));
+        when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+
+        io.github.bucket4j.Bucket bucket = mock(io.github.bucket4j.Bucket.class);
+        when(rateLimitingService.resolveBucket(anyString(), anyInt(), anyInt(), any())).thenReturn(bucket);
+        when(bucket.tryConsume(1)).thenReturn(true);
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> adminRefundController.resolveTicket(ticketId,
+                        new AdminRefundController.ResolveRequest(true, "No stored quote", "UNKNOWN", null),
+                        adminAuthentication()));
+
+        assertEquals("Stored refund quote is invalid", exception.getMessage());
+        assertEquals(SupportTicket.TicketStatus.OPEN, ticket.getStatus());
+        verify(refundService, never()).request(any());
+        verify(supportTicketRepository, never()).save(ticket);
+    }
+
+    @Test
+    void unquotedTicketCanBeRejectedWithoutRequestingMoney() {
+        SupportTicket ticket = new SupportTicket();
+        ticket.setId(ticketId);
+        ticket.setOrderId(orderId);
+        ticket.setStatus(SupportTicket.TicketStatus.OPEN);
+        when(supportTicketRepository.findById(ticketId)).thenReturn(Optional.of(ticket));
+
+        io.github.bucket4j.Bucket bucket = mock(io.github.bucket4j.Bucket.class);
+        when(rateLimitingService.resolveBucket(anyString(), anyInt(), anyInt(), any())).thenReturn(bucket);
+        when(bucket.tryConsume(1)).thenReturn(true);
+
+        ResponseEntity<SupportTicket> response = adminRefundController.resolveTicket(ticketId,
+                new AdminRefundController.ResolveRequest(false, "Insufficient evidence", "UNKNOWN", null),
+                adminAuthentication());
+
+        assertEquals(200, response.getStatusCodeValue());
+        assertEquals(SupportTicket.TicketStatus.REJECTED, ticket.getStatus());
+        assertEquals("Insufficient evidence", ticket.getResolutionNotes());
+        assertEquals(adminId, ticket.getResolvedBy());
+        verify(refundService, never()).request(any());
+        verify(supportTicketRepository).save(ticket);
     }
 
     @Test
@@ -103,7 +165,7 @@ class AdminRefundControllerTest {
         AdminRefundController.ResolveRequest request = new AdminRefundController.ResolveRequest(true, "Approved", "RESTAURANT_FAULT", null);
 
         // Act
-        ResponseEntity<SupportTicket> response = adminRefundController.resolveTicket(ticketId, request, adminId);
+        ResponseEntity<SupportTicket> response = adminRefundController.resolveTicket(ticketId, request, adminAuthentication());
 
         // Assert
         assertEquals(429, response.getStatusCodeValue());
@@ -131,7 +193,7 @@ class AdminRefundControllerTest {
         AdminRefundController.ResolveRequest request =
                 new AdminRefundController.ResolveRequest(true, "Approved", "RESTAURANT_FAULT", new BigDecimal("5.00"));
 
-        ResponseEntity<SupportTicket> response = adminRefundController.resolveTicket(ticketId, request, adminId);
+        ResponseEntity<SupportTicket> response = adminRefundController.resolveTicket(ticketId, request, adminAuthentication());
 
         assertEquals(200, response.getStatusCodeValue());
         // The override must reach the refund, not the original quote, and must be written back to
@@ -165,11 +227,18 @@ class AdminRefundControllerTest {
                 new AdminRefundController.ResolveRequest(true, "Approved", "RESTAURANT_FAULT", new BigDecimal("20.00"));
 
         IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class,
-                () -> adminRefundController.resolveTicket(ticketId, request, adminId));
+                () -> adminRefundController.resolveTicket(ticketId, request, adminAuthentication()));
         assertEquals("Override amount cannot be greater than original quote", thrown.getMessage());
 
         // The guard exists to stop an admin refunding more than was quoted: nothing may be paid out.
 //         verify(orderRefundService, never()).processRefund(any(), any(), any());
 //         verify(orderRefundService, never()).processPartialRefund(any(), any(), any(), any());
     }
+    private Authentication adminAuthentication() {
+        return new UsernamePasswordAuthenticationToken(
+                adminId.toString(),
+                null,
+                java.util.List.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
+    }
+
 }

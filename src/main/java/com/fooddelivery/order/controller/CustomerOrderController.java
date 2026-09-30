@@ -12,6 +12,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.security.Principal;
+import java.math.BigDecimal;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -24,6 +26,7 @@ public class CustomerOrderController {
     private final IOrderRepository orderRepository;
     private final SupportTicketRepository supportTicketRepository;
     private final com.fooddelivery.common.service.RateLimitingService rateLimitingService;
+    private final com.fooddelivery.order.refund.RefundService refundService;
 
 
     private boolean isRateLimited(String clientKey) {
@@ -72,12 +75,18 @@ public class CustomerOrderController {
                 return ResponseEntity.badRequest().body(ApiResponse.<String>error("You already have an open refund request for this order. Please wait for our team to review it."));
             }
 
+            // Persist a canonical full-order quote. The administration resolver validates this
+            // quote again before it can request money, so a post-delivery request cannot be
+            // closed as an approved refund without entering the audited refund workflow.
+            BigDecimal quotedAmount = refundService.quote(orderId, List.of());
+
             // Persist the support ticket
             SupportTicket ticket = new SupportTicket();
             ticket.setOrderId(orderId);
             ticket.setCustomerId(customerId);
             ticket.setReason(reason.trim());
             ticket.setStatus(SupportTicket.TicketStatus.OPEN);
+            ticket.setRefundAmount(quotedAmount);
             supportTicketRepository.save(ticket);
 
             log.info("Customer {} requested post-delivery refund for order {}. Ticket ID: {}. Reason: {}", customerId, orderId, ticket.getId(), reason);

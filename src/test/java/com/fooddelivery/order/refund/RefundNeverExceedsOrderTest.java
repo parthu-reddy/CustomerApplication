@@ -108,6 +108,8 @@ class RefundNeverExceedsOrderTest {
         cmd.setAmount(new BigDecimal(amount));
         cmd.setInitiatorType(InitiatorType.SYSTEM);
         cmd.setSource(RefundSource.SYSTEM_CANCELLATION);
+        cmd.setFaultType(com.fooddelivery.order.enums.FaultType.UNKNOWN);
+        cmd.setReasonCode("TEST");
         cmd.setIdempotencyKey("k-" + UUID.randomUUID());
         return cmd;
     }

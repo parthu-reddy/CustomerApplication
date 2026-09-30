@@ -20,6 +20,8 @@ public class CustomerAddressDto {
     @NotNull
     private String city;
     @NotNull
+    private String cityId;
+    @NotNull
     private String state;
     @NotNull
     private String zipCode;

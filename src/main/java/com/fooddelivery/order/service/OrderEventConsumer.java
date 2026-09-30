@@ -69,6 +69,7 @@ public class OrderEventConsumer {
         // "Missing orderId. Ignored." A driver rejection never reached the order. The class
         // already existed; only the mapping was missing.
         EVENT_CLASSES.put(EventType.ORDER_DRIVER_REJECTED.name(), com.fooddelivery.common.event.OrderDriverRejectedEvent.class);
+        EVENT_CLASSES.put(EventType.MANUAL_ASSIGNMENT_FAILED.name(), com.fooddelivery.common.event.ManualAssignmentFailedEvent.class);
     }
 
     private final com.fooddelivery.common.event.EventBinder eventBinder;
@@ -154,16 +155,33 @@ public class OrderEventConsumer {
                         log.warn("Order {} not found, skipping event", orderId);
                         return null;
                     }
+                    if (isSupersededManualIntervention(eventType, typedEvent, order)) {
+                        log.info("MANUAL_INTERVENTION_EVENT_IGNORED orderId={} eventType={} operationId={} currentOperationId={}",
+                                orderId, eventType, eventOperationId(typedEvent),
+                                order.getManualInterventionOperationId());
+                        return null;
+                    }
+                    if (EventType.MANUAL_ASSIGNMENT_FAILED.name().equals(eventType)) {
+                        recordManualAssignmentFailure(order,
+                                (com.fooddelivery.common.event.ManualAssignmentFailedEvent) typedEvent);
+                        orderRepository.save(order);
+                        log.warn("MANUAL_ASSIGNMENT_FAILURE_RECORDED orderId={} operationId={} reasonCode={}",
+                                orderId, eventOperationId(typedEvent),
+                                ((com.fooddelivery.common.event.ManualAssignmentFailedEvent) typedEvent).getReasonCode());
+                        return null;
+                    }
 
                     com.fooddelivery.order.service.state.OrderContext context = new com.fooddelivery.order.service.state.OrderContext(
                             order, typedEvent, orderActionService, ledgerBookkeeper,
                             null /* no gateway: order-lifecycle events book no capture */,
                             order.getPaymentMethod());
                     com.fooddelivery.order.service.state.OrderState state = com.fooddelivery.order.service.state.OrderStateFactory.getState(order.getStatus());
+                    boolean stateHandled = false;
                     try {
                         java.util.function.BiConsumer<com.fooddelivery.order.service.state.OrderState, com.fooddelivery.order.service.state.OrderContext> handler = EVENT_HANDLERS.get(eventType);
                         if (handler != null) {
                             handler.accept(state, context);
+                            stateHandled = true;
                         } else if (EventType.ORDER_STATUS_UPDATED.name().equals(eventType)) {
                             String updateStatus = ((com.fooddelivery.common.event.OrderStatusUpdatedEvent) typedEvent).getStatus();
                             if (EventType.DELIVERY_FAILED.name().equals(updateStatus)) {
@@ -171,17 +189,23 @@ public class OrderEventConsumer {
                             } else {
                                 state.handleStatusUpdate(context);
                             }
+                            stateHandled = true;
                         } else if (EventType.ORDER_DRIVER_REJECTED.name().equals(eventType)) {
                             log.info("Driver rejected/timed out ping for Order {}. Redispatching will be handled by DeliveryExecutiveApplication.", orderId);
                             order.setDeliveryExecutiveId(null);
                             orderRepository.save(order);
                             orderActionService.emitOrderStatusSyncEvent(order.getId(), order.getStatus());
+                            stateHandled = true;
                         } else {
                             log.warn("Unmapped event type {} for Order {}. Ignoring.", eventType, orderId);
                         }
                     } catch (com.fooddelivery.common.exception.IllegalStateTransitionException e) {
                         log.error("ILLEGAL_STATE_TRANSITION: {}", e.getMessage());
                         orderActionService.emitOrderStatusSyncEvent(order.getId(), order.getStatus());
+                    }
+                    if (stateHandled && isCurrentManualInterventionCompletion(eventType, typedEvent, order)) {
+                        clearManualIntervention(order);
+                        orderRepository.save(order);
                     }
                     if (context.isRequiresRefund()) {
                         com.fooddelivery.order.refund.RefundCommand cmd = com.fooddelivery.order.refund.RefundCommand.builder()
@@ -210,6 +234,77 @@ public class OrderEventConsumer {
             log.error("Error processing order event", e);
             throw new RuntimeException("Failed to process order event", e);
         }
+    }
+
+    /**
+     * A manual action is asynchronous. An event without the current operation id may be an older
+     * automatic assignment, or an earlier admin decision superseded before it reached this
+     * consumer. Neither may change the order after a newer intervention was recorded.
+     */
+    private boolean isSupersededManualIntervention(
+            String eventType,
+            com.fooddelivery.common.event.OrderScopedEvent event,
+            Order order) {
+        String currentOperationId = order.getManualInterventionOperationId();
+        if (EventType.MANUAL_ASSIGNMENT_FAILED.name().equals(eventType)
+                && (currentOperationId == null || currentOperationId.isBlank())) {
+            // A completion has already cleared the operation, so a late failure result must not
+            // revive a resolved intervention in the admin queue.
+            return true;
+        }
+        if (currentOperationId == null || currentOperationId.isBlank()) {
+            return false;
+        }
+        if (!EventType.DRIVER_ASSIGNED.name().equals(eventType)
+                && !EventType.ORDER_CANCELLED_BY_ADMIN.name().equals(eventType)
+                && !EventType.MANUAL_ASSIGNMENT_FAILED.name().equals(eventType)) {
+            return false;
+        }
+        return !currentOperationId.equals(eventOperationId(event));
+    }
+
+    private boolean isCurrentManualInterventionCompletion(
+            String eventType,
+            com.fooddelivery.common.event.OrderScopedEvent event,
+            Order order) {
+        if (!EventType.DRIVER_ASSIGNED.name().equals(eventType)
+                && !EventType.ORDER_CANCELLED_BY_ADMIN.name().equals(eventType)) {
+            return false;
+        }
+        String currentOperationId = order.getManualInterventionOperationId();
+        return currentOperationId != null && currentOperationId.equals(eventOperationId(event));
+    }
+
+    private String eventOperationId(com.fooddelivery.common.event.OrderScopedEvent event) {
+        if (event instanceof com.fooddelivery.common.event.DriverAssignedEvent driverAssigned) {
+            return driverAssigned.getOperationId();
+        }
+        if (event instanceof com.fooddelivery.common.event.OrderCancelledByAdminEvent cancelled) {
+            return cancelled.getOperationId();
+        }
+        if (event instanceof com.fooddelivery.common.event.ManualAssignmentFailedEvent failed) {
+            return failed.getOperationId();
+        }
+        return null;
+    }
+
+    private void clearManualIntervention(Order order) {
+        order.setManualInterventionOperationId(null);
+        order.setManualInterventionRequestedDriverId(null);
+        order.setManualInterventionRequestedBy(null);
+        order.setManualInterventionReason(null);
+        order.setManualInterventionRequestedAt(null);
+        order.setManualInterventionFailureCode(null);
+        order.setManualInterventionFailedAt(null);
+    }
+
+    private void recordManualAssignmentFailure(
+            Order order,
+            com.fooddelivery.common.event.ManualAssignmentFailedEvent failed) {
+        order.setManualInterventionFailureCode(failed.getReasonCode());
+        order.setManualInterventionFailedAt(failed.getTimestamp() == null
+                ? java.time.Instant.now()
+                : java.time.Instant.ofEpochMilli(failed.getTimestamp()));
     }
 
     @org.springframework.kafka.annotation.DltHandler

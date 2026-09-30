@@ -97,6 +97,7 @@ public class ChatRefundProcessorService {
                                 com.fooddelivery.common.event.ChatRefundRequestedEvent.class);
                 UUID orderId = request.getOrderId();
                 Order order = orderRepository.findById(orderId).orElseThrow(() -> new IllegalArgumentException("Order not found"));
+                requireOrderCustomerActor(request, order);
 
                 String refundType = request.getRefundType() != null ? request.getRefundType() : "FULL";
                 BigDecimal quoteAmount;
@@ -150,12 +151,8 @@ public class ChatRefundProcessorService {
                         eventBinder.bind(event.getPayload(),
                                 com.fooddelivery.common.event.ChatRefundRequestedEvent.class);
                 UUID orderId = request.getOrderId();
-                // Required here but not for a quote, so it is checked rather than annotated on the
-                // shared class -- annotating it would reject every valid quote request.
-                UUID customerId = request.getCustomerId();
-                if (customerId == null) {
-                    throw new IllegalArgumentException("customerId is required on a refund request");
-                }
+                Order order = orderRepository.findById(orderId).orElseThrow(() -> new IllegalArgumentException("Order not found"));
+                UUID customerId = requireOrderCustomerActor(request, order);
 
                 if (supportTicketRepository.existsByOrderIdAndCustomerIdAndStatus(orderId, customerId, SupportTicket.TicketStatus.OPEN)) {
                     throw new IllegalStateException("An open refund request already exists for this order.");
@@ -165,7 +162,6 @@ public class ChatRefundProcessorService {
                 String description = request.getDescription() != null ? request.getDescription() : "";
 
                 String refundType = request.getRefundType() != null ? request.getRefundType() : "FULL";
-                Order order = orderRepository.findById(orderId).orElseThrow(() -> new IllegalArgumentException("Order not found"));
                 
                 BigDecimal quoteAmount;
                 if ("FULL".equals(refundType)) {
@@ -260,6 +256,23 @@ public class ChatRefundProcessorService {
         } catch (Exception e) {
             log.error("Failed to publish error event", e);
         }
+    }
+
+    /**
+     * The event must carry the actor stamped by ChatMessageService, not a browser-provided
+     * customerId. The actual ticket customer comes from the authoritative Order record.
+     */
+    private UUID requireOrderCustomerActor(com.fooddelivery.common.event.ChatRefundRequestedEvent request,
+                                           Order order) {
+        UUID orderCustomerId = order.getCustomerId();
+        if (orderCustomerId == null
+                || request.getActorId() == null
+                || request.getActorId().isBlank()
+                || !"CUSTOMER".equalsIgnoreCase(request.getActorType())
+                || !orderCustomerId.toString().equals(request.getActorId())) {
+            throw new IllegalArgumentException("Only the customer who placed this order may request a refund.");
+        }
+        return orderCustomerId;
     }
 
 

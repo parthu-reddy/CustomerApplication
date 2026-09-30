@@ -68,7 +68,9 @@ public class ChatRefundProcessorServiceTest {
     @Test
     void testHandleQuoteRequest_FullRefund() throws Exception {
         UUID orderId = UUID.randomUUID();
-        String payload = "{\"orderId\":\"" + orderId + "\", \"refundType\":\"FULL\"}";
+        UUID customerId = UUID.randomUUID();
+        String payload = "{\"orderId\":\"" + orderId + "\", \"refundType\":\"FULL\","
+                + "\"actorId\":\"" + customerId + "\",\"actorType\":\"CUSTOMER\"}";
         OutboxEvent event = new OutboxEvent();
         event.setType("CHAT_REFUND_QUOTE_REQUESTED");
         event.setPayload(payload);
@@ -76,6 +78,7 @@ public class ChatRefundProcessorServiceTest {
 
         Order order = new Order();
         order.setId(orderId);
+        order.setCustomerId(customerId);
         order.setTotalAmount(new BigDecimal("100.00"));
         order.setStatus(com.fooddelivery.common.enums.OrderStatus.CREATED);
         
@@ -93,7 +96,9 @@ public class ChatRefundProcessorServiceTest {
         UUID orderId = UUID.randomUUID();
         UUID itemId = UUID.randomUUID();
         UUID customerId = UUID.randomUUID();
-        String payload = "{\"orderId\":\"" + orderId + "\", \"customerId\":\"" + customerId + "\", \"refundType\":\"PARTIAL\", \"items\":[{\"itemId\":\"" + itemId + "\", \"quantity\":1}]}";
+        String payload = "{\"orderId\":\"" + orderId + "\", \"customerId\":\"" + customerId + "\", \"refundType\":\"PARTIAL\","
+                + "\"actorId\":\"" + customerId + "\",\"actorType\":\"CUSTOMER\","
+                + " \"items\":[{\"itemId\":\"" + itemId + "\", \"quantity\":1}]}";
         OutboxEvent event = new OutboxEvent();
         event.setType("CHAT_REFUND_REQUESTED");
         event.setPayload(payload);
@@ -103,6 +108,7 @@ public class ChatRefundProcessorServiceTest {
 
         Order order = new Order();
         order.setId(orderId);
+        order.setCustomerId(customerId);
         order.setTotalAmount(new BigDecimal("100.00"));
         order.setStatus(com.fooddelivery.common.enums.OrderStatus.HANDED_OVER);
         
@@ -132,7 +138,9 @@ public class ChatRefundProcessorServiceTest {
         UUID orderId = UUID.randomUUID();
         UUID itemId = UUID.randomUUID();
         UUID customerId = UUID.randomUUID();
-        String payload = "{\"orderId\":\"" + orderId + "\", \"customerId\":\"" + customerId + "\", \"refundType\":\"PARTIAL\", \"items\":[{\"itemId\":\"" + itemId + "\", \"quantity\":1}]}";
+        String payload = "{\"orderId\":\"" + orderId + "\", \"customerId\":\"" + customerId + "\", \"refundType\":\"PARTIAL\","
+                + "\"actorId\":\"" + customerId + "\",\"actorType\":\"CUSTOMER\","
+                + " \"items\":[{\"itemId\":\"" + itemId + "\", \"quantity\":1}]}";
         OutboxEvent event = new OutboxEvent();
         event.setType("CHAT_REFUND_REQUESTED");
         event.setPayload(payload);
@@ -142,6 +150,7 @@ public class ChatRefundProcessorServiceTest {
 
         Order order = new Order();
         order.setId(orderId);
+        order.setCustomerId(customerId);
         order.setTotalAmount(new BigDecimal("100.00"));
         order.setStatus(com.fooddelivery.common.enums.OrderStatus.HANDED_OVER);
         
@@ -215,8 +224,10 @@ public class ChatRefundProcessorServiceTest {
     @Test
     void aValidPayloadReachesTheQuoteResponse() throws Exception {
         UUID orderId = UUID.randomUUID();
+        UUID customerId = UUID.randomUUID();
         Order order = new Order();
         order.setId(orderId);
+        order.setCustomerId(customerId);
         order.setTotalAmount(new BigDecimal("100.00"));
         order.setStatus(com.fooddelivery.common.enums.OrderStatus.CREATED);
         when(orderRepository.findById(any())).thenReturn(Optional.of(order));
@@ -224,7 +235,8 @@ public class ChatRefundProcessorServiceTest {
 
         OutboxEvent event = new OutboxEvent();
         event.setType("CHAT_REFUND_QUOTE_REQUESTED");
-        event.setPayload("{\"orderId\":\"" + orderId + "\",\"refundType\":\"FULL\"}");
+        event.setPayload("{\"orderId\":\"" + orderId + "\",\"refundType\":\"FULL\","
+                + "\"actorId\":\"" + customerId + "\",\"actorType\":\"CUSTOMER\"}");
         event.setAggregateId(UUID.randomUUID().toString());
         when(idempotencyKeyRepository.existsById("chat_event:" + event.getId())).thenReturn(false);
 
@@ -242,7 +254,9 @@ public class ChatRefundProcessorServiceTest {
     void aValidPartialRequestStillBindsItsItems() throws Exception {
         UUID orderId = UUID.randomUUID();
         UUID itemId = UUID.randomUUID();
+        UUID customerId = UUID.randomUUID();
         String payload = "{\"orderId\":\"" + orderId + "\",\"refundType\":\"PARTIAL\","
+                + "\"actorId\":\"" + customerId + "\",\"actorType\":\"CUSTOMER\","
                 + "\"items\":[{\"itemId\":\"" + itemId + "\",\"quantity\":2}]}";
         OutboxEvent event = new OutboxEvent();
         event.setType("CHAT_REFUND_QUOTE_REQUESTED");
@@ -251,6 +265,7 @@ public class ChatRefundProcessorServiceTest {
 
         Order order = new Order();
         order.setId(orderId);
+        order.setCustomerId(customerId);
         order.setTotalAmount(new BigDecimal("100.00"));
         order.setStatus(com.fooddelivery.common.enums.OrderStatus.CREATED);
 
@@ -268,5 +283,93 @@ public class ChatRefundProcessorServiceTest {
         org.junit.jupiter.api.Assertions.assertEquals(1, items.getValue().size());
         org.junit.jupiter.api.Assertions.assertEquals(itemId, items.getValue().get(0).getOrderItemId());
         org.junit.jupiter.api.Assertions.assertEquals(2, items.getValue().get(0).getQuantity());
+    }
+
+    @Test
+    void forgedActorCannotCreateARefundTicket() throws Exception {
+        UUID orderId = UUID.randomUUID();
+        UUID actualCustomerId = UUID.randomUUID();
+        UUID attackerId = UUID.randomUUID();
+        Order order = new Order();
+        order.setId(orderId);
+        order.setCustomerId(actualCustomerId);
+        order.setTotalAmount(new BigDecimal("100.00"));
+        when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+
+        OutboxEvent event = new OutboxEvent();
+        event.setType("CHAT_REFUND_REQUESTED");
+        event.setAggregateId(UUID.randomUUID().toString());
+        event.setPayload("{\"orderId\":\"" + orderId + "\",\"customerId\":\"" + actualCustomerId + "\","
+                + "\"actorId\":\"" + attackerId + "\",\"actorType\":\"CUSTOMER\"}");
+
+        chatRefundProcessorService.handleChatEvents(event);
+
+        verify(supportTicketRepository, never()).save(any(SupportTicket.class));
+        verify(refundService, never()).quote(any(), anyList());
+        org.mockito.ArgumentCaptor<com.fooddelivery.common.outbox.entity.OutboxEventEntity> error =
+                org.mockito.ArgumentCaptor.forClass(com.fooddelivery.common.outbox.entity.OutboxEventEntity.class);
+        verify(outboxEventRepository).save(error.capture());
+        org.junit.jupiter.api.Assertions.assertEquals(
+                com.fooddelivery.common.constants.EventType.CHAT_REFUND_ERROR,
+                error.getValue().getEventType());
+    }
+
+    @Test
+    void legacyRefundEventWithoutTheServerStampedActorFailsClosed() throws Exception {
+        UUID orderId = UUID.randomUUID();
+        UUID actualCustomerId = UUID.randomUUID();
+        Order order = new Order();
+        order.setId(orderId);
+        order.setCustomerId(actualCustomerId);
+        order.setTotalAmount(new BigDecimal("100.00"));
+        when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+
+        OutboxEvent event = new OutboxEvent();
+        event.setType("CHAT_REFUND_REQUESTED");
+        event.setAggregateId(UUID.randomUUID().toString());
+        // This is the pre-remediation wire shape. customerId alone is not a trusted actor.
+        event.setPayload("{\"orderId\":\"" + orderId + "\",\"customerId\":\"" + actualCustomerId
+                + "\",\"refundType\":\"FULL\"}");
+
+        chatRefundProcessorService.handleChatEvents(event);
+
+        verify(supportTicketRepository, never()).save(any(SupportTicket.class));
+        verify(refundService, never()).quote(any(), anyList());
+        org.mockito.ArgumentCaptor<com.fooddelivery.common.outbox.entity.OutboxEventEntity> error =
+                org.mockito.ArgumentCaptor.forClass(com.fooddelivery.common.outbox.entity.OutboxEventEntity.class);
+        verify(outboxEventRepository).save(error.capture());
+        org.junit.jupiter.api.Assertions.assertEquals(
+                com.fooddelivery.common.constants.EventType.CHAT_REFUND_ERROR,
+                error.getValue().getEventType());
+    }
+
+    @Test
+    void derivesTicketCustomerFromTheOrderInsteadOfTheBrowserPayload() throws Exception {
+        UUID orderId = UUID.randomUUID();
+        UUID actualCustomerId = UUID.randomUUID();
+        UUID forgedCustomerId = UUID.randomUUID();
+        Order order = new Order();
+        order.setId(orderId);
+        order.setCustomerId(actualCustomerId);
+        order.setTotalAmount(new BigDecimal("100.00"));
+        when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+        when(refundService.quote(orderId, java.util.List.of())).thenReturn(new BigDecimal("10.00"));
+        when(supportTicketRepository.save(any(SupportTicket.class))).thenAnswer(invocation -> {
+            SupportTicket ticket = invocation.getArgument(0);
+            ticket.setId(UUID.randomUUID());
+            return ticket;
+        });
+
+        OutboxEvent event = new OutboxEvent();
+        event.setType("CHAT_REFUND_REQUESTED");
+        event.setAggregateId(UUID.randomUUID().toString());
+        event.setPayload("{\"orderId\":\"" + orderId + "\",\"customerId\":\"" + forgedCustomerId + "\","
+                + "\"actorId\":\"" + actualCustomerId + "\",\"actorType\":\"CUSTOMER\",\"refundType\":\"FULL\"}");
+
+        chatRefundProcessorService.handleChatEvents(event);
+
+        org.mockito.ArgumentCaptor<SupportTicket> ticket = org.mockito.ArgumentCaptor.forClass(SupportTicket.class);
+        verify(supportTicketRepository).save(ticket.capture());
+        org.junit.jupiter.api.Assertions.assertEquals(actualCustomerId, ticket.getValue().getCustomerId());
     }
 }
