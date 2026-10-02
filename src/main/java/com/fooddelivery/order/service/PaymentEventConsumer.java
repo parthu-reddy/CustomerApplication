@@ -96,13 +96,21 @@ public class PaymentEventConsumer {
                         return;
                     }
                     
+                    // payment-events also carries refund commands and unrelated payment aggregates.
+                    // Only an explicit capture/failure event may drive the order payment state.
+                    if (!com.fooddelivery.common.constants.EventType.PAYMENT_COMPLETED.name().equals(eventTypeStr)
+                            && !com.fooddelivery.common.constants.EventType.PAYMENT_FAILED.name().equals(eventTypeStr)) {
+                        log.info("Ignoring unrelated payment event type {}", eventTypeStr);
+                        return;
+                    }
+
                     String gatewayOrderId = null;
                     String internalOrderId = null;
                     boolean isFailure = false;
                     Object typedEvent = null;
 
-                    // Fallback infer failure if eventType is null but we can parse it as PaymentFailedEvent
-                    if (com.fooddelivery.common.constants.EventType.PAYMENT_FAILED.name().equals(eventTypeStr) || (eventTypeStr == null && payload.contains("\"failureReason\""))) {
+                    // Bind only the actual event type selected above.
+                    if (com.fooddelivery.common.constants.EventType.PAYMENT_FAILED.name().equals(eventTypeStr)) {
                         isFailure = true;
                         com.fooddelivery.common.event.PaymentFailedEvent ev = eventBinder.bindIf(
                             com.fooddelivery.common.constants.EventType.PAYMENT_FAILED, com.fooddelivery.common.constants.EventType.PAYMENT_FAILED.name(), payload, com.fooddelivery.common.event.PaymentFailedEvent.class).orElse(null);
@@ -113,7 +121,7 @@ public class PaymentEventConsumer {
                         }
                     } else {
                         com.fooddelivery.common.event.PaymentSucceededEvent ev = eventBinder.bindIf(
-                            com.fooddelivery.common.constants.EventType.PAYMENT_COMPLETED, com.fooddelivery.common.constants.EventType.PAYMENT_COMPLETED.name(), payload, com.fooddelivery.common.event.PaymentSucceededEvent.class).orElse(null);
+                            com.fooddelivery.common.constants.EventType.PAYMENT_COMPLETED, eventTypeStr, payload, com.fooddelivery.common.event.PaymentSucceededEvent.class).orElse(null);
                         if (ev != null) {
                             typedEvent = ev;
                             gatewayOrderId = ev.gatewayOrderId();

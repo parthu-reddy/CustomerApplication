@@ -73,4 +73,25 @@ class TerminalStatusIsFinalTest {
                 () -> o.setStatus(OrderStatus.CREATED));
         assertTrue(e.getMessage().contains("backward"), e.getMessage());
     }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"failure", "admin-cancel", "duplicate-delivery"})
+    void completedHandoversIgnoreLateLifecycleActions(String action) {
+        Order order = orderIn(OrderStatus.HANDED_OVER);
+        order.setDeliveryStatus(com.fooddelivery.common.enums.DeliveryStatus.DELIVERED);
+        order.setDeliveredAt(java.time.Instant.parse("2026-10-02T08:41:08Z"));
+        var actions = org.mockito.Mockito.mock(com.fooddelivery.order.service.state.OrderActionService.class);
+        var ledger = org.mockito.Mockito.mock(com.fooddelivery.order.ledger.LedgerBookkeeper.class);
+        var context = new com.fooddelivery.order.service.state.OrderContext(order, null, actions, ledger, null, null);
+        var state = new com.fooddelivery.order.service.state.impl.HandedOverState();
+        switch (action) {
+            case "failure" -> state.handleDeliveryFailed(context);
+            case "admin-cancel" -> state.handleOrderCancelledByAdmin(context);
+            default -> state.handleOrderDelivered(context);
+        }
+        assertEquals(OrderStatus.HANDED_OVER, order.getStatus());
+        assertEquals(com.fooddelivery.common.enums.DeliveryStatus.DELIVERED, order.getDeliveryStatus());
+        assertFalse(context.isRequiresRefund());
+        org.mockito.Mockito.verifyNoInteractions(actions, ledger);
+    }
+
 }

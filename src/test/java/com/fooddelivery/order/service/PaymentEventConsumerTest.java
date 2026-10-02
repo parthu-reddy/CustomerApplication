@@ -93,10 +93,10 @@ public class PaymentEventConsumerTest {
     @Test
     void consumePaymentEvent_LatePaymentWhenOrderCancelled_TriggersRefund() throws Exception {
         UUID orderId = UUID.randomUUID();
-        String message = "{\"eventType\":\"PAYMENT_SUCCESS\",\"orderId\":\"" + orderId + "\",\"gatewayOrderId\":\"GATEWAY_123\"}";
+        String message = "{\"eventType\":\"PAYMENT_COMPLETED\",\"orderId\":\"" + orderId + "\",\"gatewayOrderId\":\"GATEWAY_123\"}";
 
         ObjectNode rootNode = new ObjectMapper().createObjectNode();
-        rootNode.put("eventType", "PAYMENT_SUCCESS");
+        rootNode.put("eventType", "PAYMENT_COMPLETED");
         rootNode.put("orderId", orderId.toString());
         rootNode.put("gatewayOrderId", "GATEWAY_123");
         rootNode.put("amount", "100.00");
@@ -130,10 +130,10 @@ public class PaymentEventConsumerTest {
     @Test
     void consumePaymentEvent_LatePaymentRefund_LeavesRoutingToRefundService() throws Exception {
         UUID orderId = UUID.randomUUID();
-        String message = "{\"eventType\":\"PAYMENT_SUCCESS\",\"orderId\":\"" + orderId + "\",\"gatewayOrderId\":\"GATEWAY_123\"}";
+        String message = "{\"eventType\":\"PAYMENT_COMPLETED\",\"orderId\":\"" + orderId + "\",\"gatewayOrderId\":\"GATEWAY_123\"}";
 
         ObjectNode rootNode = new ObjectMapper().createObjectNode();
-        rootNode.put("eventType", "PAYMENT_SUCCESS");
+        rootNode.put("eventType", "PAYMENT_COMPLETED");
         rootNode.put("orderId", orderId.toString());
         rootNode.put("gatewayOrderId", "GATEWAY_123");
         when(objectMapper.readTree(message)).thenReturn(rootNode);
@@ -174,10 +174,10 @@ public class PaymentEventConsumerTest {
     @Test
     void consumePaymentEvent_RefundRoutingRefused_DoesNotPropagate() throws Exception {
         UUID orderId = UUID.randomUUID();
-        String message = "{\"eventType\":\"PAYMENT_SUCCESS\",\"orderId\":\"" + orderId + "\",\"gatewayOrderId\":\"GATEWAY_123\"}";
+        String message = "{\"eventType\":\"PAYMENT_COMPLETED\",\"orderId\":\"" + orderId + "\",\"gatewayOrderId\":\"GATEWAY_123\"}";
 
         ObjectNode rootNode = new ObjectMapper().createObjectNode();
-        rootNode.put("eventType", "PAYMENT_SUCCESS");
+        rootNode.put("eventType", "PAYMENT_COMPLETED");
         rootNode.put("orderId", orderId.toString());
         rootNode.put("gatewayOrderId", "GATEWAY_123");
         when(objectMapper.readTree(message)).thenReturn(rootNode);
@@ -211,7 +211,7 @@ public class PaymentEventConsumerTest {
     @Test
     void consumePaymentEvent_DuplicateEventIsIgnored() throws Exception {
         UUID orderId = UUID.randomUUID();
-        String message = "{\"eventType\":\"PAYMENT_SUCCESS\",\"orderId\":\"" + orderId + "\",\"gatewayOrderId\":\"GATEWAY_123\"}";
+        String message = "{\"eventType\":\"PAYMENT_COMPLETED\",\"orderId\":\"" + orderId + "\",\"gatewayOrderId\":\"GATEWAY_123\"}";
         when(idempotencyKeyRepository.existsById(anyString())).thenReturn(true);
 
         java.util.Map<String, Object> headers = new java.util.HashMap<>();
@@ -247,6 +247,21 @@ public class PaymentEventConsumerTest {
             verify(refundService, never()).complete(any(), any());
         }
         verifyNoInteractions(orderRepository, paymentIntentRepository, ledgerBookkeeper);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"PAYMENT_REFUND_REQUESTED", "WALLET_CREDIT_REQUESTED", "AD_WALLET_TOPUP_COMPLETED", "PAYMENT_PARTIALLY_REFUNDED", "PAYMENT_SUCCESS", "UNKNOWN"})
+    void unrelatedPaymentMessagesCannotBecomeCaptures(String eventType) throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        var binder = new com.fooddelivery.common.event.EventBinder(mapper,
+                jakarta.validation.Validation.buildDefaultValidatorFactory().getValidator());
+        var consumer = new PaymentEventConsumer(binder, idempotencyKeyRepository, transactionTemplate,
+                mapper, paymentIntentRepository, orderRepository, orderActionService, outboxEventRepository,
+                refundService, ledgerBookkeeper);
+        String payload = mapper.writeValueAsString(java.util.Map.of("orderId", UUID.randomUUID().toString(),
+                "gatewayOrderId", "mock-gateway", "amount", "43.35", "gatewayName", "RAZORPAY"));
+        consumer.handlePaymentEvents(payload, java.util.Map.of("eventId", UUID.randomUUID().toString(), "eventType", eventType));
+        verifyNoInteractions(paymentIntentRepository, orderRepository, orderActionService, refundService, ledgerBookkeeper);
     }
 
 }

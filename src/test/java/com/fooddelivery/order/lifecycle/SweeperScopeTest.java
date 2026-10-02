@@ -147,4 +147,24 @@ class SweeperScopeTest {
                 .describedAs("updatedAt is after the cutoff, so it has been touched recently")
                 .isEmpty();
     }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(value = DeliveryStatus.class,
+            names = {"DELIVERED", "FAILED", "CANCELLED", "OUT_FOR_DELIVERY", "ASSIGNED"})
+    void abandonmentQueryExcludesCompletedOutcomes(DeliveryStatus deliveryStatus) {
+        UUID id = save(OrderStatus.HANDED_OVER, deliveryStatus);
+        List<UUID> found = orderRepository.findAbandonedDeliveries(ENDED_DELIVERY, CUTOFF, PageRequest.of(0, 100))
+                .getContent().stream().map(Order::getId).toList();
+        if (ENDED_DELIVERY.contains(deliveryStatus)) assertThat(found).isEmpty();
+        else assertThat(found).containsExactly(id);
+    }
+
+    @Test
+    void deliveryTimestampProtectsTheOutcomeEvenWhenStatusProjectionIsStale() {
+        UUID id = save(OrderStatus.HANDED_OVER, DeliveryStatus.OUT_FOR_DELIVERY);
+        Order order = orderRepository.findById(id).orElseThrow();
+        order.setDeliveredAt(Instant.now()); orderRepository.saveAndFlush(order);
+        assertThat(orderRepository.findAbandonedDeliveries(ENDED_DELIVERY, CUTOFF, PageRequest.of(0, 100)))
+                .isEmpty();
+    }
+
 }

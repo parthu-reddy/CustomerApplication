@@ -35,25 +35,33 @@ public class AbandonedDeliverySweeper {
             return;
         }
         Instant threshold = Instant.now().minus(java.time.Duration.ofHours(2));
-        sweepByStatus(OrderStatus.HANDED_OVER, threshold);
+        sweepUnfinishedHandovers(threshold);
     }
 
-    private void sweepByStatus(OrderStatus status, Instant threshold) {
-        org.springframework.data.domain.Page<Order> page = orderRepository.findByStatusAndUpdatedAtBefore(status, threshold, org.springframework.data.domain.PageRequest.of(0, 500));
+    private void sweepUnfinishedHandovers(Instant threshold) {
+        org.springframework.data.domain.Page<Order> page = orderRepository.findAbandonedDeliveries(java.util.List.of(
+                com.fooddelivery.common.enums.DeliveryStatus.DELIVERED,
+                com.fooddelivery.common.enums.DeliveryStatus.FAILED,
+                com.fooddelivery.common.enums.DeliveryStatus.CANCELLED), threshold, org.springframework.data.domain.PageRequest.of(0, 500));
         List<Order> abandonedOrders = page.getContent();
         if (!abandonedOrders.isEmpty()) {
-            log.info("Found {} abandoned {} orders. Marking them as DELIVERY_FAILED...", abandonedOrders.size(), status);
+            log.info("Found {} abandoned {} orders. Marking them as DELIVERY_FAILED...", abandonedOrders.size(), OrderStatus.HANDED_OVER);
             for (Order order : abandonedOrders) {
-                failAbandonedOrder(order);
+                failAbandonedOrder(order, threshold);
             }
         }
     }
 
-    private void failAbandonedOrder(Order order) {
+    private void failAbandonedOrder(Order order, Instant threshold) {
         try {
             transactionTemplate.execute(status -> {
-                Order currentOrder = orderRepository.findById(order.getId()).orElse(null);
-                if (currentOrder != null && currentOrder.getStatus() == OrderStatus.HANDED_OVER) {
+                Order currentOrder = orderRepository.findLockedById(order.getId()).orElse(null);
+                if (currentOrder != null && currentOrder.getStatus() == OrderStatus.HANDED_OVER
+                        && currentOrder.getDeliveredAt() == null
+                        && currentOrder.getDeliveryStatus() != com.fooddelivery.common.enums.DeliveryStatus.DELIVERED
+                        && currentOrder.getDeliveryStatus() != com.fooddelivery.common.enums.DeliveryStatus.FAILED
+                        && currentOrder.getDeliveryStatus() != com.fooddelivery.common.enums.DeliveryStatus.CANCELLED
+                        && currentOrder.getUpdatedAt() != null && currentOrder.getUpdatedAt().isBefore(threshold)) {
                     currentOrder.setDeliveryStatus(com.fooddelivery.common.enums.DeliveryStatus.FAILED);
                     orderRepository.save(currentOrder);
                     orderActionService.emitOrderDeliveryFailedEvent(currentOrder.getId(), "Driver abandoned the delivery (no updates for 2 hours)");

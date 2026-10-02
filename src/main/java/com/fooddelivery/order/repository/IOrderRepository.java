@@ -68,6 +68,13 @@ public interface IOrderRepository extends JpaRepository<Order, UUID> {
             @Param("time") Instant time,
             Pageable pageable);
     
+    /** Unfinished handovers only: completed deliveries retain HANDED_OVER as their order status. */
+    @Query("SELECT o FROM Order o WHERE o.status = com.fooddelivery.common.enums.OrderStatus.HANDED_OVER "
+            + "AND o.updatedAt < :time AND o.deliveredAt IS NULL "
+            + "AND (o.deliveryStatus IS NULL OR o.deliveryStatus NOT IN :endedDelivery)")
+    Page<Order> findAbandonedDeliveries(@Param("endedDelivery") List<com.fooddelivery.common.enums.DeliveryStatus> endedDelivery,
+            @Param("time") Instant time, Pageable pageable);
+
     @EntityGraph(attributePaths = {"orderItems"})
     List<Order> findByCustomerId(UUID customerId);
     

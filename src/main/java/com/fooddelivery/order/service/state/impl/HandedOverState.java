@@ -15,6 +15,13 @@ public class HandedOverState implements OrderState {
 
     @Override
     public void handleOrderDelivered(OrderContext ctx) {
+        // Completed deliveries still have HANDED_OVER status. Late failure/cancellation and
+        // duplicate delivery messages must not relabel them, refund them or book earnings again.
+        if (ctx.getOrder().getDeliveredAt() != null
+                || ctx.getOrder().getDeliveryStatus() == com.fooddelivery.common.enums.DeliveryStatus.DELIVERED) {
+            log.info("Ignoring late delivery action for already delivered order {}", ctx.getOrder().getId());
+            return;
+        }
         ctx.getActionService().completeDelivery(ctx);
     }
 
@@ -25,6 +32,13 @@ public class HandedOverState implements OrderState {
      */
     @Override
     public void handleDeliveryFailed(OrderContext ctx) {
+        // Completed deliveries still have HANDED_OVER status. Late failure/cancellation and
+        // duplicate delivery messages must not relabel them, refund them or book earnings again.
+        if (ctx.getOrder().getDeliveredAt() != null
+                || ctx.getOrder().getDeliveryStatus() == com.fooddelivery.common.enums.DeliveryStatus.DELIVERED) {
+            log.info("Ignoring late delivery action for already delivered order {}", ctx.getOrder().getId());
+            return;
+        }
         Order order = ctx.getOrder();
         order.setStatus(OrderStatus.DELIVERY_FAILED);
         order.setDeliveryStatus(com.fooddelivery.common.enums.DeliveryStatus.FAILED);
@@ -36,6 +50,13 @@ public class HandedOverState implements OrderState {
 
     @Override
     public void handleOrderCancelledByAdmin(OrderContext ctx) {
+        // Completed deliveries still have HANDED_OVER status. Late failure/cancellation and
+        // duplicate delivery messages must not relabel them, refund them or book earnings again.
+        if (ctx.getOrder().getDeliveredAt() != null
+                || ctx.getOrder().getDeliveryStatus() == com.fooddelivery.common.enums.DeliveryStatus.DELIVERED) {
+            log.info("Ignoring late delivery action for already delivered order {}", ctx.getOrder().getId());
+            return;
+        }
         Order order = ctx.getOrder();
         order.setStatus(OrderStatus.CANCELLED);
         String reason = ((com.fooddelivery.common.event.OrderCancelledByAdminEvent) ctx.getEventPayload()).getReason(); order.setCancellationReason(reason != null ? reason : "Cancelled by Admin (Delivery abandoned or failed)");
