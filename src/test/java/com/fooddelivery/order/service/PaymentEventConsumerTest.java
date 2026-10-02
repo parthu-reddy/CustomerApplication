@@ -123,7 +123,7 @@ public class PaymentEventConsumerTest {
         paymentEventConsumer.handlePaymentEvents(message, headers);
 
         // Verify that because order is CANCELLED, late payment triggers immediate refund
-        verify(refundService).request(any(com.fooddelivery.order.refund.RefundCommand.class));
+        verify(refundService).requestUnlessRefused(any(com.fooddelivery.order.refund.RefundCommand.class));
     }
 
     /** The consumer must not choose a destination; RefundService routes from the intent. */
@@ -158,7 +158,7 @@ public class PaymentEventConsumerTest {
 
         org.mockito.ArgumentCaptor<com.fooddelivery.order.refund.RefundCommand> cmd =
                 org.mockito.ArgumentCaptor.forClass(com.fooddelivery.order.refund.RefundCommand.class);
-        verify(refundService).request(cmd.capture());
+        verify(refundService).requestUnlessRefused(cmd.capture());
         org.junit.jupiter.api.Assertions.assertNull(cmd.getValue().getDestination(),
                 "a system caller that picks the destination bypasses the matrix -- a wallet-paid "
                 + "order was pushed at a gateway that never took the money");
@@ -196,7 +196,9 @@ public class PaymentEventConsumerTest {
         order.setStatus(OrderStatus.CANCELLED);
         when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
 
-        when(refundService.request(any())).thenThrow(new IllegalStateException("REFUND_STATE_INVALID"));
+        // RefundService returns a routing refusal rather than throwing it: thrown through its real
+        // transactional proxy, it would roll back this state change (RefundRefusalInCallerTransactionTest).
+        when(refundService.requestUnlessRefused(any())).thenReturn(Optional.of("REFUND_STATE_INVALID"));
 
         java.util.Map<String, Object> headers = new java.util.HashMap<>();
         headers.put("eventId", UUID.randomUUID().toString());
@@ -204,7 +206,7 @@ public class PaymentEventConsumerTest {
         // Must not throw: the state change is the more important of the two and is kept.
         paymentEventConsumer.handlePaymentEvents(message, headers);
 
-        verify(refundService).request(any());
+        verify(refundService).requestUnlessRefused(any());
     }
 
     /** A duplicate delivery must be ignored rather than refunded twice. */
@@ -218,7 +220,7 @@ public class PaymentEventConsumerTest {
         headers.put("eventId", UUID.randomUUID().toString());
         paymentEventConsumer.handlePaymentEvents(message, headers);
 
-        verify(refundService, never()).request(any());
+        verify(refundService, never()).requestUnlessRefused(any());
         verify(orderRepository, never()).findById(any());
     }
     @org.junit.jupiter.params.ParameterizedTest

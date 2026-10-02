@@ -376,12 +376,11 @@ public class OrderEventConsumer {
 
     private void requestRefundWithoutPoisoningTheEvent(java.util.UUID orderId,
                                                        com.fooddelivery.order.refund.RefundCommand cmd) {
-        try {
-            refundService.request(cmd);
-        } catch (IllegalStateException e) {
-            log.error("REFUND_NOT_ROUTED: order {} needs a refund but it could not be routed ({}). "
-                    + "The order state change is kept; resolve this from the admin refund queue.",
-                    orderId, e.getMessage());
-        }
+        // Returned, not caught: a refusal thrown out of RefundService's transactional proxy marks
+        // this transaction rollback-only, so the order state change was lost anyway.
+        refundService.requestUnlessRefused(cmd).ifPresent(refusal -> log.error(
+                "REFUND_NOT_ROUTED: order {} needs a refund but it could not be routed ({}). "
+                + "The order state change is kept; resolve this from the admin refund queue.",
+                orderId, refusal));
     }
 }

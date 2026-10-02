@@ -118,185 +118,182 @@ public class ChatRefundProcessorService {
         }
     }
 
+    /*
+     * Each handler works in two steps. It validates and prices the request first, outside any
+     * transaction, then records its reply in one write transaction. RefundService.quote is a
+     * proxied @Transactional method: a refusal it throws (ITEM_ALREADY_REFUNDED and the like) marks
+     * any transaction it joins rollback-only, even when the caller catches it. When the quote ran
+     * inside the write transaction, the commit threw UnexpectedRollbackException, the customer's
+     * error reply and the idempotency key rolled back, and the request was dead-lettered.
+     */
+
     private void handleQuoteRequest(OutboxEvent event) {
+        OutboxEventEntity reply;
+        try {
+            // The payload is the chat message content the client sent, so this bind is the
+            // validation boundary: a missing orderId or a malformed item id is rejected here
+            // and reported back to the customer as CHAT_REFUND_ERROR.
+            com.fooddelivery.common.event.ChatRefundRequestedEvent request =
+                    eventBinder.bind(event.getPayload(),
+                            com.fooddelivery.common.event.ChatRefundRequestedEvent.class);
+            UUID orderId = request.getOrderId();
+            Order order = orderRepository.findById(orderId).orElseThrow(() -> new IllegalArgumentException("Order not found"));
+            requireOrderCustomerActor(request, order);
+            String refundType = validatedRefundType(request);
+            BigDecimal quoteAmount = quote(request, order, refundType);
+
+            com.fooddelivery.common.event.ChatRefundQuoteResponseEvent responseEvent = com.fooddelivery.common.event.ChatRefundQuoteResponseEvent.builder()
+                    .quoteAmount(quoteAmount)
+                    .refundType(refundType)
+                    .orderId(orderId)
+                    .items("PARTIAL".equals(refundType) ? List.copyOf(request.getItems()) : List.of())
+                    .reason(request.getReason())
+                    .build();
+            reply = chatSessionEvent(event.getAggregateId(), "CHAT_REFUND_QUOTE_RESPONSE", responseEvent);
+            log.info("Calculated quote {} for session {}", quoteAmount, event.getAggregateId());
+        } catch (jakarta.validation.ConstraintViolationException e) {
+            // A @NotNull/@Positive miss on client-supplied content is a bad request, not a
+            // poison message: report it to the customer instead of retrying into the DLT.
+            log.warn("Chat refund payload failed validation: {}", e.getMessage());
+            reply = errorEvent(event.getAggregateId(), "Invalid request format.");
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            log.warn("Business validation failed for quote request: {}", e.getMessage());
+            reply = errorEvent(event.getAggregateId(), e.getMessage());
+        }
+        OutboxEventEntity answer = reply;
         transactionTemplate.executeWithoutResult(status -> {
-            try {
-                if (idempotencyKeyRepository.existsById("chat_event:" + event.getId())) return;
-                
-                // The payload is the chat message content the client sent, so this bind is the
-                // validation boundary: a missing orderId or a malformed item id is rejected here
-                // and reported back to the customer as CHAT_REFUND_ERROR.
-                com.fooddelivery.common.event.ChatRefundRequestedEvent request =
-                        eventBinder.bind(event.getPayload(),
-                                com.fooddelivery.common.event.ChatRefundRequestedEvent.class);
-                UUID orderId = request.getOrderId();
-                Order order = orderRepository.findById(orderId).orElseThrow(() -> new IllegalArgumentException("Order not found"));
-                requireOrderCustomerActor(request, order);
-
-                String refundType = validatedRefundType(request);
-                List<com.fooddelivery.order.refund.RefundCommand.Item> selectedItems =
-                        validatedRefundItems(request, refundType);
-                BigDecimal quoteAmount;
-                if ("FULL".equals(refundType)) {
-                    quoteAmount = refundService.quote(orderId, List.of());
-                } else {
-                    quoteAmount = refundService.quote(orderId, selectedItems);
-                }
-                
-                BigDecimal maxRefundable = order.getTotalAmount();
-                if (quoteAmount.compareTo(maxRefundable) > 0) {
-                    throw new IllegalStateException("Requested refund amount exceeds the remaining refundable balance.");
-                }
-
-                com.fooddelivery.common.event.ChatRefundQuoteResponseEvent responseEvent = com.fooddelivery.common.event.ChatRefundQuoteResponseEvent.builder()
-                        .quoteAmount(quoteAmount)
-                        .refundType(refundType)
-                        .orderId(orderId)
-                        .items("PARTIAL".equals(refundType) ? List.copyOf(request.getItems()) : List.of())
-                        .reason(request.getReason())
-                        .build();
-
-                OutboxEventEntity outboxEvent = OutboxEventEntity.builder()
-                        .id(UUID.randomUUID())
-                        .aggregateType(AggregateType.CHAT_SESSION)
-                        .aggregateId(event.getAggregateId())
-                        .eventType(EventType.valueOf("CHAT_REFUND_QUOTE_RESPONSE"))
-                        .payload(objectMapper.writeValueAsString(responseEvent))
-                        .createdAt(Instant.now())
-                        .build();
-                outboxEventRepository.save(outboxEvent);
-                log.info("Calculated quote {} for session {}", quoteAmount, event.getAggregateId());
-            } catch (jakarta.validation.ConstraintViolationException e) {
-                // A @NotNull/@Positive miss on client-supplied content is a bad request, not a
-                // poison message: report it to the customer instead of retrying into the DLT.
-                log.warn("Chat refund payload failed validation: {}", e.getMessage());
-                publishErrorEvent(event.getAggregateId(), "Invalid request format.");
-            } catch (IllegalArgumentException | IllegalStateException e) {
-                log.warn("Business validation failed for quote request: {}", e.getMessage());
-                publishErrorEvent(event.getAggregateId(), e.getMessage());
-            } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
-                log.error("Failed to process JSON payload for quote request", e);
-                publishErrorEvent(event.getAggregateId(), "Invalid request format.");
-            } finally {
-                idempotencyKeyRepository.save(new IdempotencyKey("chat_event:" + event.getId()));
-            }
+            if (alreadyProcessed(event)) return;
+            outboxEventRepository.save(answer);
+            markProcessed(event);
         });
     }
 
     private void handleRefundRequest(OutboxEvent event) {
-        transactionTemplate.executeWithoutResult(status -> {
-            try {
-                com.fooddelivery.common.event.ChatRefundRequestedEvent request =
-                        eventBinder.bind(event.getPayload(),
-                                com.fooddelivery.common.event.ChatRefundRequestedEvent.class);
-                UUID orderId = request.getOrderId();
-                Order order = orderRepository.findById(orderId).orElseThrow(() -> new IllegalArgumentException("Order not found"));
-                UUID customerId = requireOrderCustomerActor(request, order);
-
-                if (supportTicketRepository.existsByOrderIdAndCustomerIdAndStatus(orderId, customerId, SupportTicket.TicketStatus.OPEN)) {
-                    throw new IllegalStateException("An open refund request already exists for this order.");
-                }
-
-                String reason = request.getReason() != null ? request.getReason() : "OTHER";
-                String description = request.getDescription() != null ? request.getDescription() : "";
-
-                String refundType = validatedRefundType(request);
-                List<com.fooddelivery.order.refund.RefundCommand.Item> selectedItems =
-                        validatedRefundItems(request, refundType);
-                
-                BigDecimal quoteAmount;
-                if ("FULL".equals(refundType)) {
-                    quoteAmount = refundService.quote(orderId, List.of());
-                } else {
-                    quoteAmount = refundService.quote(orderId, selectedItems);
-                }
-                
-                // Note: Financial Computations: Never use hardcoded fallback values for financial parameters... Fail Fast
-                if (quoteAmount.compareTo(BigDecimal.ZERO) <= 0) {
-                    throw new IllegalArgumentException("Calculated refund amount must be greater than zero");
-                }
-                
-                BigDecimal maxRefundable = order.getTotalAmount();
-                if (quoteAmount.compareTo(maxRefundable) > 0) {
-                    throw new IllegalStateException("Requested refund amount exceeds the remaining refundable balance.");
-                }
-
-                SupportTicket ticket = new SupportTicket();
-                ticket.setOrderId(orderId);
-                ticket.setCustomerId(customerId);
-                ticket.setReason(reason + (description.isEmpty() ? "" : " - " + description));
-                ticket.setStatus(SupportTicket.TicketStatus.OPEN); // Wait, if we process it, maybe it's resolved? Keep OPEN for now
-                ticket.setChatSessionId(UUID.fromString(event.getAggregateId()));
-                ticket.setRefundAmount(quoteAmount);
-                if (request.getItems() != null && !request.getItems().isEmpty()) {
-                    ticket.setRequestedRefundItems(objectMapper.writeValueAsString(request.getItems()));
-                }
-                supportTicketRepository.save(ticket);
-
-                // The ticket is the request; it is not the refund.
-                //
-                // This flow used to raise an OPEN ticket *and* immediately issue a refund, while
-                // telling the customer their request was "under review by our support team". An
-                // administrator resolving that same ticket through AdminRefundController then issued
-                // a second refund: the remaining-amount guard stopped the money leaving twice, but
-                // it did so by throwing, so resolving a chat ticket always failed with a 500.
-                //
-                // A customer cannot approve their own refund. The quote is recorded on the ticket
-                // and an administrator decides, which is what the customer is told happens.
-                
-                // Publish CHAT_REFUND_DECISION to notify user
-                com.fooddelivery.common.event.ChatRefundDecisionEvent responseEvent = com.fooddelivery.common.event.ChatRefundDecisionEvent.builder()
-                        .status("OPEN")
-                        .amount(quoteAmount)
-                        .ticketId(ticket.getId().toString())
-                        .message("Your refund request has been submitted and is currently under review by our support team.")
-                        .build();
-
-                OutboxEventEntity outboxEvent = OutboxEventEntity.builder()
-                        .id(UUID.randomUUID())
-                        .aggregateType(AggregateType.CHAT_SESSION)
-                        .aggregateId(event.getAggregateId())
-                        .eventType(EventType.valueOf("CHAT_REFUND_DECISION"))
-                        .payload(objectMapper.writeValueAsString(responseEvent))
-                        .createdAt(Instant.now())
-                        .build();
-                outboxEventRepository.save(outboxEvent);
-                log.info("Created SupportTicket {} for session {}", ticket.getId(), event.getAggregateId());
-            } catch (jakarta.validation.ConstraintViolationException e) {
-                // A @NotNull/@Positive miss on client-supplied content is a bad request, not a
-                // poison message: report it to the customer instead of retrying into the DLT.
-                log.warn("Chat refund payload failed validation: {}", e.getMessage());
-                publishErrorEvent(event.getAggregateId(), "Invalid request format.");
-            } catch (IllegalArgumentException | IllegalStateException e) {
-                log.warn("Business validation failed for refund request: {}", e.getMessage());
-                publishErrorEvent(event.getAggregateId(), e.getMessage());
-            } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
-                log.error("Failed to process JSON payload for refund request", e);
-                publishErrorEvent(event.getAggregateId(), "Invalid request format.");
-            } finally {
-                idempotencyKeyRepository.save(new IdempotencyKey("chat_event:" + event.getId()));
+        com.fooddelivery.common.event.ChatRefundRequestedEvent request;
+        UUID customerId;
+        BigDecimal quoteAmount;
+        String requestedItems;
+        try {
+            request = eventBinder.bind(event.getPayload(),
+                    com.fooddelivery.common.event.ChatRefundRequestedEvent.class);
+            Order order = orderRepository.findById(request.getOrderId()).orElseThrow(() -> new IllegalArgumentException("Order not found"));
+            customerId = requireOrderCustomerActor(request, order);
+            quoteAmount = quote(request, order, validatedRefundType(request));
+            // Note: Financial Computations: Never use hardcoded fallback values for financial parameters... Fail Fast
+            if (quoteAmount.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("Calculated refund amount must be greater than zero");
             }
+            requestedItems = request.getItems() != null && !request.getItems().isEmpty()
+                    ? objectMapper.writeValueAsString(request.getItems()) : null;
+        } catch (jakarta.validation.ConstraintViolationException e) {
+            // A @NotNull/@Positive miss on client-supplied content is a bad request, not a
+            // poison message: report it to the customer instead of retrying into the DLT.
+            log.warn("Chat refund payload failed validation: {}", e.getMessage());
+            recordError(event, "Invalid request format.");
+            return;
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            log.warn("Business validation failed for refund request: {}", e.getMessage());
+            recordError(event, e.getMessage());
+            return;
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            log.error("Failed to process JSON payload for refund request", e);
+            recordError(event, "Invalid request format.");
+            return;
+        }
+
+        transactionTemplate.executeWithoutResult(status -> {
+            if (alreadyProcessed(event)) return;
+            UUID orderId = request.getOrderId();
+            // Checked in the same transaction as the insert, so it sees tickets committed meanwhile.
+            if (supportTicketRepository.existsByOrderIdAndCustomerIdAndStatus(orderId, customerId, SupportTicket.TicketStatus.OPEN)) {
+                log.warn("Refund request for order {} refused: an open ticket already exists", orderId);
+                outboxEventRepository.save(errorEvent(event.getAggregateId(), "An open refund request already exists for this order."));
+                markProcessed(event);
+                return;
+            }
+
+            String reason = request.getReason() != null ? request.getReason() : "OTHER";
+            String description = request.getDescription() != null ? request.getDescription() : "";
+            SupportTicket ticket = new SupportTicket();
+            ticket.setOrderId(orderId);
+            ticket.setCustomerId(customerId);
+            ticket.setReason(reason + (description.isEmpty() ? "" : " - " + description));
+            ticket.setStatus(SupportTicket.TicketStatus.OPEN);
+            ticket.setChatSessionId(UUID.fromString(event.getAggregateId()));
+            ticket.setRefundAmount(quoteAmount);
+            ticket.setRequestedRefundItems(requestedItems);
+            supportTicketRepository.save(ticket);
+
+            // The ticket is the request; it is not the refund.
+            //
+            // This flow used to raise an OPEN ticket *and* immediately issue a refund, while
+            // telling the customer their request was "under review by our support team". An
+            // administrator resolving that same ticket through AdminRefundController then issued
+            // a second refund: the remaining-amount guard stopped the money leaving twice, but
+            // it did so by throwing, so resolving a chat ticket always failed with a 500.
+            //
+            // A customer cannot approve their own refund. The quote is recorded on the ticket
+            // and an administrator decides, which is what the customer is told happens.
+            com.fooddelivery.common.event.ChatRefundDecisionEvent responseEvent = com.fooddelivery.common.event.ChatRefundDecisionEvent.builder()
+                    .status("OPEN")
+                    .amount(quoteAmount)
+                    .ticketId(ticket.getId().toString())
+                    .message("Your refund request has been submitted and is currently under review by our support team.")
+                    .build();
+            outboxEventRepository.save(chatSessionEvent(event.getAggregateId(), "CHAT_REFUND_DECISION", responseEvent));
+            markProcessed(event);
+            log.info("Created SupportTicket {} for session {}", ticket.getId(), event.getAggregateId());
         });
     }
 
-    @org.springframework.transaction.annotation.Transactional
-    private void publishErrorEvent(String chatSessionId, String errorMessage) {
-        try {
-            com.fooddelivery.common.event.ChatRefundErrorEvent errorEvent = com.fooddelivery.common.event.ChatRefundErrorEvent.builder()
-                    .error(errorMessage != null ? errorMessage : "An unknown error occurred while processing the refund request.")
-                    .build();
+    /** Validates the selection and prices it. Runs outside any transaction; see the note above. */
+    private BigDecimal quote(com.fooddelivery.common.event.ChatRefundRequestedEvent request, Order order, String refundType) {
+        List<com.fooddelivery.order.refund.RefundCommand.Item> selectedItems = validatedRefundItems(request, refundType);
+        BigDecimal quoteAmount = refundService.quote(order.getId(), "FULL".equals(refundType) ? List.of() : selectedItems);
+        if (quoteAmount.compareTo(order.getTotalAmount()) > 0) {
+            throw new IllegalStateException("Requested refund amount exceeds the remaining refundable balance.");
+        }
+        return quoteAmount;
+    }
 
-            OutboxEventEntity outboxEvent = OutboxEventEntity.builder()
+    private boolean alreadyProcessed(OutboxEvent event) {
+        return idempotencyKeyRepository.existsById("chat_event:" + event.getId());
+    }
+
+    private void markProcessed(OutboxEvent event) {
+        idempotencyKeyRepository.save(new IdempotencyKey("chat_event:" + event.getId()));
+    }
+
+    private void recordError(OutboxEvent event, String errorMessage) {
+        OutboxEventEntity reply = errorEvent(event.getAggregateId(), errorMessage);
+        transactionTemplate.executeWithoutResult(status -> {
+            if (alreadyProcessed(event)) return;
+            outboxEventRepository.save(reply);
+            markProcessed(event);
+        });
+    }
+
+    private OutboxEventEntity errorEvent(String chatSessionId, String errorMessage) {
+        return chatSessionEvent(chatSessionId, "CHAT_REFUND_ERROR",
+                com.fooddelivery.common.event.ChatRefundErrorEvent.builder()
+                        .error(errorMessage != null ? errorMessage : "An unknown error occurred while processing the refund request.")
+                        .build());
+    }
+
+    private OutboxEventEntity chatSessionEvent(String chatSessionId, String type, Object payload) {
+        try {
+            return OutboxEventEntity.builder()
                     .id(UUID.randomUUID())
                     .aggregateType(AggregateType.CHAT_SESSION)
                     .aggregateId(chatSessionId)
-                    .eventType(EventType.valueOf("CHAT_REFUND_ERROR"))
-                    .payload(objectMapper.writeValueAsString(errorEvent))
+                    .eventType(EventType.valueOf(type))
+                    .payload(objectMapper.writeValueAsString(payload))
                     .createdAt(Instant.now())
                     .build();
-            outboxEventRepository.save(outboxEvent);
-        } catch (Exception e) {
-            log.error("Failed to publish error event", e);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            // Our own reply DTO failed to serialize: a defect, not a customer error. Throw so the
+            // record is retried and dead-lettered rather than answered with nothing.
+            throw new IllegalStateException("Cannot serialize " + type + " for session " + chatSessionId, e);
         }
     }
 

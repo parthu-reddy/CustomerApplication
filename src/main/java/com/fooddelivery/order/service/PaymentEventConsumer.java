@@ -191,15 +191,13 @@ public class PaymentEventConsumer {
                         .reasonCode("SYSTEM_AUTO_REFUND")
                         .idempotencyKey("payment_fail_" + orderToRefund.getId())
                         .build();
-                     try {
-                         refundService.request(cmd);
-                     } catch (IllegalStateException e) {
-                         // See OrderEventConsumer: a routing refusal must not unwind the
-                         // payment-state transition and re-poison the partition.
-                         log.error("REFUND_NOT_ROUTED: order {} needs a refund but it could not "
-                                 + "be routed ({}). The payment state change is kept; resolve "
-                                 + "this from the admin refund queue.", orderToRefund.getId(), e.getMessage());
-                     }
+                     // See OrderEventConsumer: a routing refusal must not unwind the
+                     // payment-state transition and re-poison the partition, so it is returned.
+                     java.util.UUID refundedOrderId = orderToRefund.getId();
+                     refundService.requestUnlessRefused(cmd).ifPresent(refusal -> log.error(
+                             "REFUND_NOT_ROUTED: order {} needs a refund but it could not "
+                             + "be routed ({}). The payment state change is kept; resolve "
+                             + "this from the admin refund queue.", refundedOrderId, refusal));
                 }
             });
         } catch (org.springframework.orm.ObjectOptimisticLockingFailureException e) {

@@ -60,11 +60,52 @@ public class RefundService {
 
     @Transactional
     public RefundView request(RefundCommand command) {
+        Plan plan = plan(command);
+        if (plan.refusal() != null) {
+            throw new IllegalStateException(plan.refusal());
+        }
+        return plan.existing() != null ? plan.existing() : record(plan);
+    }
+
+    /**
+     * {@link #request} for an automatic refund whose caller must keep its own state change when the
+     * refund cannot be routed: the order and payment event consumers. The refusal is returned, not
+     * thrown. Thrown out of this bean's {@code @Transactional} proxy, it marks the caller's
+     * transaction rollback-only, so the caller's commit failed and its state change was lost even
+     * though it caught the exception. Only refusals decided before anything is written are
+     * returned; a failure after the refund row is written still throws and rolls the caller back.
+     */
+    @Transactional
+    public Optional<String> requestUnlessRefused(RefundCommand command) {
+        Plan plan = plan(command);
+        if (plan.refusal() != null) {
+            return Optional.of(plan.refusal());
+        }
+        if (plan.existing() == null) {
+            record(plan);
+        }
+        return Optional.empty();
+    }
+
+    /** What {@link #plan} decided: the refund to write, the one already written, or a refusal. */
+    private record Plan(RefundCommand command, BigDecimal amount, PaymentIntent intent, Order order,
+                        RefundDestination destination, RefundView existing, String refusal) {
+        static Plan refused(String reason) {
+            return new Plan(null, null, null, null, null, null, reason);
+        }
+    }
+
+    /**
+     * Validates and routes a refund without writing anything. An invalid command throws; a refund
+     * that is valid but cannot be given (nothing left to refund, no routable payment, an item quote
+     * that no longer holds) comes back as a refusal.
+     */
+    private Plan plan(RefundCommand command) {
         BigDecimal amount = validateRequest(command);
         Optional<Refund> existing = refundRepository.findByIdempotencyKey(command.getIdempotencyKey());
         if (existing.isPresent()) {
             Order order = orderRepository.findById(existing.get().getOrderId()).orElseThrow();
-            return toView(existing.get(), order);
+            return new Plan(command, amount, null, order, null, toView(existing.get(), order), null);
         }
 
         PaymentIntent intent = paymentIntentRepository.findByInternalOrderIdForUpdate(command.getOrderId())
@@ -73,32 +114,43 @@ public class RefundService {
         Order order = orderRepository.findById(command.getOrderId())
                 .orElseThrow(() -> new IllegalArgumentException("Order not found"));
 
-        if (command.getItems() != null) {
-            BigDecimal quote = quote(order, command.getItems());
-            // Support may award less than its validated item quote. Preserve those items
-            // for accounting, and allow the reduction only for an audited admin ticket.
-            boolean supportDecision = command.getInitiatorType() == com.fooddelivery.order.enums.InitiatorType.ADMIN
-                    && command.getSource() == com.fooddelivery.order.enums.RefundSource.CUSTOMER_TICKET
-                    && command.getTicketId() != null;
-            if (amount.compareTo(quote) > 0 || (amount.compareTo(quote) != 0 && !supportDecision)) {
-                throw new IllegalArgumentException("REFUND_AMOUNT_DOES_NOT_MATCH_QUOTE");
+        try {
+            if (command.getItems() != null) {
+                BigDecimal quote = quote(order, command.getItems());
+                // Support may award less than its validated item quote. Preserve those items
+                // for accounting, and allow the reduction only for an audited admin ticket.
+                boolean supportDecision = command.getInitiatorType() == com.fooddelivery.order.enums.InitiatorType.ADMIN
+                        && command.getSource() == com.fooddelivery.order.enums.RefundSource.CUSTOMER_TICKET
+                        && command.getTicketId() != null;
+                if (amount.compareTo(quote) > 0 || (amount.compareTo(quote) != 0 && !supportDecision)) {
+                    throw new IllegalArgumentException("REFUND_AMOUNT_DOES_NOT_MATCH_QUOTE");
+                }
             }
+
+            BigDecimal committed = refundRepository.sumByOrderAndStatusIn(command.getOrderId(),
+                    List.of(RefundStatus.REQUESTED, RefundStatus.PROCESSING, RefundStatus.COMPLETED));
+            BigDecimal remaining = intent.getAmount().subtract(committed);
+            if (amount.compareTo(remaining) > 0) {
+                throw new IllegalStateException("REFUND_EXCEEDS_REMAINING");
+            }
+
+            return new Plan(command, amount, intent, order, resolveDestination(command, intent), null, null);
+        } catch (IllegalStateException refusal) {
+            return Plan.refused(refusal.getMessage());
         }
+    }
 
-        BigDecimal committed = refundRepository.sumByOrderAndStatusIn(command.getOrderId(),
-                List.of(RefundStatus.REQUESTED, RefundStatus.PROCESSING, RefundStatus.COMPLETED));
-        BigDecimal remaining = intent.getAmount().subtract(committed);
-        if (amount.compareTo(remaining) > 0) {
-            throw new IllegalStateException("REFUND_EXCEEDS_REMAINING");
-        }
-
-        RefundDestination destination = resolveDestination(command, intent);
-
+    /** Writes the planned refund and hands it to its destination. */
+    private RefundView record(Plan plan) {
+        RefundCommand command = plan.command();
+        PaymentIntent intent = plan.intent();
+        Order order = plan.order();
+        RefundDestination destination = plan.destination();
         Refund refund = Refund.builder()
                 .id(UUID.randomUUID())
                 .orderId(order.getId())
                 .paymentIntentId(intent.getId())
-                .amount(amount)
+                .amount(plan.amount())
                 .currency("INR")
                 .reasonCode(command.getReasonCode())
                 .reasonText(command.getReasonText())
