@@ -96,10 +96,18 @@ public abstract class ContractTestBase {
                 new org.springframework.data.domain.PageImpl<>(java.util.Collections.emptyList(), page0, 0);
         Mockito.when(orderRepository.findByStatusInAndDeliveryExecutiveIdIsNull(Mockito.anyList(), Mockito.any(org.springframework.data.domain.Pageable.class)))
                .thenReturn(new org.springframework.data.domain.PageImpl<>(java.util.List.of(order), page0, 1));
-        Mockito.when(orderRepository.findActiveOrdersForDriver(Mockito.any(), Mockito.anyList(), Mockito.anyList(), Mockito.any(org.springframework.data.domain.Pageable.class)))
+        Mockito.when(orderRepository.findActiveOrdersForDriver(Mockito.any(), Mockito.anyCollection(), Mockito.anyList(), Mockito.anyList(), Mockito.any(org.springframework.data.domain.Pageable.class)))
                .thenReturn(activePage);
-        Mockito.when(orderRepository.findActiveOrdersForDriver(Mockito.eq(EMPTY_DRIVER), Mockito.anyList(), Mockito.anyList(), Mockito.any(org.springframework.data.domain.Pageable.class)))
+        Mockito.when(orderRepository.findActiveOrdersForDriver(Mockito.eq(EMPTY_DRIVER), Mockito.anyCollection(), Mockito.anyList(), Mockito.anyList(), Mockito.any(org.springframework.data.domain.Pageable.class)))
                .thenReturn(emptyPage);
+        // getActiveOrdersForDriverWithConfirmedAssignments: the held order reaches the query.
+        java.util.UUID confirmedId = java.util.UUID.fromString("7f7af6a5-1d86-4f29-b4cc-36eefe69a74b");
+        com.fooddelivery.order.entity.Order confirmedOrder = mkOrder.apply(com.fooddelivery.common.enums.OrderStatus.ACCEPTED);
+        confirmedOrder.setId(confirmedId);
+        Mockito.when(orderRepository.findActiveOrdersForDriver(Mockito.any(),
+                        Mockito.argThat(ids -> ids != null && ids.contains(confirmedId)),
+                        Mockito.anyList(), Mockito.anyList(), Mockito.any(org.springframework.data.domain.Pageable.class)))
+               .thenReturn(new org.springframework.data.domain.PageImpl<>(java.util.List.of(confirmedOrder), page0, 1));
         Mockito.when(orderRepository.findHistoryOrdersForDriver(Mockito.any(), Mockito.anyList(), Mockito.anyList(), Mockito.any(), Mockito.any(), Mockito.any(org.springframework.data.domain.Pageable.class)))
                .thenReturn(historyPage);
         Mockito.when(orderRepository.findHistoryOrdersForDriver(Mockito.eq(EMPTY_DRIVER), Mockito.anyList(), Mockito.anyList(), Mockito.any(), Mockito.any(), Mockito.any(org.springframework.data.domain.Pageable.class)))

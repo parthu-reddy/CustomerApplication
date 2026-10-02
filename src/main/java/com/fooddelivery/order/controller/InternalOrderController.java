@@ -22,17 +22,24 @@ public class InternalOrderController {
     private final com.fooddelivery.common.service.RateLimitingService rateLimitingService;
     private final com.fooddelivery.order.refund.RefundService refundService;
 
+    /**
+     * The driver's live orders. {@code confirmedOrderIds} are the orders the delivery service, which
+     * owns assignment, holds for this driver: one accepted moments ago is included before its
+     * DRIVER_ASSIGNED event lands here, so the rider's own trip never disappears from their list.
+     */
     @GetMapping("/driver/{driverId}/active")
     @PreAuthorize("hasAnyRole('ADMIN', 'DELIVERY', 'SERVICE')")
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public ResponseEntity<org.springframework.data.domain.Page<Order>> fetchActiveOrdersForDriver(
             @PathVariable UUID driverId,
+            @RequestParam(value = "confirmedOrderIds", required = false) List<UUID> confirmedOrderIds,
             @org.springframework.data.web.PageableDefault(size = 50) org.springframework.data.domain.Pageable pageable) {
         log.info("Fetching active orders for driver {}", driverId);
         List<OrderStatus> cancelledStatuses = Arrays.asList(OrderStatus.CANCELLED, OrderStatus.CANCELLED_BY_RESTAURANT);
         List<com.fooddelivery.common.enums.DeliveryStatus> terminalDeliveryStatuses = java.util.List.of(com.fooddelivery.common.enums.DeliveryStatus.DELIVERED, com.fooddelivery.common.enums.DeliveryStatus.FAILED, com.fooddelivery.common.enums.DeliveryStatus.CANCELLED);
         log.info("findActiveOrdersForDriver parameters: driverId={}, cancelledStatuses={}, terminalDeliveryStatuses={}", driverId, cancelledStatuses, terminalDeliveryStatuses);
-        org.springframework.data.domain.Page<Order> activeOrders = orderRepository.findActiveOrdersForDriver(driverId, cancelledStatuses, terminalDeliveryStatuses, pageable);
+        List<UUID> confirmed = confirmedOrderIds == null ? List.of() : confirmedOrderIds;
+        org.springframework.data.domain.Page<Order> activeOrders = orderRepository.findActiveOrdersForDriver(driverId, confirmed, cancelledStatuses, terminalDeliveryStatuses, pageable);
         log.info("Decision: active orders found count={}", activeOrders.getTotalElements());
         if (activeOrders.isEmpty()) {
             log.info("Decision: returning empty orders list. Check if deliveryExecutiveId is matching and status is not terminal.");

@@ -197,7 +197,7 @@ public class CustomerMcpService {
     public String getActiveOrders(String driverId) {
         try {
             return objectMapper.writeValueAsString(internalOrderController.fetchActiveOrdersForDriver(
-                    java.util.UUID.fromString(driverId),
+                    java.util.UUID.fromString(driverId), java.util.List.of(),
                     org.springframework.data.domain.PageRequest.of(0, 50)).getBody());
         } catch (Exception e) {
             return "Error: " + e.getMessage();

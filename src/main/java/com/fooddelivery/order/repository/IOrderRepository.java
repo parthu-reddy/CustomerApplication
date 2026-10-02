@@ -165,12 +165,17 @@ public interface IOrderRepository extends JpaRepository<Order, UUID> {
     @EntityGraph(attributePaths = {"orderItems"})
     @org.springframework.data.jpa.repository.Query(
         "SELECT o FROM Order o " +
-        "WHERE o.deliveryExecutiveId = :driverId " +
+        // An order the delivery service has already committed to this driver, but whose
+        // DRIVER_ASSIGNED event has not reached this service yet, is still the driver's. Only while
+        // no driver is recorded here: this service never hands one driver another driver's order.
+        "WHERE (o.deliveryExecutiveId = :driverId " +
+        "       OR (o.id IN :confirmedOrderIds AND o.deliveryExecutiveId IS NULL)) " +
         "AND o.status NOT IN :cancelledStatuses " +
         "AND (o.deliveryStatus IS NULL OR o.deliveryStatus NOT IN :terminalDeliveryStatuses)"
     )
     Page<Order> findActiveOrdersForDriver(
         @org.springframework.data.repository.query.Param("driverId") UUID driverId,
+        @org.springframework.data.repository.query.Param("confirmedOrderIds") java.util.Collection<UUID> confirmedOrderIds,
         @org.springframework.data.repository.query.Param("cancelledStatuses") List<com.fooddelivery.common.enums.OrderStatus> cancelledStatuses,
         @org.springframework.data.repository.query.Param("terminalDeliveryStatuses") List<com.fooddelivery.common.enums.DeliveryStatus> terminalDeliveryStatuses,
         Pageable pageable

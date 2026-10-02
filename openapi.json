@@ -1873,6 +1873,17 @@
             "format" : "uuid"
           }
         }, {
+          "name" : "confirmedOrderIds",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "format" : "uuid"
+            }
+          }
+        }, {
           "name" : "pageable",
           "in" : "query",
           "required" : true,
@@ -4551,6 +4562,10 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
@@ -4577,10 +4592,6 @@
           "last" : {
             "type" : "boolean"
           },
-          "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
           "empty" : {
             "type" : "boolean"
           }
@@ -4590,6 +4601,9 @@
         "required" : [ "offset", "pageNumber", "pageSize", "paged", "unpaged" ],
         "type" : "object",
         "properties" : {
+          "unpaged" : {
+            "type" : "boolean"
+          },
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
@@ -4603,9 +4617,6 @@
           "pageSize" : {
             "type" : "integer",
             "format" : "int32"
-          },
-          "unpaged" : {
-            "type" : "boolean"
           },
           "offset" : {
             "type" : "integer",
@@ -4659,6 +4670,10 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "numberOfElements" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
           "sort" : {
             "$ref" : "#/components/schemas/SortObject"
           },
@@ -4684,10 +4699,6 @@
           },
           "last" : {
             "type" : "boolean"
-          },
-          "numberOfElements" : {
-            "type" : "integer",
-            "format" : "int32"
           },
           "empty" : {
             "type" : "boolean"
