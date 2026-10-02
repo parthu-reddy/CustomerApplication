@@ -129,8 +129,15 @@ public class ChatRefundProcessorServiceTest {
 
         chatRefundProcessorService.handleChatEvents(event);
 
-        verify(supportTicketRepository, times(1)).save(any());
-        verify(outboxEventRepository, times(1)).save(any());
+        var ticketCaptor=org.mockito.ArgumentCaptor.forClass(SupportTicket.class);
+        verify(supportTicketRepository).save(ticketCaptor.capture());
+        org.junit.jupiter.api.Assertions.assertEquals(new BigDecimal("50.00"),ticketCaptor.getValue().getRefundAmount());
+        org.junit.jupiter.api.Assertions.assertEquals(SupportTicket.TicketStatus.OPEN,ticketCaptor.getValue().getStatus());
+        org.junit.jupiter.api.Assertions.assertEquals(itemId.toString(),objectMapper.readTree(ticketCaptor.getValue().getRequestedRefundItems()).get(0).get("itemId").asText());
+        var responseCaptor=org.mockito.ArgumentCaptor.forClass(com.fooddelivery.common.outbox.entity.OutboxEventEntity.class);
+        verify(outboxEventRepository).save(responseCaptor.capture());
+        org.junit.jupiter.api.Assertions.assertEquals(new BigDecimal("50.00"),objectMapper.readTree(responseCaptor.getValue().getPayload()).get("amount").decimalValue().setScale(2));
+        verify(refundService,never()).request(any());
     }
 
     @Test
@@ -372,4 +379,62 @@ public class ChatRefundProcessorServiceTest {
         verify(supportTicketRepository).save(ticket.capture());
         org.junit.jupiter.api.Assertions.assertEquals(actualCustomerId, ticket.getValue().getCustomerId());
     }
+    @Test
+    void partialQuotePreservesTheValidatedItemsAndReason() throws Exception {
+        UUID orderId=UUID.randomUUID(), customerId=UUID.randomUUID(), itemId=UUID.randomUUID();
+        Order order=new Order();order.setId(orderId);order.setCustomerId(customerId);
+        order.setTotalAmount(new BigDecimal("100.00"));
+        when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+        when(refundService.quote(eq(orderId),anyList())).thenReturn(new BigDecimal("25.00"));
+        OutboxEvent event=new OutboxEvent();event.setId(UUID.randomUUID().toString());
+        event.setType("CHAT_REFUND_QUOTE_REQUESTED");event.setAggregateId(UUID.randomUUID().toString());
+        event.setPayload(objectMapper.writeValueAsString(java.util.Map.of(
+                "orderId",orderId,"actorId",customerId,"actorType","CUSTOMER","refundType","PARTIAL",
+                "reason","One missing portion","items",java.util.List.of(java.util.Map.of("itemId",itemId,"quantity",1)))));
+        chatRefundProcessorService.handleChatEvents(event);
+        var outbox=org.mockito.ArgumentCaptor.forClass(com.fooddelivery.common.outbox.entity.OutboxEventEntity.class);
+        verify(outboxEventRepository).save(outbox.capture());
+        org.junit.jupiter.api.Assertions.assertEquals(com.fooddelivery.common.constants.EventType.CHAT_REFUND_QUOTE_RESPONSE,outbox.getValue().getEventType());
+        var payload=objectMapper.readTree(outbox.getValue().getPayload());
+        org.junit.jupiter.api.Assertions.assertEquals(orderId.toString(),payload.get("orderId").asText());
+        org.junit.jupiter.api.Assertions.assertEquals("One missing portion",payload.get("reason").asText());
+        org.junit.jupiter.api.Assertions.assertEquals(itemId.toString(),payload.get("items").get(0).get("itemId").asText());
+        org.junit.jupiter.api.Assertions.assertEquals(1,payload.get("items").get(0).get("quantity").asInt());
+        org.junit.jupiter.api.Assertions.assertEquals(new BigDecimal("25.00"),payload.get("quoteAmount").decimalValue().setScale(2));
+        verify(supportTicketRepository,never()).save(any());
+        verify(refundService,never()).request(any());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+        "CHAT_REFUND_QUOTE_REQUESTED, PARTIAL, missing",
+        "CHAT_REFUND_QUOTE_REQUESTED, PARTIAL, empty",
+        "CHAT_REFUND_REQUESTED, PARTIAL, missing",
+        "CHAT_REFUND_REQUESTED, PARTIAL, empty",
+        "CHAT_REFUND_QUOTE_REQUESTED, UNKNOWN, empty",
+        "CHAT_REFUND_REQUESTED, UNKNOWN, empty",
+        "CHAT_REFUND_QUOTE_REQUESTED, FULL, selected",
+        "CHAT_REFUND_REQUESTED, FULL, selected"
+    })
+    void invalidSelectionNeverExpandsIntoAFullRefund(String eventType,String refundType,String selection) throws Exception {
+        UUID orderId=UUID.randomUUID(), customerId=UUID.randomUUID();
+        Order order=new Order();order.setId(orderId);order.setCustomerId(customerId);
+        order.setTotalAmount(new BigDecimal("100.00"));
+        when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+        java.util.Map<String,Object> payload=new java.util.HashMap<>();
+        payload.put("orderId",orderId);payload.put("actorId",customerId);payload.put("actorType","CUSTOMER");
+        payload.put("refundType",refundType);
+        if(selection.equals("empty"))payload.put("items",java.util.List.of());
+        if(selection.equals("selected"))payload.put("items",java.util.List.of(java.util.Map.of("itemId",UUID.randomUUID(),"quantity",1)));
+        OutboxEvent event=new OutboxEvent();event.setId(UUID.randomUUID().toString());event.setType(eventType);
+        event.setAggregateId(UUID.randomUUID().toString());event.setPayload(objectMapper.writeValueAsString(payload));
+        chatRefundProcessorService.handleChatEvents(event);
+        var outbox=org.mockito.ArgumentCaptor.forClass(com.fooddelivery.common.outbox.entity.OutboxEventEntity.class);
+        verify(outboxEventRepository).save(outbox.capture());
+        org.junit.jupiter.api.Assertions.assertEquals(com.fooddelivery.common.constants.EventType.CHAT_REFUND_ERROR,outbox.getValue().getEventType());
+        verify(refundService,never()).quote(any(),any());
+        verify(refundService,never()).request(any());
+        verify(supportTicketRepository,never()).save(any());
+    }
+
 }

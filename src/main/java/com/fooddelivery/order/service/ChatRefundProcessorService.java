@@ -63,6 +63,27 @@ public class ChatRefundProcessorService {
 
 
 
+    private static String validatedRefundType(com.fooddelivery.common.event.ChatRefundRequestedEvent request) {
+        String type = request.getRefundType() != null ? request.getRefundType() : "FULL";
+        if (!"FULL".equals(type) && !"PARTIAL".equals(type)) {
+            throw new IllegalArgumentException("Refund type must be FULL or PARTIAL");
+        }
+        return type;
+    }
+
+    private static List<com.fooddelivery.order.refund.RefundCommand.Item> validatedRefundItems(
+            com.fooddelivery.common.event.ChatRefundRequestedEvent request, String type) {
+        if ("PARTIAL".equals(type) && (request.getItems() == null || request.getItems().isEmpty())) {
+            // RefundService deliberately interprets an empty list as a full-order quote.
+            // A partial request must never reach that full-refund convention.
+            throw new IllegalArgumentException("Partial refund items are required");
+        }
+        if ("FULL".equals(type) && request.getItems() != null && !request.getItems().isEmpty()) {
+            throw new IllegalArgumentException("Full refund cannot include a partial item selection");
+        }
+        return toRefundItems(request.getItems());
+    }
+
     @KafkaListener(topics = KafkaConstants.TOPIC_CHAT_EVENTS, groupId = "customer-application-chat-group-chatrefundprocessorservice")
     public void handleChatEvents(OutboxEvent event) {
         Boolean alreadyProcessed = transactionTemplate.execute(status -> {
@@ -99,12 +120,14 @@ public class ChatRefundProcessorService {
                 Order order = orderRepository.findById(orderId).orElseThrow(() -> new IllegalArgumentException("Order not found"));
                 requireOrderCustomerActor(request, order);
 
-                String refundType = request.getRefundType() != null ? request.getRefundType() : "FULL";
+                String refundType = validatedRefundType(request);
+                List<com.fooddelivery.order.refund.RefundCommand.Item> selectedItems =
+                        validatedRefundItems(request, refundType);
                 BigDecimal quoteAmount;
                 if ("FULL".equals(refundType)) {
                     quoteAmount = refundService.quote(orderId, List.of());
                 } else {
-                    quoteAmount = refundService.quote(orderId, toRefundItems(request.getItems()));
+                    quoteAmount = refundService.quote(orderId, selectedItems);
                 }
                 
                 BigDecimal maxRefundable = order.getTotalAmount();
@@ -115,6 +138,9 @@ public class ChatRefundProcessorService {
                 com.fooddelivery.common.event.ChatRefundQuoteResponseEvent responseEvent = com.fooddelivery.common.event.ChatRefundQuoteResponseEvent.builder()
                         .quoteAmount(quoteAmount)
                         .refundType(refundType)
+                        .orderId(orderId)
+                        .items("PARTIAL".equals(refundType) ? List.copyOf(request.getItems()) : List.of())
+                        .reason(request.getReason())
                         .build();
 
                 OutboxEventEntity outboxEvent = OutboxEventEntity.builder()
@@ -161,13 +187,15 @@ public class ChatRefundProcessorService {
                 String reason = request.getReason() != null ? request.getReason() : "OTHER";
                 String description = request.getDescription() != null ? request.getDescription() : "";
 
-                String refundType = request.getRefundType() != null ? request.getRefundType() : "FULL";
+                String refundType = validatedRefundType(request);
+                List<com.fooddelivery.order.refund.RefundCommand.Item> selectedItems =
+                        validatedRefundItems(request, refundType);
                 
                 BigDecimal quoteAmount;
                 if ("FULL".equals(refundType)) {
                     quoteAmount = refundService.quote(orderId, List.of());
                 } else {
-                    quoteAmount = refundService.quote(orderId, toRefundItems(request.getItems()));
+                    quoteAmount = refundService.quote(orderId, selectedItems);
                 }
                 
                 // Note: Financial Computations: Never use hardcoded fallback values for financial parameters... Fail Fast
@@ -206,6 +234,7 @@ public class ChatRefundProcessorService {
                 // Publish CHAT_REFUND_DECISION to notify user
                 com.fooddelivery.common.event.ChatRefundDecisionEvent responseEvent = com.fooddelivery.common.event.ChatRefundDecisionEvent.builder()
                         .status("OPEN")
+                        .amount(quoteAmount)
                         .ticketId(ticket.getId().toString())
                         .message("Your refund request has been submitted and is currently under review by our support team.")
                         .build();
