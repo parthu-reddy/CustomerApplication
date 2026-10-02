@@ -30,13 +30,17 @@ class CustomerMoneyControllerWalletTest {
     private WalletServiceClient walletServiceClient;
     private CustomerMoneyController controller;
     private Principal principal;
+    private RefundRepository refunds;
+    private IOrderRepository orders;
 
     @BeforeEach
     void setUp() {
         walletServiceClient = mock(WalletServiceClient.class);
+        refunds = mock(RefundRepository.class);
+        orders = mock(IOrderRepository.class);
         controller = new CustomerMoneyController(
-                mock(RefundRepository.class),
-                mock(IOrderRepository.class),
+                refunds,
+                orders,
                 mock(CustomerReceiptService.class),
                 mock(CustomerInvoiceService.class),
                 walletServiceClient);
@@ -71,4 +75,25 @@ class CustomerMoneyControllerWalletTest {
         verify(walletServiceClient).getOrCreateWallet(org.mockito.ArgumentMatchers.any());
         verify(walletServiceClient).getWalletTransactions("CUSTOMER", CUSTOMER_ID, 2, 20);
     }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(value = com.fooddelivery.common.enums.RefundStatus.class, names = {"PROCESSING", "COMPLETED"})
+    void orderRefundReadReportsTheActualCompletionTime(com.fooddelivery.common.enums.RefundStatus status) {
+        UUID orderId = UUID.randomUUID();
+        var order = new com.fooddelivery.order.entity.Order();
+        order.setCustomerId(CUSTOMER_ID);
+        var refund = new com.fooddelivery.order.entity.Refund();
+        refund.setStatus(status);
+        refund.setAmount(new java.math.BigDecimal("120.50"));
+        refund.setUpdatedAt(java.time.Instant.parse("2026-10-02T08:00:00Z"));
+        var completedAt = status == com.fooddelivery.common.enums.RefundStatus.COMPLETED
+                ? java.time.Instant.parse("2026-10-02T07:55:00Z") : null;
+        refund.setCompletedAt(completedAt);
+        when(orders.findById(orderId)).thenReturn(java.util.Optional.of(order));
+        when(refunds.findByOrderId(orderId)).thenReturn(java.util.List.of(refund));
+        var result = controller.getOrderRefunds(orderId, principal).getBody();
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getAmount()).isEqualByComparingTo("120.50");
+        assertThat(result.get(0).getCompletedAt()).isEqualTo(completedAt);
+    }
+
 }

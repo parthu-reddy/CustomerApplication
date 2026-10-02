@@ -152,7 +152,7 @@ public class CustomerMoneyController {
             .destination(r.getDestination())
             .reasonCode(r.getReasonCode())
             .requestedAt(r.getCreatedAt())
-            .completedAt(r.getUpdatedAt())
+            .completedAt(r.getCompletedAt())
             .build();
     }
 }

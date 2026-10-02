@@ -176,4 +176,25 @@ class EarningsWindowQueriesTest {
         assertThat(Hibernate.isInitialized(order.getOrderItems())).isTrue();
         assertThat(order.getOrderItems()).hasSize(1);
     }
+    @Test
+    void adminMoneyCanReadTheItemsAfterThePersistenceContextIsCleared() {
+        UUID orderId = delivered(OUTLET, RIDER, FROM.plusSeconds(60));
+        entityManager.clear();
+        Order loaded = orderRepository.findForAdminMoney(orderId).orElseThrow();
+        entityManager.clear();
+        assertThat(Hibernate.isInitialized(loaded.getOrderItems())).isTrue();
+        assertThat(loaded.getOrderItems().stream()
+                .map(item -> item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add)).isEqualByComparingTo("240.00");
+        var detachedRepository = org.mockito.Mockito.mock(IOrderRepository.class);
+        org.mockito.Mockito.when(detachedRepository.findForAdminMoney(orderId))
+                .thenReturn(java.util.Optional.of(loaded));
+        var moneyService = new com.fooddelivery.customer.service.AdminOrderMoneyService(detachedRepository,
+                org.mockito.Mockito.mock(com.fooddelivery.customer.client.LedgerClient.class),
+                org.mockito.Mockito.mock(IPaymentIntentRepository.class),
+                org.mockito.Mockito.mock(RefundRepository.class));
+        assertThat(moneyService.getOrderMoney(orderId).getFoodCost()).isEqualByComparingTo("240.00");
+        assertThat(orderRepository.findForAdminMoney(UUID.randomUUID())).isEmpty();
+    }
+
 }

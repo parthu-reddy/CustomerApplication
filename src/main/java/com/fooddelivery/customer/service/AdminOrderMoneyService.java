@@ -24,7 +24,7 @@ public class AdminOrderMoneyService {
     private final com.fooddelivery.order.repository.RefundRepository refundRepository;
 
     public AdminOrderMoney getOrderMoney(UUID orderId) {
-        Order order = orderRepository.findById(orderId)
+        Order order = orderRepository.findForAdminMoney(orderId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
 
         AdminOrderMoney money = new AdminOrderMoney();
