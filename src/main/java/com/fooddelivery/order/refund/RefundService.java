@@ -170,6 +170,10 @@ public class RefundService {
      * it will look at one.
      */
     private void enqueueWalletCredit(Refund refund, Order order, PaymentIntent intent) {
+        enqueueWalletCredit(refund, order, intent, "wallet_credit:" + refund.getId());
+    }
+
+    private void enqueueWalletCredit(Refund refund, Order order, PaymentIntent intent, String commandKey) {
         try {
             com.fasterxml.jackson.databind.node.ObjectNode payload = objectMapper.createObjectNode();
             payload.put("eventType", EventType.WALLET_CREDIT_REQUESTED.name());
@@ -186,7 +190,7 @@ public class RefundService {
                     .eventType(EventType.WALLET_CREDIT_REQUESTED)
                     // The refund id is stable across retries of this request, so a redelivery
                     // cannot enqueue a second credit for the same refund.
-                    .idempotencyKey("wallet_credit:" + refund.getId())
+                    .idempotencyKey(commandKey)
                     .payload(objectMapper.writeValueAsString(payload))
                     .createdAt(Instant.now())
                     .status(OutboxStatus.UNPROCESSED)
@@ -312,6 +316,71 @@ public class RefundService {
         sendFailedNotification(order, refund);
     }
     
+    /** Queues only the chosen failed refund; never dispatches the global age-based sweep. */
+    @Transactional
+    public void retryFailed(UUID refundId) {
+        Refund refund = refundRepository.findByIdForUpdate(refundId)
+                .orElseThrow(() -> new IllegalArgumentException("Refund not found"));
+        if (refund.getStatus() != RefundStatus.FAILED) {
+            throw new IllegalStateException("Only FAILED refunds can be retried");
+        }
+        // Serialize with new refund requests and completions for this order. A previously failed
+        // amount might have been awarded elsewhere since it stopped reserving the balance.
+        PaymentIntent intent = paymentIntentRepository.findByInternalOrderIdForUpdate(refund.getOrderId())
+                .orElseThrow(() -> new IllegalArgumentException("Payment intent not found"));
+        if (!intent.getId().equals(refund.getPaymentIntentId())) {
+            throw new IllegalStateException("REFUND_PAYMENT_INTENT_MISMATCH");
+        }
+        BigDecimal amount = monetaryAmount(refund.getAmount(), "REFUND_AMOUNT_INVALID");
+        if (intent.getStatus() != PaymentIntentStatus.SUCCESS
+                && intent.getStatus() != PaymentIntentStatus.PARTIALLY_REFUNDED) {
+            throw new IllegalStateException("REFUND_STATE_INVALID");
+        }
+        BigDecimal committed = refundRepository.sumByOrderAndStatusIn(refund.getOrderId(),
+                List.of(RefundStatus.REQUESTED, RefundStatus.PROCESSING, RefundStatus.COMPLETED));
+        if (amount.compareTo(intent.getAmount().subtract(committed)) > 0) {
+            throw new IllegalStateException("REFUND_EXCEEDS_REMAINING");
+        }
+        Order order = orderRepository.findById(refund.getOrderId())
+                .orElseThrow(() -> new IllegalArgumentException("Order not found"));
+        if (refund.getDestination() != RefundDestination.ORIGINAL_METHOD
+                && refund.getDestination() != RefundDestination.STORE_CREDIT) {
+            throw new IllegalStateException("REFUND_DESTINATION_NOT_RETRYABLE");
+        }
+        int attempt = Math.addExact(refund.getAttempts(), 1);
+        String commandKey = "refund_retry:" + refund.getId() + ":" + attempt;
+        if (refund.getDestination() == RefundDestination.STORE_CREDIT) {
+            // A new transport attempt retains the refundId consumed by WalletService's credit
+            // idempotency. Do not try to insert the original outbox's unique wallet_credit key.
+            enqueueWalletCredit(refund, order, intent, commandKey);
+        } else {
+            if (intent.getGatewayName() == null || intent.getGatewayOrderId() == null
+                    || intent.getGatewayOrderId().isBlank()) {
+                throw new IllegalStateException("REFUND_GATEWAY_REQUIRED");
+            }
+            PaymentRefundRequestedEvent event = PaymentRefundRequestedEvent.builder()
+                    .refundId(refund.getId().toString()).orderId(order.getId().toString())
+                    .gatewayOrderId(intent.getGatewayOrderId()).amount(amount)
+                    .gatewayName(intent.getGatewayName()).build();
+            try {
+                outboxEventRepository.save(OutboxEventEntity.builder()
+                        .id(UUID.randomUUID()).aggregateType(AggregateType.PAYMENT)
+                        .aggregateId(intent.getId().toString()).eventType(EventType.PAYMENT_REFUND_REQUESTED)
+                        .idempotencyKey(commandKey).payload(objectMapper.writeValueAsString(event))
+                        .createdAt(Instant.now()).status(OutboxStatus.UNPROCESSED).build());
+            } catch (Exception ex) {
+                throw new IllegalStateException("Failed to enqueue refund retry", ex);
+            }
+        }
+        RefundStateMachine.validateTransition(refund.getStatus(), RefundStatus.PROCESSING);
+        refund.setStatus(RefundStatus.PROCESSING);
+        refund.setAttempts(attempt); // Preserve total attempt history; do not reset it for an admin.
+        refund.setFailureReason(null);
+        refund.setUpdatedAt(Instant.now());
+        refundRepository.save(refund);
+        log.info("Admin refund retry queued refundId={} orderId={} attempt={}", refundId, order.getId(), attempt);
+    }
+
     @Transactional
     public void retryStuck() {
         List<Refund> stuck = refundRepository.findStuckProcessing(java.time.Instant.now().minus(java.time.Duration.ofMinutes(5)));

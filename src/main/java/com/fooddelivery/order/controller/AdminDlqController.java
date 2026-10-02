@@ -29,7 +29,7 @@ public class AdminDlqController {
     public ResponseEntity<ApiResponse<String>> retryRefund(@PathVariable java.util.UUID refundId) {
         try {
             adminDlqService.retryRefund(refundId);
-            return ResponseEntity.ok(ApiResponse.success("Refund process initiated successfully", "Successfully queued for retry"));
+            return ResponseEntity.ok(ApiResponse.success("Refund retry queued; completion is pending", "Successfully queued for retry"));
         } catch (Exception e) {
             log.error("Failed to retry refund {}", refundId, e);
             return ResponseEntity.badRequest().body(ApiResponse.error("Failed to retry refund: " + e.getMessage()));
