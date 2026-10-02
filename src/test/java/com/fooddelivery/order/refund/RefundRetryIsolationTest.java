@@ -63,6 +63,26 @@ class RefundRetryIsolationTest {
         verify(refunds).save(refund);
     }
 
+    /**
+     * The retried refund failed because its sweeper budget ran out. The admin retry must start a
+     * fresh budget, or the first sweep after it fails the refund again without a single re-dispatch.
+     */
+    @Test void adminRetryStartsAFreshSweeperBudget() {
+        arrange(); refund.setSweepAttempts(4);
+        service.retryFailed(refund.getId());
+        assertEquals(0, refund.getSweepAttempts());
+
+        when(refunds.findStuckProcessing(any())).thenReturn(List.of(refund));
+        when(intents.findById(intent.getId())).thenReturn(Optional.of(intent));
+        service.retryStuck();
+
+        assertEquals(RefundStatus.PROCESSING, refund.getStatus());
+        assertEquals(6, refund.getAttempts()); assertEquals(1, refund.getSweepAttempts());
+        var saved = org.mockito.ArgumentCaptor.forClass(OutboxEventEntity.class);
+        verify(outbox, times(2)).save(saved.capture());
+        assertEquals("refund_sweep:" + refund.getId() + ":6", saved.getAllValues().get(1).getIdempotencyKey());
+    }
+
     @Test void selectedFailedAmountCannotConsumeBalanceAlreadyReservedElsewhere() {
         arrange(); when(refunds.sumByOrderAndStatusIn(eq(order.getId()), any())).thenReturn(new BigDecimal("0.01"));
         assertEquals("REFUND_EXCEEDS_REMAINING", assertThrows(IllegalStateException.class,

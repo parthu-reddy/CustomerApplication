@@ -124,6 +124,8 @@ class RefundServiceTest {
         stuck.setStatus(RefundStatus.PROCESSING);
         stuck.setAmount(java.math.BigDecimal.valueOf(50));
         stuck.setAttempts(1);
+        stuck.setSweepAttempts(1);
+        stuck.setDestination(com.fooddelivery.common.enums.RefundDestination.ORIGINAL_METHOD);
         stuck.setPaymentIntentId(UUID.randomUUID());
 
         PaymentIntent intent = new PaymentIntent();
@@ -137,6 +139,7 @@ class RefundServiceTest {
         refundService.retryStuck();
 
         org.junit.jupiter.api.Assertions.assertEquals(2, stuck.getAttempts());
+        org.junit.jupiter.api.Assertions.assertEquals(2, stuck.getSweepAttempts());
 
         // The retry must carry the SAME refund id. A new id per attempt makes the gateway create a
         // second refund, so a customer is paid twice for one request. Phase 4's break-test asked for
@@ -149,7 +152,7 @@ class RefundServiceTest {
                 "the retry payload must name the original refund id, was: " + saved.getValue().getPayload());
     }
 
-    /** After three attempts the refund is failed rather than retried forever. */
+    /** After three sweeper attempts the refund is failed rather than retried forever. */
     @Test
     void retryStuck_givesUpAfterThreeAttempts() throws Exception {
         Refund stuck = new Refund();
@@ -158,6 +161,7 @@ class RefundServiceTest {
         stuck.setStatus(RefundStatus.PROCESSING);
         stuck.setAmount(java.math.BigDecimal.valueOf(50));
         stuck.setAttempts(3);
+        stuck.setSweepAttempts(3);
 
         Order order = new Order();
         order.setId(stuck.getOrderId());
@@ -182,6 +186,44 @@ class RefundServiceTest {
                 saved.getAllValues().stream().noneMatch(e ->
                         e.getEventType() == com.fooddelivery.common.constants.EventType.PAYMENT_REFUND_REQUESTED),
                 "a refund that has run out of attempts must not be re-enqueued at the gateway");
+    }
+
+    /**
+     * A store-credit refund was never taken by a payment gateway, so the sweeper must hand it back
+     * to WalletService -- under the same refund id WalletService's credit idempotency is keyed on.
+     */
+    @Test
+    void retryStuck_redispatchesStoreCreditToTheWallet() throws Exception {
+        Refund stuck = new Refund();
+        stuck.setId(UUID.randomUUID());
+        stuck.setOrderId(UUID.randomUUID());
+        stuck.setStatus(RefundStatus.PROCESSING);
+        stuck.setAmount(java.math.BigDecimal.valueOf(50));
+        stuck.setAttempts(1);
+        stuck.setDestination(com.fooddelivery.common.enums.RefundDestination.STORE_CREDIT);
+        stuck.setPaymentIntentId(UUID.randomUUID());
+
+        PaymentIntent intent = new PaymentIntent();
+        intent.setId(stuck.getPaymentIntentId());
+        Order order = new Order();
+        order.setId(stuck.getOrderId());
+        order.setCustomerId(UUID.randomUUID());
+
+        when(refundRepository.findStuckProcessing(any())).thenReturn(java.util.List.of(stuck));
+        when(paymentIntentRepository.findById(stuck.getPaymentIntentId())).thenReturn(Optional.of(intent));
+        when(orderRepository.findById(stuck.getOrderId())).thenReturn(Optional.of(order));
+
+        refundService.retryStuck();
+
+        org.mockito.ArgumentCaptor<com.fooddelivery.common.outbox.entity.OutboxEventEntity> saved =
+                org.mockito.ArgumentCaptor.forClass(com.fooddelivery.common.outbox.entity.OutboxEventEntity.class);
+        verify(outboxEventRepository).save(saved.capture());
+        var event = saved.getValue();
+        org.junit.jupiter.api.Assertions.assertEquals(
+                com.fooddelivery.common.constants.EventType.WALLET_CREDIT_REQUESTED, event.getEventType());
+        org.junit.jupiter.api.Assertions.assertEquals(stuck.getId().toString(),
+                objectMapper.readTree(event.getPayload()).path("refundId").asText());
+        org.junit.jupiter.api.Assertions.assertEquals("refund_sweep:" + stuck.getId() + ":2", event.getIdempotencyKey());
     }
 
     /** Completing an already-completed refund must not book the ledger a second time. */

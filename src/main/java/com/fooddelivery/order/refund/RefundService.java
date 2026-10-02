@@ -53,6 +53,11 @@ public class RefundService {
     private final ObjectMapper objectMapper;
     private final RefundItemRepository refundItemRepository;
 
+    /** A PROCESSING refund with no outcome for this long is re-dispatched by {@link #retryStuck()}. */
+    static final java.time.Duration STUCK_AFTER = java.time.Duration.ofMinutes(5);
+    /** Re-dispatches of one queueing before the sweeper declares the refund FAILED. */
+    static final int MAX_SWEEP_ATTEMPTS = 3;
+
     @Transactional
     public RefundView request(RefundCommand command) {
         BigDecimal amount = validateRequest(command);
@@ -126,27 +131,7 @@ public class RefundService {
 
         if (destination == RefundDestination.ORIGINAL_METHOD) {
             refund.setStatus(RefundStatus.PROCESSING);
-            PaymentRefundRequestedEvent event = PaymentRefundRequestedEvent.builder()
-                    .refundId(refund.getId().toString())
-                    .orderId(order.getId().toString())
-                    .gatewayOrderId(intent.getGatewayOrderId())
-                    .amount(refund.getAmount())
-                    .gatewayName(intent.getGatewayName())
-                    .build();
-            try {
-                OutboxEventEntity outboxEvent = OutboxEventEntity.builder()
-                        .id(UUID.randomUUID())
-                        .aggregateType(AggregateType.PAYMENT)
-                        .aggregateId(intent.getId().toString())
-                        .eventType(EventType.PAYMENT_REFUND_REQUESTED)
-                        .payload(objectMapper.writeValueAsString(event))
-                        .createdAt(Instant.now())
-                        .status(OutboxStatus.UNPROCESSED)
-                        .build();
-                outboxEventRepository.save(outboxEvent);
-            } catch (Exception e) {
-                throw new RuntimeException("Failed to save outbox event", e);
-            }
+            enqueueGatewayRefund(refund, intent, null);
         } else if (destination == RefundDestination.STORE_CREDIT) {
             // Handed off, not called. The wallet credit must not happen inside this transaction: a
             // rollback after a successful Feign call left the money credited with no refund row, and
@@ -198,6 +183,35 @@ public class RefundService {
             outboxEventRepository.save(outboxEvent);
         } catch (Exception e) {
             throw new RuntimeException("Failed to enqueue store-credit refund " + refund.getId(), e);
+        }
+    }
+
+    /**
+     * Asks the payment gateway to return {@code refund}'s amount to the original payment method,
+     * through the outbox. The refund id is the gateway's and provider's identity for the refund on
+     * every attempt; {@code commandKey} only distinguishes one dispatch of it from another.
+     */
+    private void enqueueGatewayRefund(Refund refund, PaymentIntent intent, String commandKey) {
+        PaymentRefundRequestedEvent event = PaymentRefundRequestedEvent.builder()
+                .refundId(refund.getId().toString())
+                .orderId(refund.getOrderId().toString())
+                .gatewayOrderId(intent.getGatewayOrderId())
+                .amount(refund.getAmount())
+                .gatewayName(intent.getGatewayName())
+                .build();
+        try {
+            outboxEventRepository.save(OutboxEventEntity.builder()
+                    .id(UUID.randomUUID())
+                    .aggregateType(AggregateType.PAYMENT)
+                    .aggregateId(intent.getId().toString())
+                    .eventType(EventType.PAYMENT_REFUND_REQUESTED)
+                    .idempotencyKey(commandKey)
+                    .payload(objectMapper.writeValueAsString(event))
+                    .createdAt(Instant.now())
+                    .status(OutboxStatus.UNPROCESSED)
+                    .build());
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to enqueue gateway refund " + refund.getId(), e);
         }
     }
 
@@ -358,60 +372,47 @@ public class RefundService {
                     || intent.getGatewayOrderId().isBlank()) {
                 throw new IllegalStateException("REFUND_GATEWAY_REQUIRED");
             }
-            PaymentRefundRequestedEvent event = PaymentRefundRequestedEvent.builder()
-                    .refundId(refund.getId().toString()).orderId(order.getId().toString())
-                    .gatewayOrderId(intent.getGatewayOrderId()).amount(amount)
-                    .gatewayName(intent.getGatewayName()).build();
-            try {
-                outboxEventRepository.save(OutboxEventEntity.builder()
-                        .id(UUID.randomUUID()).aggregateType(AggregateType.PAYMENT)
-                        .aggregateId(intent.getId().toString()).eventType(EventType.PAYMENT_REFUND_REQUESTED)
-                        .idempotencyKey(commandKey).payload(objectMapper.writeValueAsString(event))
-                        .createdAt(Instant.now()).status(OutboxStatus.UNPROCESSED).build());
-            } catch (Exception ex) {
-                throw new IllegalStateException("Failed to enqueue refund retry", ex);
-            }
+            enqueueGatewayRefund(refund, intent, commandKey);
         }
         RefundStateMachine.validateTransition(refund.getStatus(), RefundStatus.PROCESSING);
         refund.setStatus(RefundStatus.PROCESSING);
         refund.setAttempts(attempt); // Preserve total attempt history; do not reset it for an admin.
+        // The attempt that failed exhausted its sweeper budget; this queueing gets its own.
+        refund.setSweepAttempts(0);
         refund.setFailureReason(null);
         refund.setUpdatedAt(Instant.now());
         refundRepository.save(refund);
         log.info("Admin refund retry queued refundId={} orderId={} attempt={}", refundId, order.getId(), attempt);
     }
 
+    /**
+     * Re-dispatches refunds that have been PROCESSING without an outcome, to the destination they
+     * were queued for, and gives up after {@link #MAX_SWEEP_ATTEMPTS} re-dispatches of one queueing.
+     * A store-credit refund goes back to WalletService; the payment gateway never took that money.
+     */
     @Transactional
     public void retryStuck() {
-        List<Refund> stuck = refundRepository.findStuckProcessing(java.time.Instant.now().minus(java.time.Duration.ofMinutes(5)));
+        List<Refund> stuck = refundRepository.findStuckProcessing(Instant.now().minus(STUCK_AFTER));
         for (Refund refund : stuck) {
             refund.setAttempts(refund.getAttempts() + 1);
-            if (refund.getAttempts() > 3) {
+            refund.setSweepAttempts(refund.getSweepAttempts() + 1);
+            if (refund.getSweepAttempts() > MAX_SWEEP_ATTEMPTS) {
                 fail(refund.getId(), "Max retries exceeded");
-            } else {
-                refund.setUpdatedAt(java.time.Instant.now());
+                continue;
+            }
+            refund.setUpdatedAt(Instant.now());
+            String commandKey = "refund_sweep:" + refund.getId() + ":" + refund.getAttempts();
+            try {
                 PaymentIntent intent = paymentIntentRepository.findById(refund.getPaymentIntentId()).orElseThrow();
-                PaymentRefundRequestedEvent event = PaymentRefundRequestedEvent.builder()
-                        .refundId(refund.getId().toString())
-                        .orderId(refund.getOrderId().toString())
-                        .gatewayOrderId(intent.getGatewayOrderId())
-                        .amount(refund.getAmount())
-                        .gatewayName(intent.getGatewayName())
-                        .build();
-                try {
-                    OutboxEventEntity outboxEvent = OutboxEventEntity.builder()
-                            .id(UUID.randomUUID())
-                            .aggregateType(AggregateType.PAYMENT)
-                            .aggregateId(intent.getId().toString())
-                            .eventType(EventType.PAYMENT_REFUND_REQUESTED)
-                            .payload(objectMapper.writeValueAsString(event))
-                            .createdAt(Instant.now())
-                            .status(OutboxStatus.UNPROCESSED)
-                            .build();
-                    outboxEventRepository.save(outboxEvent);
-                } catch (Exception e) {
-                    log.error("Failed to enqueue retry", e);
+                switch (refund.getDestination()) {
+                    case ORIGINAL_METHOD -> enqueueGatewayRefund(refund, intent, commandKey);
+                    case STORE_CREDIT -> enqueueWalletCredit(refund,
+                            orderRepository.findById(refund.getOrderId()).orElseThrow(), intent, commandKey);
+                    default -> throw new IllegalStateException("REFUND_DESTINATION_NOT_RETRYABLE");
                 }
+            } catch (Exception e) {
+                log.error("Failed to re-dispatch stuck refund refundId={} destination={}",
+                        refund.getId(), refund.getDestination(), e);
             }
         }
     }

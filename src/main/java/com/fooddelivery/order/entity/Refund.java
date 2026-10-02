@@ -100,6 +100,11 @@ public class Refund {
     @lombok.Builder.Default
     private int attempts = 0;
 
+    /** Sweeper re-dispatches since this refund was last queued; {@code attempts} keeps the full history. */
+    @Column(name = "sweep_attempts", nullable = false)
+    @lombok.Builder.Default
+    private int sweepAttempts = 0;
+
     @lombok.Builder.Default
     @OneToMany(mappedBy = "refund", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
     private Set<RefundItem> refundItems = new HashSet<>();
