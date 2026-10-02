@@ -70,7 +70,12 @@ public class RefundService {
 
         if (command.getItems() != null) {
             BigDecimal quote = quote(order, command.getItems());
-            if (amount.compareTo(quote) != 0) {
+            // Support may award less than its validated item quote. Preserve those items
+            // for accounting, and allow the reduction only for an audited admin ticket.
+            boolean supportDecision = command.getInitiatorType() == com.fooddelivery.order.enums.InitiatorType.ADMIN
+                    && command.getSource() == com.fooddelivery.order.enums.RefundSource.CUSTOMER_TICKET
+                    && command.getTicketId() != null;
+            if (amount.compareTo(quote) > 0 || (amount.compareTo(quote) != 0 && !supportDecision)) {
                 throw new IllegalArgumentException("REFUND_AMOUNT_DOES_NOT_MATCH_QUOTE");
             }
         }
