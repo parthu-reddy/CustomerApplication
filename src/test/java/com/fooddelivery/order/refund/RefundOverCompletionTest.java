@@ -46,9 +46,9 @@ public class RefundOverCompletionTest {
         PaymentIntent intent = new PaymentIntent();
         intent.setAmount(new BigDecimal("100.00"));
         
-        when(refundRepo.findById(refundId)).thenReturn(Optional.of(refund));
+        when(refundRepo.findByIdForUpdate(refundId)).thenReturn(Optional.of(refund));
         when(orderRepo.findById(orderId)).thenReturn(Optional.of(order));
-        when(intentRepo.findById(intentId)).thenReturn(Optional.of(intent));
+        when(intentRepo.findByInternalOrderIdForUpdate(orderId)).thenReturn(Optional.of(intent));
         
         // Setup over refund: already completed = 70, current refund = 50. Total = 120 > 100
         when(refundRepo.sumByOrderAndStatusIn(orderId, java.util.List.of(RefundStatus.COMPLETED)))
@@ -93,9 +93,9 @@ public class RefundOverCompletionTest {
         intent.setAmount(new BigDecimal("100.00"));
         intent.setGatewayName(com.fooddelivery.common.enums.PaymentGateway.RAZORPAY);
 
-        when(refundRepo.findById(refundId)).thenReturn(Optional.of(refund));
+        when(refundRepo.findByIdForUpdate(refundId)).thenReturn(Optional.of(refund));
         when(orderRepo.findById(orderId)).thenReturn(Optional.of(order));
-        when(intentRepo.findById(intentId)).thenReturn(Optional.of(intent));
+        when(intentRepo.findByInternalOrderIdForUpdate(orderId)).thenReturn(Optional.of(intent));
         when(refundRepo.sumByOrderAndStatusIn(orderId, java.util.List.of(RefundStatus.COMPLETED)))
                 .thenReturn(new BigDecimal("60.00"));
 
@@ -120,7 +120,7 @@ public class RefundOverCompletionTest {
         Refund refund = new Refund();
         refund.setId(refundId);
         refund.setStatus(RefundStatus.COMPLETED);
-        when(refundRepo.findById(refundId)).thenReturn(Optional.of(refund));
+        when(refundRepo.findByIdForUpdate(refundId)).thenReturn(Optional.of(refund));
 
         service.complete(refundId, "TXN123");
 

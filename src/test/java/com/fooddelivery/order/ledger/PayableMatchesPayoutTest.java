@@ -117,6 +117,21 @@ class PayableMatchesPayoutTest {
     void restaurantPayableDeltaEqualsTheStoredRestaurantPayout(String foodCost, String distanceKm) {
         LedgerTransactionCommand cmd = bookDelivered(foodCost, distanceKm);
 
+        assertEquals(0, delta(cmd, LedgerAccountType.CUSTOMER_CREDIT, order.getCustomerId()).compareTo(BigDecimal.ZERO),
+                "delivery cannot debit a wallet again after capture");
+        java.util.Map<String, BigDecimal> balances = new java.util.HashMap<>();
+        for (LedgerLeg leg : cmd.getLegs()) {
+            String source = leg.getFromType() + ":" + leg.getFromId();
+            String target = leg.getToType() + ":" + leg.getToId();
+            if (leg.getFromType() == LedgerAccountType.RESTAURANT_PAYABLE || leg.getFromType() == LedgerAccountType.DRIVER_PAYABLE) {
+                org.junit.jupiter.api.Assertions.assertTrue(balances.getOrDefault(source, BigDecimal.ZERO).compareTo(leg.getAmount()) >= 0,
+                        "payable must be funded before debit: " + source + " " + leg.getCategory());
+            }
+            org.junit.jupiter.api.Assertions.assertFalse(source.equals(target), "ledger rejects self transfers");
+            balances.merge(source, leg.getAmount().negate(), BigDecimal::add);
+            balances.merge(target, leg.getAmount(), BigDecimal::add);
+        }
+
         assertEquals(0, order.getRestaurantPayout().compareTo(
                         delta(cmd, LedgerAccountType.RESTAURANT_PAYABLE, order.getRestaurantId())),
                 "food=" + foodCost + " distance=" + distanceKm

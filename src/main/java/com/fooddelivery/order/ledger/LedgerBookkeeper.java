@@ -102,8 +102,20 @@ public class LedgerBookkeeper {
         List<LedgerLeg> legs = new ArrayList<>();
         
         for (OrderCharge charge : order.getCharges()) {
-            ResolvedAccount from = accountResolver.resolve(charge.getPayerType(), charge.getPayerId(), order);
+            // Capture already moved the customer's CARD/UPI/WALLET payment into
+            // clearing. Delivery distributes that capture; it must not debit the
+            // customer's wallet a second time.
+            ResolvedAccount from = charge.getPayerType() == com.fooddelivery.order.enums.ChargeEntityType.CUSTOMER
+                    ? new ResolvedAccount(LedgerAccountType.PLATFORM_CLEARING, LedgerAccounts.PLATFORM_CLEARING)
+                    : accountResolver.resolve(charge.getPayerType(), charge.getPayerId(), order);
             ResolvedAccount to = accountResolver.resolve(charge.getPayeeType(), charge.getPayeeId(), order);
+
+            // The customer's platform fee is already retained in clearing at
+            // capture. Moving it from clearing to itself would be rejected.
+            if (charge.getPayerType() == com.fooddelivery.order.enums.ChargeEntityType.CUSTOMER
+                    && charge.getCategory() == ChargeCategory.PLATFORM_FIXED_FEE
+                    && to.getType() == LedgerAccountType.PLATFORM_CLEARING
+                    && to.getId().equals(LedgerAccounts.PLATFORM_CLEARING)) continue;
             
             LedgerLeg leg = new LedgerLeg();
             leg.setFromType(from.getType());
@@ -115,6 +127,13 @@ public class LedgerBookkeeper {
             leg.setDescription(charge.getDescription());
             legs.add(leg);
         }
+        // OrderCharge is a Set. Fund the payables before their contributions and
+        // tax debits, because the ledger checks funds as each leg is applied.
+        legs.sort(java.util.Comparator.comparingInt(leg -> {
+            if (leg.getFromType() == LedgerAccountType.RESTAURANT_PAYABLE) return 1;
+            if (leg.getFromType() == LedgerAccountType.DRIVER_PAYABLE) return 2;
+            return 0;
+        }));
         
 
 

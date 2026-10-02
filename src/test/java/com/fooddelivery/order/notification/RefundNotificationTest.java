@@ -66,7 +66,7 @@ public class RefundNotificationTest {
         order.setId(orderId);
         order.setCustomerId(UUID.randomUUID());
 
-        when(refundRepository.findById(refundId)).thenReturn(Optional.of(refund));
+        when(refundRepository.findByIdForUpdate(refundId)).thenReturn(Optional.of(refund));
         when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
 
         refundService.fail(refundId, "Error");
@@ -120,9 +120,9 @@ public class RefundNotificationTest {
         partial.setStatus(RefundStatus.PROCESSING);
         partial.setAmount(new BigDecimal("40.00"));
 
-        when(refundRepository.findById(partial.getId())).thenReturn(Optional.of(partial));
+        when(refundRepository.findByIdForUpdate(partial.getId())).thenReturn(Optional.of(partial));
         when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
-        when(paymentIntentRepository.findById(intentId)).thenReturn(Optional.of(intent));
+        when(paymentIntentRepository.findByInternalOrderIdForUpdate(orderId)).thenReturn(Optional.of(intent));
         when(refundRepository.sumByOrderAndStatusIn(any(), any())).thenReturn(BigDecimal.ZERO);
 
         refundService.complete(partial.getId(), "PAY-REF-1");
@@ -154,9 +154,9 @@ public class RefundNotificationTest {
         full.setStatus(RefundStatus.PROCESSING);
         full.setAmount(new BigDecimal("100.00"));
 
-        when(refundRepository.findById(full.getId())).thenReturn(Optional.of(full));
+        when(refundRepository.findByIdForUpdate(full.getId())).thenReturn(Optional.of(full));
         when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
-        when(paymentIntentRepository.findById(intentId)).thenReturn(Optional.of(intent));
+        when(paymentIntentRepository.findByInternalOrderIdForUpdate(orderId)).thenReturn(Optional.of(intent));
         when(refundRepository.sumByOrderAndStatusIn(any(), any())).thenReturn(BigDecimal.ZERO);
 
         refundService.complete(full.getId(), "PAY-REF-2");

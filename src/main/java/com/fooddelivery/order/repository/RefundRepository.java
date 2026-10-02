@@ -14,6 +14,9 @@ import java.util.UUID;
 
 @Repository
 public interface RefundRepository extends JpaRepository<Refund, UUID> {
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT r FROM Refund r WHERE r.id = :id")
+    Optional<Refund> findByIdForUpdate(@Param("id") UUID id);
     
     @Query("SELECT COALESCE(SUM(r.amount), 0) FROM Refund r WHERE r.orderId = :orderId AND r.status IN :statuses")
     BigDecimal sumByOrderAndStatusIn(@Param("orderId") UUID orderId, @Param("statuses") List<com.fooddelivery.common.enums.RefundStatus> statuses);

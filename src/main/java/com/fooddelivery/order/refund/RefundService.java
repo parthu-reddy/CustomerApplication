@@ -254,7 +254,7 @@ public class RefundService {
 
     @Transactional
     public void complete(UUID refundId, String gatewayRefundId) {
-        Refund refund = refundRepository.findById(refundId)
+        Refund refund = refundRepository.findByIdForUpdate(refundId)
                 .orElseThrow(() -> new IllegalArgumentException("Refund not found"));
         if (refund.getStatus() == RefundStatus.COMPLETED) {
             return;
@@ -264,7 +264,7 @@ public class RefundService {
         Order order = orderRepository.findById(refund.getOrderId())
                 .orElseThrow(() -> new IllegalArgumentException("Order not found"));
                 
-        PaymentIntent intent = paymentIntentRepository.findById(refund.getPaymentIntentId()).orElseThrow();
+        PaymentIntent intent = paymentIntentRepository.findByInternalOrderIdForUpdate(refund.getOrderId()).orElseThrow();
         BigDecimal committed = refundRepository.sumByOrderAndStatusIn(refund.getOrderId(), List.of(RefundStatus.COMPLETED));
         if (committed.add(refund.getAmount()).compareTo(intent.getAmount()) > 0) {
             refund.setStatus(RefundStatus.FAILED);
@@ -273,24 +273,33 @@ public class RefundService {
             return;
         }
                 
-        completeInternal(refund, gatewayRefundId, order);
+        completeInternal(refund, gatewayRefundId, order, intent, committed.add(refund.getAmount()));
     }
 
     private void completeInternal(Refund refund, String gatewayRefundId, Order order) {
+        PaymentIntent intent = paymentIntentRepository.findById(refund.getPaymentIntentId()).orElseThrow();
+        // NONE means no capture occurred; its completion must not claim money was returned.
+        completeInternal(refund, gatewayRefundId, order, intent, null);
+    }
+
+    private void completeInternal(Refund refund, String gatewayRefundId, Order order,
+            PaymentIntent intent, BigDecimal totalCompleted) {
         refund.setStatus(RefundStatus.COMPLETED);
         refund.setGatewayRefundId(gatewayRefundId);
         refund.setCompletedAt(java.time.Instant.now());
-        String gatewayName = paymentIntentRepository.findById(refund.getPaymentIntentId())
-                .map(PaymentIntent::getGatewayName)
-                .map(Enum::name)
-                .orElse(null);
+        if (refund.getDestination() != RefundDestination.NONE && totalCompleted != null) {
+            intent.setStatus(totalCompleted.compareTo(intent.getAmount()) >= 0
+                    ? PaymentIntentStatus.REFUNDED : PaymentIntentStatus.PARTIALLY_REFUNDED);
+            paymentIntentRepository.save(intent);
+        }
+        String gatewayName = intent.getGatewayName() != null ? intent.getGatewayName().name() : null;
         ledgerBookkeeper.bookRefund(order, refund, gatewayName);
         sendSuccessNotification(order, refund);
     }
 
     @Transactional
     public void fail(UUID refundId, String reason) {
-        Refund refund = refundRepository.findById(refundId)
+        Refund refund = refundRepository.findByIdForUpdate(refundId)
                 .orElseThrow(() -> new IllegalArgumentException("Refund not found"));
         if (refund.getStatus() == RefundStatus.FAILED) {
             return;

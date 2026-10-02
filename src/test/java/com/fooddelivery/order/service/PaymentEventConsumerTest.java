@@ -221,4 +221,32 @@ public class PaymentEventConsumerTest {
         verify(refundService, never()).request(any());
         verify(orderRepository, never()).findById(any());
     }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+    void explicitRefundResultCompletesOrFailsExactlyOnce(boolean success) throws Exception {
+        ObjectMapper realMapper = new ObjectMapper();
+        var binder = new com.fooddelivery.common.event.EventBinder(realMapper,
+                jakarta.validation.Validation.buildDefaultValidatorFactory().getValidator());
+        var consumer = new PaymentEventConsumer(binder, idempotencyKeyRepository, transactionTemplate,
+                realMapper, paymentIntentRepository, orderRepository, orderActionService, outboxEventRepository,
+                refundService, ledgerBookkeeper);
+        String id = UUID.randomUUID().toString();
+        UUID refundId = UUID.randomUUID();
+        var event = com.fooddelivery.common.event.PaymentRefundedEvent.builder()
+                .orderId(UUID.randomUUID().toString()).refundId(refundId.toString()).gatewayRefundId("gateway-refund")
+                .isSuccess(success).status(success ? "COMPLETED" : "FAILED").failureReason(success ? null : "Declined").build();
+        String payload = realMapper.writeValueAsString(event);
+        when(idempotencyKeyRepository.existsById("processed_event:payment:" + id)).thenReturn(false, true);
+        var headers = java.util.Map.<String, Object>of("eventId", id, "eventType", "PAYMENT_REFUNDED");
+        consumer.handlePaymentEvents(payload, headers); consumer.handlePaymentEvents(payload, headers);
+        if (success) {
+            verify(refundService).complete(refundId, "gateway-refund");
+            verify(refundService, never()).fail(any(), any());
+        } else {
+            verify(refundService).fail(refundId, "Declined");
+            verify(refundService, never()).complete(any(), any());
+        }
+        verifyNoInteractions(orderRepository, paymentIntentRepository, ledgerBookkeeper);
+    }
+
 }

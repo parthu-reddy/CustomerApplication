@@ -85,6 +85,19 @@ public class ChatRefundProcessorService {
     }
 
     @KafkaListener(topics = KafkaConstants.TOPIC_CHAT_EVENTS, groupId = "customer-application-chat-group-chatrefundprocessorservice")
+    public void handleChatRecord(String payload, @org.springframework.messaging.handler.annotation.Headers Map<String, Object> headers) {
+        String type = com.fooddelivery.common.util.KafkaHeaderUtils.extractHeaderValue(headers, "eventType");
+        if (!"CHAT_REFUND_QUOTE_REQUESTED".equals(type) && !"CHAT_REFUND_REQUESTED".equals(type)) return;
+        String id = com.fooddelivery.common.util.KafkaHeaderUtils.extractHeaderValue(headers, "eventId");
+        String sessionId = com.fooddelivery.common.util.KafkaHeaderUtils.extractHeaderValue(headers,
+                org.springframework.kafka.support.KafkaHeaders.RECEIVED_KEY);
+        if (id == null || id.isBlank() || sessionId == null || sessionId.isBlank()) {
+            throw new IllegalArgumentException("Chat refund event requires eventId and session key");
+        }
+        UUID.fromString(sessionId);
+        handleChatEvents(OutboxEvent.builder().id(id).type(type).aggregateId(sessionId).payload(payload).build());
+    }
+
     public void handleChatEvents(OutboxEvent event) {
         Boolean alreadyProcessed = transactionTemplate.execute(status -> {
             if (idempotencyKeyRepository.existsById("chat_event:" + event.getId())) {

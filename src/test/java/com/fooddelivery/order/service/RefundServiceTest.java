@@ -36,8 +36,9 @@ class RefundServiceTest {
     @InjectMocks
     private RefundService refundService;
 
-    @Test
-    void complete_shouldProcessRefundSuccessfully() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"50,PARTIALLY_REFUNDED", "100,REFUNDED"})
+    void complete_shouldProcessRefundSuccessfully(int refundAmount, com.fooddelivery.common.constants.PaymentIntentStatus expectedStatus) {
         UUID refundId = UUID.randomUUID();
         Refund refund = new Refund();
         refund.setId(refundId);
@@ -49,20 +50,24 @@ class RefundServiceTest {
         order.setTotalAmount(java.math.BigDecimal.valueOf(100));
         order.setCustomerId(UUID.randomUUID());
         refund.setOrderId(order.getId());
-        refund.setAmount(java.math.BigDecimal.valueOf(50));
+        refund.setAmount(java.math.BigDecimal.valueOf(refundAmount));
+        refund.setDestination(com.fooddelivery.common.enums.RefundDestination.ORIGINAL_METHOD);
         
         PaymentIntent intent = new PaymentIntent();
         intent.setId(refund.getPaymentIntentId());
         intent.setAmount(java.math.BigDecimal.valueOf(100));
         
-        when(refundRepository.findById(refundId)).thenReturn(Optional.of(refund));
+        when(refundRepository.findByIdForUpdate(refundId)).thenReturn(Optional.of(refund));
         when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
-        when(paymentIntentRepository.findById(refund.getPaymentIntentId())).thenReturn(Optional.of(intent));
+        when(paymentIntentRepository.findByInternalOrderIdForUpdate(order.getId())).thenReturn(Optional.of(intent));
         when(refundRepository.sumByOrderAndStatusIn(any(), any())).thenReturn(java.math.BigDecimal.ZERO);
         
         refundService.complete(refundId, "PAY-REF-123");
         
         verify(ledgerBookkeeper).bookRefund(eq(order), eq(refund), any());
+        org.junit.jupiter.api.Assertions.assertEquals(expectedStatus, intent.getStatus());
+        org.junit.jupiter.api.Assertions.assertNotNull(refund.getCompletedAt());
+        verify(paymentIntentRepository).save(intent);
     }
 
     /**
@@ -84,7 +89,7 @@ class RefundServiceTest {
         order.setCustomerId(UUID.randomUUID());
         order.setTotalAmount(java.math.BigDecimal.valueOf(100));
 
-        when(refundRepository.findById(refundId)).thenReturn(Optional.of(refund));
+        when(refundRepository.findByIdForUpdate(refundId)).thenReturn(Optional.of(refund));
         when(orderRepository.findById(refund.getOrderId())).thenReturn(Optional.of(order));
 
         refundService.fail(refundId, "gateway declined the refund");
@@ -102,7 +107,7 @@ class RefundServiceTest {
         refund.setId(refundId);
         refund.setStatus(RefundStatus.FAILED);
         refund.setFailureReason("the original reason");
-        when(refundRepository.findById(refundId)).thenReturn(Optional.of(refund));
+        when(refundRepository.findByIdForUpdate(refundId)).thenReturn(Optional.of(refund));
 
         refundService.fail(refundId, "a different reason");
 
@@ -160,7 +165,7 @@ class RefundServiceTest {
         order.setTotalAmount(java.math.BigDecimal.valueOf(100));
 
         when(refundRepository.findStuckProcessing(any())).thenReturn(java.util.List.of(stuck));
-        when(refundRepository.findById(stuck.getId())).thenReturn(Optional.of(stuck));
+        when(refundRepository.findByIdForUpdate(stuck.getId())).thenReturn(Optional.of(stuck));
         when(orderRepository.findById(stuck.getOrderId())).thenReturn(Optional.of(order));
 
         refundService.retryStuck();
@@ -186,7 +191,7 @@ class RefundServiceTest {
         Refund refund = new Refund();
         refund.setId(refundId);
         refund.setStatus(RefundStatus.COMPLETED);
-        when(refundRepository.findById(refundId)).thenReturn(Optional.of(refund));
+        when(refundRepository.findByIdForUpdate(refundId)).thenReturn(Optional.of(refund));
 
         refundService.complete(refundId, "PAY-REF-123");
 

@@ -65,6 +65,20 @@ public class ChatRefundProcessorServiceTest {
         }).when(transactionTemplate).executeWithoutResult(any());
     }
 
+    /** Exercise Spring Kafka's actual argument conversion, with the outbox's raw JSON wire shape. */
+    private void deliverWireRecord(OutboxEvent event) throws Exception {
+        var method = ChatRefundProcessorService.class.getMethod("handleChatRecord", String.class, java.util.Map.class);
+        var factory = new org.springframework.messaging.handler.annotation.support.DefaultMessageHandlerMethodFactory();
+        factory.afterPropertiesSet();
+        var adapter = new org.springframework.kafka.listener.adapter.RecordMessagingMessageListenerAdapter<String, String>(chatRefundProcessorService, method);
+        adapter.setHandlerMethod(new org.springframework.kafka.listener.adapter.HandlerAdapter(
+                factory.createInvocableHandlerMethod(chatRefundProcessorService, method)));
+        var record = new org.apache.kafka.clients.consumer.ConsumerRecord<String, String>("chat-events", 0, 0, event.getAggregateId(), event.getPayload());
+        record.headers().add("eventType", event.getType().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        record.headers().add("eventId", event.getId().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        adapter.onMessage(record, null, null);
+    }
+
     @Test
     void testHandleQuoteRequest_FullRefund() throws Exception {
         UUID orderId = UUID.randomUUID();
@@ -72,6 +86,7 @@ public class ChatRefundProcessorServiceTest {
         String payload = "{\"orderId\":\"" + orderId + "\", \"refundType\":\"FULL\","
                 + "\"actorId\":\"" + customerId + "\",\"actorType\":\"CUSTOMER\"}";
         OutboxEvent event = new OutboxEvent();
+        event.setId(UUID.randomUUID().toString());
         event.setType("CHAT_REFUND_QUOTE_REQUESTED");
         event.setPayload(payload);
         event.setAggregateId(UUID.randomUUID().toString());
@@ -86,7 +101,7 @@ public class ChatRefundProcessorServiceTest {
         when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
         when(refundService.quote(any(), anyList())).thenReturn(new BigDecimal("100.00"));
 
-        chatRefundProcessorService.handleChatEvents(event);
+        deliverWireRecord(event);
 
         verify(outboxEventRepository, times(1)).save(any());
     }
@@ -100,6 +115,7 @@ public class ChatRefundProcessorServiceTest {
                 + "\"actorId\":\"" + customerId + "\",\"actorType\":\"CUSTOMER\","
                 + " \"items\":[{\"itemId\":\"" + itemId + "\", \"quantity\":1}]}";
         OutboxEvent event = new OutboxEvent();
+        event.setId(UUID.randomUUID().toString());
         event.setType("CHAT_REFUND_REQUESTED");
         event.setPayload(payload);
         event.setAggregateId(UUID.randomUUID().toString());
@@ -127,7 +143,7 @@ public class ChatRefundProcessorServiceTest {
             return t;
         });
 
-        chatRefundProcessorService.handleChatEvents(event);
+        deliverWireRecord(event);
 
         var ticketCaptor=org.mockito.ArgumentCaptor.forClass(SupportTicket.class);
         verify(supportTicketRepository).save(ticketCaptor.capture());
