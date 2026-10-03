@@ -50,6 +50,7 @@ public class CustomerContractConsumerTest {
 
     @MockBean
     private com.fooddelivery.customer.client.LedgerClientFallback ledgerClientFallback;
+    @MockBean private com.fooddelivery.common.client.RestaurantServiceClientFallback restaurantAccessFallback;
 
     @org.springframework.boot.SpringBootConfiguration
     @org.springframework.boot.autoconfigure.EnableAutoConfiguration(exclude = {
@@ -57,7 +58,8 @@ public class CustomerContractConsumerTest {
             DataSourceTransactionManagerAutoConfiguration.class,
             HibernateJpaAutoConfiguration.class
     })
-    @EnableFeignClients(basePackages = "com.fooddelivery.customer.client")
+    @EnableFeignClients(clients = {AdvertisementClient.class, RestaurantClient.class,
+        com.fooddelivery.customer.client.LedgerClient.class, com.fooddelivery.common.client.RestaurantServiceClient.class})
     static class TestConfig {
     }
 
@@ -69,6 +71,16 @@ public class CustomerContractConsumerTest {
 
     @Autowired
     private com.fooddelivery.customer.client.LedgerClient ledgerClient;
+
+    @Autowired private com.fooddelivery.common.client.RestaurantServiceClient restaurantAccessClient;
+
+    @Test public void orderAccessUsesTheCorrelatedOutletOrganisationContract() {
+        UUID outlet=UUID.fromString("123e4567-e89b-12d3-a456-426614174000");
+        var response=restaurantAccessClient.getOutletOrganisation(outlet);
+        assertNotNull(response);assertEquals(outlet,response.outletId());
+        assertEquals(UUID.fromString("321e4567-e89b-12d3-a456-426614174000"),response.organisationId());
+        org.mockito.Mockito.verifyNoInteractions(restaurantAccessFallback);
+    }
 
     @Test
     public void testGetNearbyRestaurants() {

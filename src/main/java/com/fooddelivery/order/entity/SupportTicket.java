@@ -10,6 +10,8 @@ import java.math.BigDecimal;
     @Index(name = "idx_support_ticket_status_created", columnList = "status, created_at"),
     @Index(name = "idx_support_ticket_order_customer_status", columnList = "order_id, customer_id, status")
 })
+@lombok.Getter
+@lombok.Setter
 public class SupportTicket {
 
     @Version
@@ -75,51 +77,4 @@ public class SupportTicket {
         if (id == null) id = UUID.randomUUID();
         if (createdAt == null) createdAt = Instant.now();
     }
-
-    // Getters and Setters
-    public UUID getId() { return id; }
-    public void setId(UUID id) { this.id = id; }
-
-    public UUID getOrderId() { return orderId; }
-    public void setOrderId(UUID orderId) { this.orderId = orderId; }
-
-    public UUID getCustomerId() { return customerId; }
-    public void setCustomerId(UUID customerId) { this.customerId = customerId; }
-
-    public String getReason() { return reason; }
-    public void setReason(String reason) { this.reason = reason; }
-
-    public TicketStatus getStatus() { return status; }
-    public void setStatus(TicketStatus status) { this.status = status; }
-
-    public String getResolutionNotes() { return resolutionNotes; }
-    public void setResolutionNotes(String resolutionNotes) { this.resolutionNotes = resolutionNotes; }
-
-    public UUID getResolvedBy() { return resolvedBy; }
-    public void setResolvedBy(UUID resolvedBy) { this.resolvedBy = resolvedBy; }
-
-    public Instant getCreatedAt() { return createdAt; }
-    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
-
-    public Instant getResolvedAt() { return resolvedAt; }
-    public void setResolvedAt(Instant resolvedAt) { this.resolvedAt = resolvedAt; }
-
-    public UUID getChatSessionId() { return chatSessionId; }
-    public void setChatSessionId(UUID chatSessionId) { this.chatSessionId = chatSessionId; }
-
-    public String getRequestedRefundItems() { return requestedRefundItems; }
-    public void setRequestedRefundItems(String requestedRefundItems) { this.requestedRefundItems = requestedRefundItems; }
-
-    public BigDecimal getRefundAmount() { return refundAmount; }
-    public void setRefundAmount(BigDecimal refundAmount) { this.refundAmount = refundAmount; }
-
-    public String getRestaurantComments() { return restaurantComments; }
-    public void setRestaurantComments(String restaurantComments) { this.restaurantComments = restaurantComments; }
-
-    public String getRiderComments() { return riderComments; }
-    public void setRiderComments(String riderComments) { this.riderComments = riderComments; }
-
-    public Long getVersion() { return version; }
-    public void setVersion(Long version) { this.version = version; }
 }
-// @Getter

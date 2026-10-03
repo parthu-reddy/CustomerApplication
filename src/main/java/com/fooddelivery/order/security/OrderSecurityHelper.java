@@ -1,11 +1,10 @@
 package com.fooddelivery.order.security;
 
-import com.fooddelivery.common.security.money.MoneyAccessPolicy;
-import com.fooddelivery.common.security.money.MoneyOwnerType;
+import com.fooddelivery.common.client.RestaurantServiceClient;
+import com.fooddelivery.common.security.organisation.OrganisationAccessPolicy;
+import com.fooddelivery.common.enums.OrganisationPermission;
 import com.fooddelivery.order.entity.Order;
 import com.fooddelivery.order.repository.IOrderRepository;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import java.util.UUID;
 
@@ -15,23 +14,14 @@ import java.util.UUID;
 public class OrderSecurityHelper {
 
     private final IOrderRepository orderRepository;
-    private final MoneyAccessPolicy moneyAccessPolicy;
+    private final RestaurantServiceClient restaurantServiceClient;
+    private final OrganisationAccessPolicy organisationAccessPolicy;
 
-    /**
-     * True when {@code userId} is the customer, the assigned driver, or the owner of the
-     * outlet on this order.
-     *
-     * <p>Note the asymmetry: {@code customerId} and {@code deliveryExecutiveId} are user
-     * ids and compare directly, but {@code restaurantId} is an OUTLET id. Comparing it to
-     * a user id never matches, which locked restaurant owners out of their own orders.
-     * Ownership is now resolved through {@link MoneyAccessPolicy}, which delegates to
-     * restaurant-service and caches the result.
-     */
     /**
      * True only when {@code userId} is the customer who placed this order.
      *
      * <p>Deliberately narrower than {@link #isOrderParticipant}: that one also admits the assigned
-     * driver and the outlet owner, and the review context this guards carries the customer's own
+     * driver and authorised outlet staff, and the review context this guards carries the customer's own
      * name. A driver must not be able to read it.
      */
     public boolean isOrderCustomer(UUID orderId, String userId) {
@@ -58,8 +48,15 @@ public class OrderSecurityHelper {
         if (order.getDeliveryExecutiveId() != null && order.getDeliveryExecutiveId().toString().equals(userId)) {
             return true;
         }
-        // Delegate outlet ownership to the centralized MoneyAccessPolicy (cached, fail-closed)
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        return moneyAccessPolicy.canAccessMoney(auth, MoneyOwnerType.RESTAURANT, order.getRestaurantId());
+        // Check the named user, never a SERVICE/admin shortcut or an earnings permission.
+        try {
+            UUID actor = UUID.fromString(userId);
+            if (order.getRestaurantId() == null) { return false; }
+            var outlet = restaurantServiceClient.getOutletOrganisation(order.getRestaurantId());
+            return outlet != null && order.getRestaurantId().equals(outlet.outletId()) && outlet.organisationId() != null
+                    && organisationAccessPolicy.canUser(actor, outlet.organisationId(), OrganisationPermission.ORDERS_OPERATE);
+        } catch (RuntimeException unavailable) {
+            return false;
+        }
     }
 }

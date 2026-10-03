@@ -153,119 +153,31 @@ public class OrderSagaOrchestrator {
     }
 
 
+    @lombok.Getter
+    @lombok.Setter
     public static class WebhookPayloadDTO {
         private String event;
         private PayloadData payload;
-
-        
-        public WebhookPayloadDTO() {
-        }
-
-        
-        public String getEvent() {
-            return this.event;
-        }
-
-        
-        public PayloadData getPayload() {
-            return this.payload;
-        }
-
-        
-        public void setEvent(final String event) {
-            this.event = event;
-        }
-
-        
-        public void setPayload(final PayloadData payload) {
-            this.payload = payload;
-        }
-
     }
 
+    @lombok.Getter
+    @lombok.Setter
     public static class PayloadData {
         private PaymentData payment;
-
-        
-        public PayloadData() {
-        }
-
-        
-        public PaymentData getPayment() {
-            return this.payment;
-        }
-
-        
-        public void setPayment(final PaymentData payment) {
-            this.payment = payment;
-        }
-
     }
 
-
+    @lombok.Getter
+    @lombok.Setter
     public static class PaymentData {
         private PaymentEntity entity;
-
-        
-        public PaymentData() {
-        }
-
-        
-        public PaymentEntity getEntity() {
-            return this.entity;
-        }
-
-        
-        public void setEntity(final PaymentEntity entity) {
-            this.entity = entity;
-        }
-
     }
 
-
+    @lombok.Getter
+    @lombok.Setter
     public static class PaymentEntity {
         @com.fasterxml.jackson.annotation.JsonProperty("order_id")
         private String orderId;
         private String status;
         private double amount;
-
-        
-        public PaymentEntity() {
-        }
-
-        
-        public String getOrderId() {
-            return this.orderId;
-        }
-
-        
-        public String getStatus() {
-            return this.status;
-        }
-
-        
-        public double getAmount() {
-            return this.amount;
-        }
-
-        @com.fasterxml.jackson.annotation.JsonProperty("order_id")
-        
-        public void setOrderId(final String orderId) {
-            this.orderId = orderId;
-        }
-
-        
-        public void setStatus(final String status) {
-            this.status = status;
-        }
-
-        
-        public void setAmount(final double amount) {
-            this.amount = amount;
-        }
-
     }
-
-
 }
-// @Getter

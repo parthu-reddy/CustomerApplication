@@ -31,21 +31,20 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class InternalOrderReviewController {
 
-    private static final String CALLING_SERVICE = "customer-service";
-
     private final IOrderRepository orderRepository;
     private final RestaurantServiceClient restaurantServiceClient;
+    private final com.fooddelivery.common.security.organisation.OrganisationAccessPolicy organisationAccessPolicy;
 
     /**
      * Verifies each exact target against the immutable order snapshot and its participant graph.
-     * Restaurant ownership is checked by RestaurantApplication, which owns that relationship.
+     * Restaurant organisation access is checked by RestaurantApplication, which owns that relationship.
      */
     @PostMapping("/{orderId}/review-authorizations")
     @PreAuthorize("hasRole('SERVICE')")
     public ResponseEntity<ApiResponse<List<OrderReviewAuthorizationResult>>> authorizeTargets(
             @PathVariable UUID orderId,
             @Valid @RequestBody OrderReviewAuthorizationRequest request) {
-        // The repository loads orderItems in one short, read-only transaction. Restaurant ownership
+        // The repository loads orderItems in one short, read-only transaction. Restaurant organisation access
         // is checked only after that transaction has closed, so a downstream call cannot pin a DB
         // connection while RestaurantApplication responds.
         Order order = orderRepository.findForReviewAuthorization(orderId).orElse(null);
@@ -67,18 +66,17 @@ public class InternalOrderReviewController {
         return switch (request.getReviewerRole()) {
             case CUSTOMER -> request.getReviewerId().equals(order.getCustomerId());
             case DELIVERY -> request.getReviewerId().equals(order.getDeliveryExecutiveId());
-            case RESTAURANT -> ownsOrderOutlet(order.getRestaurantId(), request.getReviewerId());
+            case RESTAURANT -> canOperateOrderOutlet(order.getRestaurantId(), request.getReviewerId());
             case ADMIN -> false;
         };
     }
 
-    private boolean ownsOrderOutlet(UUID outletId, UUID ownerId) {
-        if (outletId == null || ownerId == null) {
-            return false;
-        }
-        return restaurantServiceClient.getOwnerOutlets(ownerId.toString(), CALLING_SERVICE)
-                .stream()
-                .anyMatch(outletId.toString()::equalsIgnoreCase);
+    private boolean canOperateOrderOutlet(UUID outletId, UUID userId) {
+        if (outletId == null || userId == null) { return false; }
+        var outlet = restaurantServiceClient.getOutletOrganisation(outletId);
+        return outlet != null && outletId.equals(outlet.outletId()) && outlet.organisationId() != null
+                && organisationAccessPolicy.canUser(userId, outlet.organisationId(),
+                        com.fooddelivery.common.enums.OrganisationPermission.ORDERS_OPERATE);
     }
 
     private OrderReviewAuthorizationResult authorizeTarget(

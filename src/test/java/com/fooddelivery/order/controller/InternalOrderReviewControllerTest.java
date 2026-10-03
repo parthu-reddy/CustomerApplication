@@ -41,12 +41,14 @@ class InternalOrderReviewControllerTest {
 
     @Mock private IOrderRepository orderRepository;
     @Mock private RestaurantServiceClient restaurantServiceClient;
+    @Mock private com.fooddelivery.common.security.organisation.OrganisationAccessPolicy organisationAccessPolicy;
+    private static final UUID ORG_ID = UUID.randomUUID();
 
     private InternalOrderReviewController controller;
 
     @BeforeEach
     void setUp() {
-        controller = new InternalOrderReviewController(orderRepository, restaurantServiceClient);
+        controller = new InternalOrderReviewController(orderRepository, restaurantServiceClient, organisationAccessPolicy);
         lenient().when(orderRepository.findForReviewAuthorization(ORDER_ID))
                 .thenReturn(Optional.of(deliveredOrder()));
     }
@@ -69,8 +71,10 @@ class InternalOrderReviewControllerTest {
 
     @Test
     void restaurantOwnerMayReviewTheCustomerAndDriverButNoOtherTargetType() {
-        when(restaurantServiceClient.getOwnerOutlets(RESTAURANT_OWNER_ID.toString(), "customer-service"))
-                .thenReturn(List.of(OUTLET_ID.toString()));
+        when(restaurantServiceClient.getOutletOrganisation(OUTLET_ID)).thenReturn(
+                new com.fooddelivery.common.dto.restaurant.OutletOrganisationDto(OUTLET_ID, UUID.randomUUID(), ORG_ID));
+        when(organisationAccessPolicy.canUser(RESTAURANT_OWNER_ID, ORG_ID,
+                com.fooddelivery.common.enums.OrganisationPermission.ORDERS_OPERATE)).thenReturn(true);
 
         List<OrderReviewAuthorizationResult> results = authorize(RESTAURANT_OWNER_ID, RoleName.RESTAURANT,
                 target(ReviewEntityType.CUSTOMER, CUSTOMER_ID),
@@ -82,14 +86,13 @@ class InternalOrderReviewControllerTest {
                 .containsExactly(true, true, false, false);
         assertThat(results).extracting(OrderReviewAuthorizationResult::getReasonCode)
                 .containsExactly(null, null, "ROLE_TARGET_NOT_ALLOWED", "ROLE_TARGET_NOT_ALLOWED");
-        verify(restaurantServiceClient).getOwnerOutlets(RESTAURANT_OWNER_ID.toString(), "customer-service");
+        verify(organisationAccessPolicy).canUser(RESTAURANT_OWNER_ID, ORG_ID, com.fooddelivery.common.enums.OrganisationPermission.ORDERS_OPERATE);
     }
 
     @Test
     void restaurantUserWhoDoesNotOwnTheOrderOutletIsNotAParticipant() {
         UUID unrelatedOwner = UUID.randomUUID();
-        when(restaurantServiceClient.getOwnerOutlets(unrelatedOwner.toString(), "customer-service"))
-                .thenReturn(List.of(UUID.randomUUID().toString()));
+        when(restaurantServiceClient.getOutletOrganisation(OUTLET_ID)).thenReturn(new com.fooddelivery.common.dto.restaurant.OutletOrganisationDto(OUTLET_ID, UUID.randomUUID(), ORG_ID));
 
         List<OrderReviewAuthorizationResult> results = authorize(unrelatedOwner, RoleName.RESTAURANT,
                 target(ReviewEntityType.CUSTOMER, CUSTOMER_ID));
