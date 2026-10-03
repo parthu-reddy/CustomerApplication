@@ -162,7 +162,6 @@ public abstract class ContractTestBase {
                 Mockito.mock(com.fooddelivery.customer.service.CustomerOrderService.class);
         com.fooddelivery.customer.controller.OrderController orderController =
                 Mockito.mock(com.fooddelivery.customer.controller.OrderController.class);
-        Mockito.when(customerOrderService.getOrderById(Mockito.any(java.util.UUID.class))).thenReturn(order);
 
         com.fooddelivery.common.security.money.MoneyAccessPolicy moneyAccessPolicy = Mockito.mock(com.fooddelivery.common.security.money.MoneyAccessPolicy.class);
         Mockito.when(moneyAccessPolicy.canAccessMoney(Mockito.any(), Mockito.any(), Mockito.any())).thenReturn(true);

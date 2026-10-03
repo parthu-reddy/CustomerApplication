@@ -98,12 +98,10 @@ public class CustomerOrderService {
         return orderRepository.findHistoryOrdersForCustomer(customerId, REFUND_STATUSES, java.util.List.of(com.fooddelivery.common.enums.DeliveryStatus.DELIVERED, com.fooddelivery.common.enums.DeliveryStatus.FAILED, com.fooddelivery.common.enums.DeliveryStatus.CANCELLED), pageable);
     }
 
+    /** Another customer's order is "not found" too: a 404 that reveals nothing, never a server error. */
     public Order getOrderByIdAndCustomer(UUID orderId, UUID customerId) {
-        return orderRepository.findByIdAndCustomerId(orderId, customerId).orElseThrow(() -> new RuntimeException("Order not found or access denied"));
-    }
-
-    public Order getOrderById(UUID orderId) {
-        return orderRepository.findById(orderId).orElseThrow(() -> new RuntimeException("Order not found"));
+        return orderRepository.findByIdAndCustomerId(orderId, customerId)
+                .orElseThrow(() -> new com.fooddelivery.common.exception.ResourceNotFoundException("Order not found"));
     }
 
     public List<Order> getOrdersByIdsAndCustomer(List<UUID> orderIds, UUID customerId) {
