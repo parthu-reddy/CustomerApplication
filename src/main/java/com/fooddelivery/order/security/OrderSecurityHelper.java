@@ -48,12 +48,17 @@ public class OrderSecurityHelper {
         if (order.getDeliveryExecutiveId() != null && order.getDeliveryExecutiveId().toString().equals(userId)) {
             return true;
         }
+        return isOutletOperator(order.getRestaurantId(), userId);
+    }
+
+    /** Operational refund queues and order participation use the same named membership. */
+    public boolean isOutletOperator(UUID outletId, String userId) {
+        if (outletId == null || userId == null) { return false; }
         // Check the named user, never a SERVICE/admin shortcut or an earnings permission.
         try {
             UUID actor = UUID.fromString(userId);
-            if (order.getRestaurantId() == null) { return false; }
-            var outlet = restaurantServiceClient.getOutletOrganisation(order.getRestaurantId());
-            return outlet != null && order.getRestaurantId().equals(outlet.outletId()) && outlet.organisationId() != null
+            var outlet = restaurantServiceClient.getOutletOrganisation(outletId);
+            return outlet != null && outletId.equals(outlet.outletId()) && outlet.organisationId() != null
                     && organisationAccessPolicy.canUser(actor, outlet.organisationId(), OrganisationPermission.ORDERS_OPERATE);
         } catch (RuntimeException unavailable) {
             return false;

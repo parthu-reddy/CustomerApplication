@@ -61,11 +61,12 @@ public class RestaurantMoneyController {
      * {@code /api/v1/internal/restaurants/outlets/**}. The gateway 403s external calls to
      * {@code /api/v1/internal/**} outside the admin carve-out, so the restaurant screen calling it
      * could never have worked — and it was guarded by role alone, with no ownership check, so had
-     * it been reachable any RESTAURANT user could have read any outlet's refunds. It now sits on
-     * the routed, owner-scoped money surface beside its COMPLETED counterpart below.
+     * it been reachable any RESTAURANT user could have read any outlet's refunds. This pending
+     * operational queue requires ORDERS_OPERATE on the outlet's organisation. Its completed
+     * financial counterpart below still requires EARNINGS_VIEW.
      */
     @GetMapping("/{outletId}/refund-requests")
-    @PreAuthorize("@moneyAccessPolicy.canAccessMoney(authentication, T(com.fooddelivery.common.security.money.MoneyOwnerType).RESTAURANT, #outletId)")
+    @PreAuthorize("hasRole('RESTAURANT') and @orderSecurityHelper.isOutletOperator(#outletId, authentication.name)")
     public ResponseEntity<java.util.List<com.fooddelivery.order.refund.RefundView>> fetchActiveRefundRequests(
             @PathVariable UUID outletId) {
 
